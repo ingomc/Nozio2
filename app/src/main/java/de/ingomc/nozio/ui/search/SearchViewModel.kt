@@ -107,6 +107,12 @@ class SearchViewModel(
         }
     }
 
+    fun onAddedMessageShown() {
+        if (_uiState.value.addedSuccessfully) {
+            _uiState.value = _uiState.value.copy(addedSuccessfully = false)
+        }
+    }
+
     fun onBarcodeScanned(barcode: String) {
         val normalizedBarcode = barcode.filter(Char::isDigit)
         if (normalizedBarcode.isBlank()) return
