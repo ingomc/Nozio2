@@ -5,6 +5,7 @@ import de.ingomc.nozio.data.local.NozioDatabase
 import de.ingomc.nozio.data.remote.RetrofitInstance
 import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.FoodRepository
+import de.ingomc.nozio.data.repository.HealthConnectRepository
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
 
 class NozioApplication : Application() {
@@ -21,12 +22,15 @@ class NozioApplication : Application() {
     lateinit var userPreferencesRepository: UserPreferencesRepository
         private set
 
+    lateinit var healthConnectRepository: HealthConnectRepository
+        private set
+
     override fun onCreate() {
         super.onCreate()
         database = NozioDatabase.getInstance(this)
         foodRepository = FoodRepository(RetrofitInstance.api, database.foodDao())
         diaryRepository = DiaryRepository(database.diaryDao())
         userPreferencesRepository = UserPreferencesRepository(this)
+        healthConnectRepository = HealthConnectRepository(this)
     }
 }
-

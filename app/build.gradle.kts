@@ -82,6 +82,11 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.barcode.scanning)
+    implementation(libs.guava)
+
+    // Health Connect
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha12")
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
