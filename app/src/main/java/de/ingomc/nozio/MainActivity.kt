@@ -4,14 +4,19 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.dashboard.DashboardScreen
@@ -58,32 +64,41 @@ fun NozioApp() {
         factory = ProfileViewModel.Factory(app.userPreferencesRepository)
     )
 
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            AppDestinations.entries.forEach {
-                item(
-                    icon = {
-                        Icon(
-                            it.icon,
-                            contentDescription = it.label
+    val density = LocalDensity.current
+    val isKeyboardOpen = WindowInsets.ime.getBottom(density) > 0
+
+    Scaffold(
+        bottomBar = {
+            if (!isKeyboardOpen) {
+                NavigationBar {
+                    AppDestinations.entries.forEach {
+                        NavigationBarItem(
+                            icon = {
+                                Icon(
+                                    it.icon,
+                                    contentDescription = it.label
+                                )
+                            },
+                            label = { Text(it.label) },
+                            selected = it == currentDestination,
+                            onClick = {
+                                if (it != AppDestinations.SEARCH) {
+                                    preselectedMealType = null
+                                }
+                                currentDestination = it
+                            }
                         )
-                    },
-                    label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = {
-                        if (it != AppDestinations.SEARCH) {
-                            preselectedMealType = null
-                        }
-                        currentDestination = it
                     }
-                )
+                }
             }
         }
     ) {
         when (currentDestination) {
             AppDestinations.HOME -> DashboardScreen(
                 viewModel = dashboardViewModel,
-                modifier = Modifier.statusBarsPadding(),
+                modifier = Modifier
+                    .padding(it)
+                    .statusBarsPadding(),
                 onAddFood = { mealType ->
                     preselectedMealType = mealType
                     currentDestination = AppDestinations.SEARCH
@@ -92,11 +107,13 @@ fun NozioApp() {
             AppDestinations.SEARCH -> SearchScreen(
                 viewModel = searchViewModel,
                 preselectedMealType = preselectedMealType,
-                modifier = Modifier
+                modifier = Modifier.padding(it)
             )
             AppDestinations.PROFILE -> ProfileScreen(
                 viewModel = profileViewModel,
-                modifier = Modifier.statusBarsPadding()
+                modifier = Modifier
+                    .padding(it)
+                    .statusBarsPadding()
             )
         }
     }

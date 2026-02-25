@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -49,12 +51,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,6 +74,9 @@ fun SearchScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var showScannerSheet by remember { mutableStateOf(false) }
+    var searchContainerHeightPx by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+    val listBottomPadding = with(density) { searchContainerHeightPx.toDp() + 8.dp }
     val showingSuggestions = state.query.length < 2
     val foodsToShow = if (showingSuggestions) state.recentSuggestions else state.results
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
@@ -85,7 +93,13 @@ fun SearchScreen(
 
     LaunchedEffect(state.addedSuccessfully) {
         if (state.addedSuccessfully) {
-            snackbarHostState.showSnackbar("Lebensmittel hinzugefügt ✓")
+            snackbarHostState.showSnackbar(
+                message = "Lebensmittel hinzugefügt ✓",
+                duration = SnackbarDuration.Short
+            )
+            delay(1200)
+            snackbarHostState.currentSnackbarData?.dismiss()
+            viewModel.onAddedMessageShown()
         }
     }
 
@@ -94,168 +108,180 @@ fun SearchScreen(
         contentWindowInsets = WindowInsets.safeDrawing.only(
             WindowInsetsSides.Top + WindowInsetsSides.Horizontal
         ),
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        bottomBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp,
-                shadowElevation = 0.dp
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    HorizontalDivider()
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .imePadding()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = state.query,
-                            onValueChange = viewModel::onQueryChange,
-                            singleLine = true,
-                            placeholder = { Text("Lebensmittel suchen...") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Search, contentDescription = "Suchen")
-                            },
-                            trailingIcon = {
-                                if (state.query.isNotEmpty()) {
-                                    IconButton(onClick = { viewModel.onQueryChange("") }) {
-                                        Icon(Icons.Default.Close, contentDescription = "Suche leeren")
-                                    }
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp)
-                        )
-
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = MaterialTheme.shapes.large,
-                            tonalElevation = 0.dp,
-                            shadowElevation = 0.dp
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    val hasPermission = ContextCompat.checkSelfPermission(
-                                        context,
-                                        Manifest.permission.CAMERA
-                                    ) == PackageManager.PERMISSION_GRANTED
-                                    if (hasPermission) {
-                                        showScannerSheet = true
-                                    } else {
-                                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                    }
-                                },
-                                modifier = Modifier.size(56.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.QrCodeScanner,
-                                    contentDescription = "Barcode scannen",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Loading
-            if (state.isLoading) {
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Loading
+                if (state.isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
-            }
 
-            // Error
-            state.error?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-
-            // Empty state
-            if (!state.isLoading && state.results.isEmpty() && state.query.length >= 2 && state.error == null) {
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                // Error
+                state.error?.let { error ->
                     Text(
-                        text = "Keine Ergebnisse gefunden",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
-            }
 
-            // Hint when no query
-            if (state.query.length < 2 && state.recentSuggestions.isEmpty()) {
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
+                // Empty state
+                if (!state.isLoading && state.results.isEmpty() && state.query.length >= 2 && state.error == null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = "Suche nach Lebensmitteln",
+                            text = "Keine Ergebnisse gefunden",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            text = "Mindestens 2 Zeichen eingeben",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                }
+
+                // Hint when no query
+                if (state.query.length < 2 && state.recentSuggestions.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Text(
+                                text = "Suche nach Lebensmitteln",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Mindestens 2 Zeichen eingeben",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Results
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = listBottomPadding)
+                ) {
+                    if (showingSuggestions && foodsToShow.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Zuletzt hinzugefügt",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                    items(foodsToShow) { food ->
+                        FoodSearchItem(
+                            food = food,
+                            onClick = { viewModel.selectFood(food) }
                         )
+                        HorizontalDivider()
                     }
                 }
             }
 
-            // Results
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 16.dp)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .imePadding()
             ) {
-                if (showingSuggestions && foodsToShow.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Zuletzt hinzugefügt",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onSizeChanged { searchContainerHeightPx = it.height },
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        HorizontalDivider()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = state.query,
+                                onValueChange = viewModel::onQueryChange,
+                                singleLine = true,
+                                placeholder = { Text("Lebensmittel suchen...") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Search, contentDescription = "Suchen")
+                                },
+                                trailingIcon = {
+                                    if (state.query.isNotEmpty()) {
+                                        IconButton(onClick = { viewModel.onQueryChange("") }) {
+                                            Icon(Icons.Default.Close, contentDescription = "Suche leeren")
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp)
+                            )
+
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = MaterialTheme.shapes.large,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 0.dp
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        val hasPermission = ContextCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.CAMERA
+                                        ) == PackageManager.PERMISSION_GRANTED
+                                        if (hasPermission) {
+                                            showScannerSheet = true
+                                        } else {
+                                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                        }
+                                    },
+                                    modifier = Modifier.size(56.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.QrCodeScanner,
+                                        contentDescription = "Barcode scannen",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
                     }
-                }
-                items(foodsToShow) { food ->
-                    FoodSearchItem(
-                        food = food,
-                        onClick = { viewModel.selectFood(food) }
-                    )
-                    HorizontalDivider()
                 }
             }
         }
