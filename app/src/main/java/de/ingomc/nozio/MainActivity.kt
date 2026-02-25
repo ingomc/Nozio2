@@ -92,7 +92,7 @@ fun NozioApp() {
             AppDestinations.SEARCH -> SearchScreen(
                 viewModel = searchViewModel,
                 preselectedMealType = preselectedMealType,
-                modifier = Modifier.statusBarsPadding()
+                modifier = Modifier
             )
             AppDestinations.PROFILE -> ProfileScreen(
                 viewModel = profileViewModel,

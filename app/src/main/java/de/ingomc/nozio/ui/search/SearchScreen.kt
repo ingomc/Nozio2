@@ -10,10 +10,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -26,9 +32,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -86,6 +91,9 @@ fun SearchScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets.safeDrawing.only(
+            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+        ),
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             Surface(
@@ -98,35 +106,30 @@ fun SearchScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .imePadding()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        SearchBar(
-                            inputField = {
-                                SearchBarDefaults.InputField(
-                                    query = state.query,
-                                    onQueryChange = viewModel::onQueryChange,
-                                    onSearch = {},
-                                    expanded = false,
-                                    onExpandedChange = {},
-                                    placeholder = { Text("Lebensmittel suchen...") },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Search, contentDescription = "Suchen")
-                                    },
-                                    trailingIcon = {
-                                        if (state.query.isNotEmpty()) {
-                                            IconButton(onClick = { viewModel.onQueryChange("") }) {
-                                                Icon(Icons.Default.Close, contentDescription = "Suche leeren")
-                                            }
-                                        }
-                                    }
-                                )
+                        OutlinedTextField(
+                            value = state.query,
+                            onValueChange = viewModel::onQueryChange,
+                            singleLine = true,
+                            placeholder = { Text("Lebensmittel suchen...") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = "Suchen")
                             },
-                            expanded = false,
-                            onExpandedChange = {},
-                            modifier = Modifier.weight(1f)
-                        ) {}
+                            trailingIcon = {
+                                if (state.query.isNotEmpty()) {
+                                    IconButton(onClick = { viewModel.onQueryChange("") }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Suche leeren")
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp)
+                        )
 
                         Surface(
                             color = MaterialTheme.colorScheme.primaryContainer,
@@ -146,7 +149,7 @@ fun SearchScreen(
                                         cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                                     }
                                 },
-                                modifier = Modifier.padding(2.dp)
+                                modifier = Modifier.size(56.dp)
                             ) {
                                 Icon(
                                     Icons.Default.QrCodeScanner,
