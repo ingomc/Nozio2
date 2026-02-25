@@ -31,6 +31,26 @@ class FoodRepository(
         }
     }
 
+    suspend fun getFoodByBarcode(barcode: String): FoodItem? {
+        if (barcode.isBlank()) return null
+
+        val localMatch = foodDao.getByBarcode(barcode)
+        if (localMatch != null) return localMatch
+
+        return try {
+            val response = api.getProductByBarcode(barcode = barcode)
+            val product = response.product
+                ?.takeIf { response.status == 1 && it.hasValidData() }
+                ?: return null
+
+            val foodItem = product.toFoodItem()
+            val id = foodDao.insert(foodItem)
+            foodItem.copy(id = id)
+        } catch (_: Exception) {
+            foodDao.getByBarcode(barcode)
+        }
+    }
+
     private fun OpenFoodFactsProduct.hasValidData(): Boolean {
         val name = productNameDe ?: productName
         return !name.isNullOrBlank() && nutriments != null &&
@@ -56,4 +76,3 @@ class FoodRepository(
         )
     }
 }
-

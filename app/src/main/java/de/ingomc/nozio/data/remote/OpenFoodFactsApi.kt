@@ -1,6 +1,7 @@
 package de.ingomc.nozio.data.remote
 
 import retrofit2.http.GET
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface OpenFoodFactsApi {
@@ -14,5 +15,10 @@ interface OpenFoodFactsApi {
         @Query("countries_tags_en") countriesTags: String = "germany",
         @Query("fields") fields: String = "product_name,product_name_de,brands,code,nutriments"
     ): OpenFoodFactsResponse
-}
 
+    @GET("api/v2/product/{barcode}.json")
+    suspend fun getProductByBarcode(
+        @Path("barcode") barcode: String,
+        @Query("fields") fields: String = "product_name,product_name_de,brands,code,nutriments"
+    ): OpenFoodFactsProductResponse
+}

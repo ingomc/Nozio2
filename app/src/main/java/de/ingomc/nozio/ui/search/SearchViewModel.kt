@@ -107,6 +107,28 @@ class SearchViewModel(
         }
     }
 
+    fun onBarcodeScanned(barcode: String) {
+        val normalizedBarcode = barcode.filter(Char::isDigit)
+        if (normalizedBarcode.isBlank()) return
+
+        _searchQuery.value = ""
+        _uiState.value = _uiState.value.copy(
+            query = normalizedBarcode,
+            isLoading = true,
+            error = null,
+            addedSuccessfully = false
+        )
+
+        viewModelScope.launch {
+            val food = foodRepository.getFoodByBarcode(normalizedBarcode)
+            _uiState.value = _uiState.value.copy(
+                results = food?.let { listOf(it) } ?: emptyList(),
+                isLoading = false,
+                error = if (food == null) "Kein Produkt für Barcode $normalizedBarcode gefunden." else null
+            )
+        }
+    }
+
     private fun loadRecentlyAddedFoods() {
         viewModelScope.launch {
             val recentSuggestions = diaryRepository.getRecentlyAddedFoods()

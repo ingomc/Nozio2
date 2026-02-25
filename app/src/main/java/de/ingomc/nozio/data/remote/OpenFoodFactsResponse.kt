@@ -10,6 +10,12 @@ data class OpenFoodFactsResponse(
 )
 
 @Serializable
+data class OpenFoodFactsProductResponse(
+    val status: Int = 0,
+    val product: OpenFoodFactsProduct? = null
+)
+
+@Serializable
 data class OpenFoodFactsProduct(
     @SerialName("product_name") val productName: String? = null,
     @SerialName("brands") val brands: String? = null,
@@ -25,4 +31,3 @@ data class Nutriments(
     @SerialName("fat_100g") val fat100g: Double? = null,
     @SerialName("carbohydrates_100g") val carbohydrates100g: Double? = null
 )
-

@@ -1,5 +1,9 @@
 package de.ingomc.nozio.ui.search
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -33,13 +37,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
 import kotlinx.coroutines.launch
@@ -51,11 +59,24 @@ fun SearchScreen(
     preselectedMealType: MealType?,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    var showScannerSheet by remember { mutableStateOf(false) }
     val showingSuggestions = state.query.length < 2
     val foodsToShow = if (showingSuggestions) state.recentSuggestions else state.results
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            showScannerSheet = true
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar("Kamera-Berechtigung benötigt")
+            }
+        }
+    }
 
     LaunchedEffect(state.addedSuccessfully) {
         if (state.addedSuccessfully) {
@@ -115,8 +136,14 @@ fun SearchScreen(
                         ) {
                             IconButton(
                                 onClick = {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("Barcode-Scanner folgt bald")
+                                    val hasPermission = ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.CAMERA
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    if (hasPermission) {
+                                        showScannerSheet = true
+                                    } else {
+                                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                                     }
                                 },
                                 modifier = Modifier.padding(2.dp)
@@ -229,6 +256,16 @@ fun SearchScreen(
                 }
             }
         }
+    }
+
+    if (showScannerSheet) {
+        BarcodeScannerBottomSheet(
+            onDismiss = { showScannerSheet = false },
+            onBarcodeDetected = { barcode ->
+                showScannerSheet = false
+                viewModel.onBarcodeScanned(barcode)
+            }
+        )
     }
 
     // Bottom Sheet
