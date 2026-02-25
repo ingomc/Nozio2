@@ -46,6 +46,8 @@ fun SearchScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val showingSuggestions = state.query.length < 2
+    val foodsToShow = if (showingSuggestions) state.recentSuggestions else state.results
 
     LaunchedEffect(state.addedSuccessfully) {
         if (state.addedSuccessfully) {
@@ -116,7 +118,7 @@ fun SearchScreen(
             }
 
             // Hint when no query
-            if (state.query.length < 2 && state.results.isEmpty()) {
+            if (state.query.length < 2 && state.recentSuggestions.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -148,7 +150,17 @@ fun SearchScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(state.results) { food ->
+                if (showingSuggestions && foodsToShow.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Zuletzt hinzugefügt",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+                items(foodsToShow) { food ->
                     FoodSearchItem(
                         food = food,
                         onClick = { viewModel.selectFood(food) }
@@ -218,4 +230,3 @@ private fun FoodSearchItem(
         }
     }
 }
-

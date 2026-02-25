@@ -20,6 +20,7 @@ import java.time.LocalDate
 data class SearchUiState(
     val query: String = "",
     val results: List<FoodItem> = emptyList(),
+    val recentSuggestions: List<FoodItem> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val selectedFood: FoodItem? = null,
@@ -48,6 +49,7 @@ class SearchViewModel(
                     performSearch(query)
                 }
         }
+        loadRecentlyAddedFoods()
     }
 
     fun onQueryChange(query: String) {
@@ -92,11 +94,23 @@ class SearchViewModel(
                 foodItemId = food.id,
                 amountInGrams = amountInGrams
             )
+            val recentSuggestions = diaryRepository.getRecentlyAddedFoods()
+            _searchQuery.value = ""
             _uiState.value = _uiState.value.copy(
+                query = "",
+                results = emptyList(),
+                recentSuggestions = recentSuggestions,
                 showBottomSheet = false,
                 selectedFood = null,
                 addedSuccessfully = true
             )
+        }
+    }
+
+    private fun loadRecentlyAddedFoods() {
+        viewModelScope.launch {
+            val recentSuggestions = diaryRepository.getRecentlyAddedFoods()
+            _uiState.value = _uiState.value.copy(recentSuggestions = recentSuggestions)
         }
     }
 
@@ -110,4 +124,3 @@ class SearchViewModel(
         }
     }
 }
-

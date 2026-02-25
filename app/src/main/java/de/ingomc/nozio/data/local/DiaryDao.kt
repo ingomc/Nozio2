@@ -44,6 +44,16 @@ interface DiaryDao {
         """
     )
     fun getEntriesWithFoodForDate(date: LocalDate): Flow<List<DiaryEntryWithFood>>
+
+    @Query(
+        """
+        SELECT f.*
+        FROM diary_entries d
+        INNER JOIN food_items f ON d.foodItemId = f.id
+        GROUP BY d.foodItemId
+        ORDER BY MAX(d.id) DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun getRecentlyAddedFoods(limit: Int): List<FoodItem>
 }
-
-

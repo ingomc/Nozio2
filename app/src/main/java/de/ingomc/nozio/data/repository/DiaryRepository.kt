@@ -3,6 +3,7 @@ package de.ingomc.nozio.data.repository
 import de.ingomc.nozio.data.local.DiaryDao
 import de.ingomc.nozio.data.local.DiaryEntry
 import de.ingomc.nozio.data.local.DiaryEntryWithFood
+import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -51,5 +52,8 @@ class DiaryRepository(private val diaryDao: DiaryDao) {
     suspend fun deleteEntry(entryId: Long) {
         diaryDao.deleteById(entryId)
     }
-}
 
+    suspend fun getRecentlyAddedFoods(limit: Int = 8): List<FoodItem> {
+        return diaryDao.getRecentlyAddedFoods(limit)
+    }
+}
