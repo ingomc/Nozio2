@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -82,6 +83,7 @@ fun NozioApp() {
         when (currentDestination) {
             AppDestinations.HOME -> DashboardScreen(
                 viewModel = dashboardViewModel,
+                modifier = Modifier.statusBarsPadding(),
                 onAddFood = { mealType ->
                     preselectedMealType = mealType
                     currentDestination = AppDestinations.SEARCH
@@ -89,10 +91,12 @@ fun NozioApp() {
             )
             AppDestinations.SEARCH -> SearchScreen(
                 viewModel = searchViewModel,
-                preselectedMealType = preselectedMealType
+                preselectedMealType = preselectedMealType,
+                modifier = Modifier.statusBarsPadding()
             )
             AppDestinations.PROFILE -> ProfileScreen(
-                viewModel = profileViewModel
+                viewModel = profileViewModel,
+                modifier = Modifier.statusBarsPadding()
             )
         }
     }

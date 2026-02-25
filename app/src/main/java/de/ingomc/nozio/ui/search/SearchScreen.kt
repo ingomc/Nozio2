@@ -1,8 +1,8 @@
 package de.ingomc.nozio.ui.search
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,22 +13,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +53,7 @@ fun SearchScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
     val showingSuggestions = state.query.length < 2
     val foodsToShow = if (showingSuggestions) state.recentSuggestions else state.results
 
@@ -55,33 +63,84 @@ fun SearchScreen(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Search Bar
-            SearchBar(
-                inputField = {
-                    SearchBarDefaults.InputField(
-                        query = state.query,
-                        onQueryChange = viewModel::onQueryChange,
-                        onSearch = {},
-                        expanded = false,
-                        onExpandedChange = {},
-                        placeholder = { Text("Lebensmittel suchen...") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = "Suchen")
-                        }
-                    )
-                },
-                expanded = false,
-                onExpandedChange = {},
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {}
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    HorizontalDivider()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SearchBar(
+                            inputField = {
+                                SearchBarDefaults.InputField(
+                                    query = state.query,
+                                    onQueryChange = viewModel::onQueryChange,
+                                    onSearch = {},
+                                    expanded = false,
+                                    onExpandedChange = {},
+                                    placeholder = { Text("Lebensmittel suchen...") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Search, contentDescription = "Suchen")
+                                    },
+                                    trailingIcon = {
+                                        if (state.query.isNotEmpty()) {
+                                            IconButton(onClick = { viewModel.onQueryChange("") }) {
+                                                Icon(Icons.Default.Close, contentDescription = "Suche leeren")
+                                            }
+                                        }
+                                    }
+                                )
+                            },
+                            expanded = false,
+                            onExpandedChange = {},
+                            modifier = Modifier.weight(1f)
+                        ) {}
 
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.large,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Barcode-Scanner folgt bald")
+                                    }
+                                },
+                                modifier = Modifier.padding(2.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.QrCodeScanner,
+                                    contentDescription = "Barcode scannen",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
             // Loading
             if (state.isLoading) {
-                Box(
+                androidx.compose.foundation.layout.Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(32.dp),
@@ -103,7 +162,7 @@ fun SearchScreen(
 
             // Empty state
             if (!state.isLoading && state.results.isEmpty() && state.query.length >= 2 && state.error == null) {
-                Box(
+                androidx.compose.foundation.layout.Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(32.dp),
@@ -119,7 +178,7 @@ fun SearchScreen(
 
             // Hint when no query
             if (state.query.length < 2 && state.recentSuggestions.isEmpty()) {
-                Box(
+                androidx.compose.foundation.layout.Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(32.dp),
@@ -148,7 +207,8 @@ fun SearchScreen(
 
             // Results
             LazyColumn(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 if (showingSuggestions && foodsToShow.isNotEmpty()) {
                     item {
@@ -169,11 +229,6 @@ fun SearchScreen(
                 }
             }
         }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 
     // Bottom Sheet
