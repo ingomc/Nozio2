@@ -25,7 +25,8 @@ data class SearchUiState(
     val error: String? = null,
     val selectedFood: FoodItem? = null,
     val showBottomSheet: Boolean = false,
-    val addedSuccessfully: Boolean = false
+    val addedSuccessfully: Boolean = false,
+    val showBarcodeResultsSheet: Boolean = false
 )
 
 @OptIn(FlowPreview::class)
@@ -54,7 +55,12 @@ class SearchViewModel(
     }
 
     fun onQueryChange(query: String) {
-        _uiState.value = _uiState.value.copy(query = query, error = null, addedSuccessfully = false)
+        _uiState.value = _uiState.value.copy(
+            query = query,
+            error = null,
+            addedSuccessfully = false,
+            showBarcodeResultsSheet = false
+        )
         _searchQuery.value = query
         if (query.length < 2) {
             _uiState.value = _uiState.value.copy(results = emptyList(), isLoading = false)
@@ -78,12 +84,17 @@ class SearchViewModel(
         _uiState.value = _uiState.value.copy(
             selectedFood = food,
             showBottomSheet = true,
-            addedSuccessfully = false
+            addedSuccessfully = false,
+            showBarcodeResultsSheet = false
         )
     }
 
     fun dismissBottomSheet() {
         _uiState.value = _uiState.value.copy(showBottomSheet = false, selectedFood = null)
+    }
+
+    fun dismissBarcodeResultsSheet() {
+        _uiState.value = _uiState.value.copy(showBarcodeResultsSheet = false)
     }
 
     fun setSelectedDate(date: LocalDate) {
@@ -127,15 +138,18 @@ class SearchViewModel(
             query = normalizedBarcode,
             isLoading = true,
             error = null,
-            addedSuccessfully = false
+            addedSuccessfully = false,
+            showBarcodeResultsSheet = false
         )
 
         viewModelScope.launch {
             val food = foodRepository.getFoodByBarcode(normalizedBarcode)
+            val results = food?.let { listOf(it) } ?: emptyList()
             _uiState.value = _uiState.value.copy(
-                results = food?.let { listOf(it) } ?: emptyList(),
+                results = results,
                 isLoading = false,
-                error = if (food == null) "Kein Produkt für Barcode $normalizedBarcode gefunden." else null
+                error = if (food == null) "Kein Produkt für Barcode $normalizedBarcode gefunden." else null,
+                showBarcodeResultsSheet = results.isNotEmpty()
             )
         }
     }

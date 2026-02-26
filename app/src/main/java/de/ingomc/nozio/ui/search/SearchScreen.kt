@@ -45,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -52,6 +53,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -388,6 +390,16 @@ fun SearchScreen(
         )
     }
 
+    if (state.showBarcodeResultsSheet && state.results.isNotEmpty()) {
+        BarcodeResultsBottomSheet(
+            results = state.results,
+            maxPreviewItems = 4,
+            onDismiss = viewModel::dismissBarcodeResultsSheet,
+            onResultClick = { food -> viewModel.selectFood(food) },
+            onShowAllResults = viewModel::dismissBarcodeResultsSheet
+        )
+    }
+
     // Bottom Sheet
     if (state.showBottomSheet && state.selectedFood != null) {
         AddFoodBottomSheet(
@@ -396,6 +408,59 @@ fun SearchScreen(
             onDismiss = viewModel::dismissBottomSheet,
             onAdd = { mealType, amount -> viewModel.addFood(mealType, amount) }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BarcodeResultsBottomSheet(
+    results: List<FoodItem>,
+    maxPreviewItems: Int,
+    onDismiss: () -> Unit,
+    onResultClick: (FoodItem) -> Unit,
+    onShowAllResults: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = "Scanner-Ergebnisse",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Tippe ein Ergebnis zum Hinzufügen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+            )
+
+            val previewItems = results.take(maxPreviewItems)
+            previewItems.forEachIndexed { index, food ->
+                FoodSearchItem(
+                    food = food,
+                    onClick = { onResultClick(food) }
+                )
+                if (index < previewItems.lastIndex) {
+                    HorizontalDivider()
+                }
+            }
+
+            if (results.size > maxPreviewItems) {
+                HorizontalDivider(modifier = Modifier.padding(top = 4.dp))
+                TextButton(
+                    onClick = onShowAllResults,
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(top = 6.dp)
+                ) {
+                    Text("Alle Ergebnisse anzeigen")
+                }
+            }
+        }
     }
 }
 
