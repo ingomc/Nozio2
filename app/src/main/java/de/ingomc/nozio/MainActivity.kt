@@ -7,6 +7,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -121,28 +128,55 @@ fun NozioApp() {
                 }
             }
         }
-    ) {
-        when (currentDestination) {
-            AppDestinations.HOME -> DashboardScreen(
-                viewModel = dashboardViewModel,
-                modifier = Modifier.padding(it),
-                onAddFood = { mealType ->
-                    searchViewModel.setSelectedDate(dashboardState.selectedDate)
-                    preselectedMealType = mealType
-                    currentDestination = AppDestinations.SEARCH
-                }
-            )
+    ) { innerPadding ->
+        AnimatedContent(
+            targetState = currentDestination,
+            transitionSpec = {
+                val forward = targetState.ordinal > initialState.ordinal
+                val distanceFraction = 0.12f
+                ContentTransform(
+                    targetContentEnter =
+                        slideInHorizontally(
+                            animationSpec = tween(280),
+                            initialOffsetX = { fullWidth ->
+                                val distance = (fullWidth * distanceFraction).toInt()
+                                if (forward) distance else -distance
+                            }
+                        ) + fadeIn(animationSpec = tween(280)),
+                    initialContentExit =
+                        slideOutHorizontally(
+                            animationSpec = tween(280),
+                            targetOffsetX = { fullWidth ->
+                                val distance = (fullWidth * distanceFraction).toInt()
+                                if (forward) -distance else distance
+                            }
+                        ) + fadeOut(animationSpec = tween(220))
+                )
+            },
+            label = "bottomNavSharedAxisX"
+        ) { destination ->
+            when (destination) {
+                AppDestinations.HOME -> DashboardScreen(
+                    viewModel = dashboardViewModel,
+                    modifier = Modifier.padding(innerPadding),
+                    onAddFood = { mealType ->
+                        searchViewModel.setSelectedDate(dashboardState.selectedDate)
+                        preselectedMealType = mealType
+                        currentDestination = AppDestinations.SEARCH
+                    }
+                )
 
-            AppDestinations.SEARCH -> SearchScreen(
-                viewModel = searchViewModel,
-                preselectedMealType = preselectedMealType,
-                modifier = Modifier.padding(it)
-            )
+                AppDestinations.SEARCH -> SearchScreen(
+                    viewModel = searchViewModel,
+                    preselectedMealType = preselectedMealType,
+                    modifier = Modifier.padding(innerPadding)
+                )
 
-            AppDestinations.PROFILE -> ProfileScreen(
-                viewModel = profileViewModel,
-                modifier = Modifier.padding(it)
-            )
+                AppDestinations.PROFILE -> ProfileScreen(
+                    viewModel = profileViewModel,
+                    modifier = Modifier.padding(innerPadding)
+                )
+            }
         }
     }
 }
