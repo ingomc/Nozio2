@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.ingomc.nozio.ui.theme.nozioColors
 import kotlin.math.min
 
 @Composable
@@ -46,7 +47,7 @@ fun CalorieRing(
     )
 
     val primaryColor = MaterialTheme.colorScheme.primary
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val trackColor = MaterialTheme.nozioColors.ringTrack
     val overColor = MaterialTheme.colorScheme.error
 
     val ringColor = if (progress > 1f) overColor else primaryColor

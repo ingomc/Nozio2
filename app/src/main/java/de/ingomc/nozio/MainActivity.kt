@@ -14,8 +14,10 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.dashboard.DashboardScreen
@@ -37,6 +40,7 @@ import de.ingomc.nozio.ui.profile.ProfileViewModel
 import de.ingomc.nozio.ui.search.SearchScreen
 import de.ingomc.nozio.ui.search.SearchViewModel
 import de.ingomc.nozio.ui.theme.NozioTheme
+import de.ingomc.nozio.ui.theme.nozioColors
 
 class MainActivity : ComponentActivity() {
 
@@ -82,7 +86,10 @@ fun NozioApp() {
     Scaffold(
         bottomBar = {
             if (!isKeyboardOpen) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.nozioColors.baseBgElevated,
+                    tonalElevation = 0.dp
+                ) {
                     AppDestinations.entries.forEach {
                         NavigationBarItem(
                             icon = {
@@ -98,7 +105,14 @@ fun NozioApp() {
                                     preselectedMealType = null
                                 }
                                 currentDestination = it
-                            }
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
                     }
                 }

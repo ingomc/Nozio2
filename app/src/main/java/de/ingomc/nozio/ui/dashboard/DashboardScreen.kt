@@ -32,10 +32,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.MealType
+import de.ingomc.nozio.ui.theme.nozioColors
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -153,21 +153,21 @@ fun DashboardScreen(
                                 label = "Kohlenhydrate",
                                 consumed = state.totalCarbs,
                                 goal = state.preferences.carbsGoal,
-                                color = Color(0xFF2196F3),
+                                color = MaterialTheme.nozioColors.macroPrimary,
                                 modifier = Modifier.weight(1f)
                             )
                             MacroBar(
                                 label = "Eiweiß",
                                 consumed = state.totalProtein,
                                 goal = state.preferences.proteinGoal,
-                                color = Color(0xFF4CAF50),
+                                color = MaterialTheme.nozioColors.macroPrimary,
                                 modifier = Modifier.weight(1f)
                             )
                             MacroBar(
                                 label = "Fett",
                                 consumed = state.totalFat,
                                 goal = state.preferences.fatGoal,
-                                color = Color(0xFFFF9800),
+                                color = MaterialTheme.nozioColors.macroPrimary,
                                 modifier = Modifier.weight(1f)
                             )
                         }
