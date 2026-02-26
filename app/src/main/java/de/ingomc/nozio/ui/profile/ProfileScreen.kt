@@ -40,6 +40,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -48,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.max
@@ -186,6 +190,18 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = viewModel::save,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                enabled = state.hasChanges
+            ) {
+                Text(if (state.saved) "Gespeichert ✓" else "Speichern")
+            }
+
             Text(
                 text = "Gewichtsverlauf",
                 style = MaterialTheme.typography.titleMedium,
@@ -239,18 +255,6 @@ fun ProfileScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = viewModel::save,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                enabled = state.hasChanges
-            ) {
-                Text(if (state.saved) "Gespeichert ✓" else "Speichern")
-            }
-
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -265,9 +269,13 @@ private fun WeightChart(
     val pointColor = MaterialTheme.colorScheme.primary
     val selectedPointColor = MaterialTheme.colorScheme.secondary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val tooltipBgColor = MaterialTheme.colorScheme.surfaceVariant
+    val tooltipTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.", Locale.GERMAN) }
-    val selectedPointDateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMAN) }
+    val tooltipDateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yy", Locale.GERMAN) }
     val density = LocalDensity.current
+    val tooltipDateTextSizePx = with(density) { 11.sp.toPx() }
+    val tooltipWeightTextSizePx = with(density) { 13.sp.toPx() }
     val chartWidth = max(320, points.size * 56).dp
     val minWeight = points.minOf { it.weightKg }
     val maxWeight = points.maxOf { it.weightKg }
@@ -276,7 +284,7 @@ private fun WeightChart(
     val weightRange = (paddedMaxWeight - paddedMinWeight).takeIf { it > 0.0 } ?: 2.0
     val midWeight = paddedMinWeight + (weightRange / 2.0)
     var chartSize by remember(points) { mutableStateOf(IntSize.Zero) }
-    var selectedPointIndex by remember(points) { mutableIntStateOf(points.lastIndex) }
+    var selectedPointIndex by remember(points) { mutableIntStateOf(-1) }
 
     Card(modifier = modifier) {
         Row(
@@ -351,14 +359,14 @@ private fun WeightChart(
                     ) {
                     val left = 16.dp.toPx()
                     val right = size.width - 16.dp.toPx()
-                    val top = 16.dp.toPx()
-                    val bottom = size.height - 20.dp.toPx()
+                    val plotTop = 16.dp.toPx()
+                    val plotBottom = size.height - 20.dp.toPx()
                     val plotWidth = (right - left).coerceAtLeast(1f)
-                    val plotHeight = (bottom - top).coerceAtLeast(1f)
+                    val plotHeight = (plotBottom - plotTop).coerceAtLeast(1f)
                     val xStep = if (points.size > 1) plotWidth / (points.size - 1) else 0f
 
                     for (i in 0..3) {
-                        val y = top + (plotHeight / 3f) * i
+                        val y = plotTop + (plotHeight / 3f) * i
                         drawLine(
                             color = gridColor,
                             start = Offset(left, y),
@@ -371,7 +379,7 @@ private fun WeightChart(
                     points.forEachIndexed { index, point ->
                         val x = left + index * xStep
                         val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
-                        val y = bottom - (normalized * plotHeight)
+                        val y = plotBottom - (normalized * plotHeight)
                         if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
 
@@ -384,12 +392,72 @@ private fun WeightChart(
                     points.forEachIndexed { index, point ->
                         val x = left + index * xStep
                         val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
-                        val y = bottom - (normalized * plotHeight)
+                        val y = plotBottom - (normalized * plotHeight)
                         drawCircle(
                             color = if (index == selectedPointIndex) selectedPointColor else pointColor,
                             radius = if (index == selectedPointIndex) 6.dp.toPx() else 4.dp.toPx(),
                             center = Offset(x, y)
                         )
+                    }
+
+                    if (selectedPointIndex in points.indices) {
+                        val selectedPoint = points[selectedPointIndex]
+                        val tooltipDate = selectedPoint.date.format(tooltipDateFormatter)
+                        val tooltipWeight = "${formatWeight(selectedPoint.weightKg)} kg"
+                        val x = left + selectedPointIndex * xStep
+                        val normalized = ((selectedPoint.weightKg - paddedMinWeight) / weightRange).toFloat()
+                        val y = plotBottom - (normalized * plotHeight)
+
+                        drawIntoCanvas { canvas ->
+                            val datePaint = android.graphics.Paint().apply {
+                                isAntiAlias = true
+                                color = tooltipTextColor.toArgb()
+                                textSize = tooltipDateTextSizePx
+                            }
+                            val weightPaint = android.graphics.Paint().apply {
+                                isAntiAlias = true
+                                color = tooltipTextColor.toArgb()
+                                textSize = tooltipWeightTextSizePx
+                                typeface = android.graphics.Typeface.create(
+                                    android.graphics.Typeface.DEFAULT,
+                                    android.graphics.Typeface.BOLD
+                                )
+                            }
+
+                            val dateWidth = datePaint.measureText(tooltipDate)
+                            val weightWidth = weightPaint.measureText(tooltipWeight)
+                            val bubbleTextWidth = maxOf(dateWidth, weightWidth)
+                            val dateHeight = datePaint.fontMetrics.run { this.bottom - this.top }
+                            val weightHeight = weightPaint.fontMetrics.run { this.bottom - this.top }
+                            val lineSpacing = 2.dp.toPx()
+                            val paddingH = 8.dp.toPx()
+                            val paddingV = 6.dp.toPx()
+                            val bubbleWidth = bubbleTextWidth + (paddingH * 2f)
+                            val bubbleHeight = dateHeight + lineSpacing + weightHeight + (paddingV * 2f)
+                            val bubbleX = (x - bubbleWidth / 2f).coerceIn(left, right - bubbleWidth)
+                            val bubbleY = (y - bubbleHeight - 10.dp.toPx()).coerceAtLeast(plotTop)
+
+                            drawRoundRect(
+                                color = tooltipBgColor,
+                                topLeft = Offset(bubbleX, bubbleY),
+                                size = androidx.compose.ui.geometry.Size(bubbleWidth, bubbleHeight),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                            )
+
+                            val dateBaselineY = bubbleY + paddingV - datePaint.fontMetrics.top
+                            canvas.nativeCanvas.drawText(
+                                tooltipDate,
+                                bubbleX + paddingH,
+                                dateBaselineY,
+                                datePaint
+                            )
+                            canvas.nativeCanvas.drawText(
+                                tooltipWeight,
+                                bubbleX + paddingH,
+                                dateBaselineY + lineSpacing + weightHeight,
+                                weightPaint
+                            )
+                        }
                     }
                 }
 
@@ -411,15 +479,6 @@ private fun WeightChart(
                         )
                     }
 
-                    if (selectedPointIndex in points.indices) {
-                        val selectedPoint = points[selectedPointIndex]
-                        Text(
-                            text = "Ausgewählt: ${selectedPoint.date.format(selectedPointDateFormatter)} · ${formatWeight(selectedPoint.weightKg)} kg",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                        )
-                    }
                 }
             }
         }
