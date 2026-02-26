@@ -4,6 +4,14 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -33,10 +41,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -45,6 +53,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,7 +70,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,9 +84,16 @@ fun SearchScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var showScannerSheet by remember { mutableStateOf(false) }
+    var showAddedBanner by remember { mutableStateOf(false) }
+    var addedBannerRunId by remember { mutableIntStateOf(0) }
     var searchContainerHeightPx by remember { mutableStateOf(0) }
     val density = LocalDensity.current
     val listBottomPadding = with(density) { searchContainerHeightPx.toDp() + 8.dp }
+    val addedBannerProgress by animateFloatAsState(
+        targetValue = if (showAddedBanner) 0f else 1f,
+        animationSpec = tween(durationMillis = 1400, easing = LinearEasing),
+        label = "addedBannerProgress"
+    )
     val showingSuggestions = state.query.length < 2
     val foodsToShow = if (showingSuggestions) state.recentSuggestions else state.results
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
@@ -94,12 +110,11 @@ fun SearchScreen(
 
     LaunchedEffect(state.addedSuccessfully) {
         if (state.addedSuccessfully) {
-            snackbarHostState.showSnackbar(
-                message = "Lebensmittel hinzugefügt ✓",
-                duration = SnackbarDuration.Short
-            )
-            delay(1200)
-            snackbarHostState.currentSnackbarData?.dismiss()
+            addedBannerRunId += 1
+            showAddedBanner = false
+            showAddedBanner = true
+            kotlinx.coroutines.delay(1400)
+            showAddedBanner = false
             viewModel.onAddedMessageShown()
         }
     }
@@ -290,8 +305,60 @@ fun SearchScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
-                    .padding(top = 8.dp)
+                    .padding(top = 72.dp)
             )
+
+            key(addedBannerRunId) {
+                AnimatedVisibility(
+                    visible = showAddedBanner,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 8.dp, start = 16.dp, end = 16.dp),
+                    enter = fadeIn(animationSpec = tween(220)) + slideInVertically(
+                        animationSpec = tween(220),
+                        initialOffsetY = { -it / 2 }
+                    ),
+                    exit = fadeOut(animationSpec = tween(180)) + slideOutVertically(
+                        animationSpec = tween(180),
+                        targetOffsetY = { -it / 3 }
+                    )
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        tonalElevation = 2.dp,
+                        shadowElevation = 0.dp
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Spacer(modifier = Modifier.size(8.dp))
+                                Text(
+                                    text = "Lebensmittel hinzugefügt",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                            LinearProgressIndicator(
+                                progress = { addedBannerProgress },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
