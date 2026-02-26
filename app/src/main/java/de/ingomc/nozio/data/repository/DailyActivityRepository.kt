@@ -5,6 +5,7 @@ import de.ingomc.nozio.data.local.DailyActivityDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
+import kotlin.math.round
 
 data class WeightEntry(
     val date: LocalDate,
@@ -56,11 +57,12 @@ class DailyActivityRepository(
 
     suspend fun saveWeightForDate(date: LocalDate, weightKg: Double) {
         val existing = dailyActivityDao.getByDateNow(date)
+        val roundedWeight = round(weightKg.coerceIn(20.0, 400.0) * 10.0) / 10.0
         dailyActivityDao.upsert(
             DailyActivity(
                 date = date,
                 steps = existing?.steps ?: 0L,
-                weightKg = weightKg.coerceIn(20.0, 400.0)
+                weightKg = roundedWeight
             )
         )
     }

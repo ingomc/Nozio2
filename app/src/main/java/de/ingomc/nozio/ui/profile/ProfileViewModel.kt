@@ -10,8 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.util.Locale
 
 data class WeightHistoryPoint(
     val date: LocalDate,
@@ -42,15 +44,21 @@ class ProfileViewModel(
 
     init {
         viewModelScope.launch {
-            userPreferencesRepository.userPreferences.collectLatest { prefs ->
-                baselinePreferences = prefs
+            combine(
+                userPreferencesRepository.userPreferences,
+                dailyActivityRepository.getLatestWeightEntry()
+            ) { prefs, latestWeightEntry ->
+                val effectiveCurrentWeight = latestWeightEntry?.weightKg ?: prefs.currentWeightKg
+                prefs.copy(currentWeightKg = effectiveCurrentWeight)
+            }.collectLatest { effectivePrefs ->
+                baselinePreferences = effectivePrefs
                 _uiState.value = ProfileUiState(
-                    calorieGoal = prefs.calorieGoal.toInt().toString(),
-                    proteinGoal = prefs.proteinGoal.toInt().toString(),
-                    fatGoal = prefs.fatGoal.toInt().toString(),
-                    carbsGoal = prefs.carbsGoal.toInt().toString(),
-                    currentWeightKg = prefs.currentWeightKg.toString(),
-                    bodyFatPercent = prefs.bodyFatPercent.toString(),
+                    calorieGoal = effectivePrefs.calorieGoal.toInt().toString(),
+                    proteinGoal = effectivePrefs.proteinGoal.toInt().toString(),
+                    fatGoal = effectivePrefs.fatGoal.toInt().toString(),
+                    carbsGoal = effectivePrefs.carbsGoal.toInt().toString(),
+                    currentWeightKg = formatWeightForInput(effectivePrefs.currentWeightKg),
+                    bodyFatPercent = formatDecimalForInput(effectivePrefs.bodyFatPercent),
                     hasChanges = false,
                     weightHistory = _uiState.value.weightHistory
                 )
@@ -119,6 +127,18 @@ class ProfileViewModel(
         currentWeightKg = currentWeightKg.toDoubleOrNull() ?: 80.0,
         bodyFatPercent = bodyFatPercent.toDoubleOrNull() ?: 20.0
     )
+
+    private fun formatWeightForInput(value: Double): String {
+        return String.format(Locale.US, "%.1f", value)
+    }
+
+    private fun formatDecimalForInput(value: Double): String {
+        return if (value % 1.0 == 0.0) {
+            value.toInt().toString()
+        } else {
+            String.format(Locale.US, "%.1f", value)
+        }
+    }
 
     class Factory(
         private val userPreferencesRepository: UserPreferencesRepository,
