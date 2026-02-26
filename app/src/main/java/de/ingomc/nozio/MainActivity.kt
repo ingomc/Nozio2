@@ -7,7 +7,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -84,6 +83,7 @@ fun NozioApp() {
     val isKeyboardOpen = WindowInsets.ime.getBottom(density) > 0
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (!isKeyboardOpen) {
                 NavigationBar(
@@ -122,9 +122,7 @@ fun NozioApp() {
         when (currentDestination) {
             AppDestinations.HOME -> DashboardScreen(
                 viewModel = dashboardViewModel,
-                modifier = Modifier
-                    .padding(it)
-                    .statusBarsPadding(),
+                modifier = Modifier.padding(it),
                 onAddFood = { mealType ->
                     searchViewModel.setSelectedDate(dashboardState.selectedDate)
                     preselectedMealType = mealType
@@ -140,9 +138,7 @@ fun NozioApp() {
 
             AppDestinations.PROFILE -> ProfileScreen(
                 viewModel = profileViewModel,
-                modifier = Modifier
-                    .padding(it)
-                    .statusBarsPadding()
+                modifier = Modifier.padding(it)
             )
         }
     }

@@ -2,6 +2,7 @@ package de.ingomc.nozio.ui.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,15 +24,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.MealType
@@ -52,6 +57,8 @@ fun DashboardScreen(
     val state by viewModel.uiState.collectAsState()
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN)
+    val appBarState = rememberTopAppBarState()
+    val appBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(appBarState)
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerStateForDate(state.selectedDate)
@@ -79,8 +86,20 @@ fun DashboardScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(appBarScrollBehavior.nestedScrollConnection)
+    ) {
         TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                titleContentColor = MaterialTheme.colorScheme.onSurface,
+                actionIconContentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            scrollBehavior = appBarScrollBehavior,
             title = {
                 Column {
                     Text(
@@ -109,6 +128,7 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(top = 10.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
