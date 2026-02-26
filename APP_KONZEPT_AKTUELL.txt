@@ -1,0 +1,117 @@
+Nozio - Aktueller Stand, Konzept und Features (v0.1.0)
+Stand: 26.02.2026
+
+1) Produktidee / Konzept
+Nozio ist aktuell eine persoenliche, lokale Ernaehrungs-Tracking-App mit Fokus auf den Tagesablauf.
+Kernidee: Essen schnell erfassen, Tagesziele (Kalorien und Makros) sichtbar steuern und Fortschritt ueber Aktivitaet + Gewicht verfolgen.
+
+Produktprinzipien im aktuellen Build:
+- Tagesfokus statt Social-/Community-Fokus
+- Schnelle Erfassung statt komplexer Eingabe
+- Ziele als Referenz im Dashboard
+- Local-first Speicherung mit API-Ergaenzung fuer Lebensmitteldaten
+
+
+2) User Flow heute
+- Home/Dashboard: Tagesueberblick, Mahlzeiten, Aktivitaet, Gewicht
+- Suche: Lebensmittel finden (Text oder Barcode), Menge/Meal waehlen, hinzufuegen
+- Profil: Ziele und Koerperwerte pflegen, Gewichtsverlauf analysieren
+
+Bottom Navigation:
+- Home
+- Suche
+- Profil
+
+
+3) Hauptfeatures (funktional)
+A) Dashboard / Tagessteuerung
+- Datum waehlen (DatePicker), Tag-weise Ansicht
+- Kalorien-Uebersicht:
+  - Gegessen
+  - Verbrannt (aus Schritten geschaetzt)
+  - Uebrig (Ziel - gegessen + verbrannt)
+- Makro-Balken fuer Kohlenhydrate, Eiweiss, Fett gegen Tagesziele
+- Mahlzeitenkarten (Fruehstueck, Mittagessen, Abendessen, Snacks)
+- Eintraege pro Mahlzeit mit berechneten Makros/Kalorien
+- Eintrag bearbeiten (Menge in Gramm)
+- Eintrag loeschen
+- Schritte erfassen (Bottom Sheet)
+- Gewicht erfassen (Bottom Sheet)
+
+B) Lebensmittelsuche und Erfassung
+- Textsuche mit Debounce
+- Barcode-Scan via Kamera (CameraX + ML Kit)
+- Ergebnisanzeige inkl. Fehler-/Empty-/Loading-States
+- "Zuletzt hinzugefuegt" Vorschlaege
+- Add-Food Bottom Sheet:
+  - Menge in Gramm
+  - Quick-Amount Chips (50/100/150/200/250/300g)
+  - Vorschau berechneter Makros/Kalorien fuer gewaehlte Menge
+  - Zuordnung zur Mahlzeit
+- Erfolgsbanner nach Hinzufuegen
+
+C) Profil und Ziele
+- Tagesziele bearbeitbar:
+  - Kalorienziel
+  - Proteinziel
+  - Fettziel
+  - Kohlenhydratziel
+- Koerperdaten:
+  - aktuelles Gewicht
+  - KFA (geschaetzt)
+- Speichern nur bei echten Aenderungen (Change-Guard)
+- Hinweis auf errechnete Kalorien aus Makros
+- Gewichtsverlauf als interaktiver Chart:
+  - Filter: 7 Tage, 30 Tage, 90 Tage, Alle
+  - Horizontal scrollbar bei vielen Punkten
+  - Tap auf Datenpunkte mit Tooltip
+  - Kennzahlen: letzter/min/max Wert
+
+
+4) Technisches Konzept
+- Plattform: Android (Kotlin, Jetpack Compose, Material3)
+- Architektur: UI (Screens) + ViewModel + Repository + Datenquellen
+- Lokale Daten:
+  - Room DB (FoodItem, DiaryEntry, DailyActivity)
+  - DataStore fuer User Preferences/Ziele
+- Remote:
+  - OpenFoodFacts API fuer Produktsuche und Barcode-Aufloesung
+- Robustheit:
+  - Bei Netzfehlern in der Suche Fallback auf lokalen Food-Cache
+
+
+5) Datenmodell (vereinfacht)
+- FoodItem:
+  - Name, kcal/100g, Protein/Fett/KH pro 100g, optional Barcode, Quelle
+- DiaryEntry:
+  - Datum, Mahlzeit, Food-Referenz, Menge in Gramm
+- DailyActivity:
+  - Datum, Schritte, optional Gewicht
+- UserPreferences:
+  - Kalorienziel, Makroziele, Gewicht, KFA
+
+
+6) UX-Stand / Qualitaet (v0.1.0)
+- Verbesserte Uebergaenge zwischen Tabs
+- Such-UI visuell konsistenter (Pill Search Field, Scanner-CTA)
+- Add-Food und Profil visuell/strukturell verfeinert
+- Schritte/Gewicht ueber schnelle Bottom-Sheet-Workflows
+- Gewichtshistorie im Profil chartbasiert visualisiert
+
+
+7) Bekannte Grenzen im aktuellen Konzept
+- Kein Account/Cloud/Sync (Single-Device, local-first)
+- Keine automatische Aktivitaets-Sync (z. B. Health Connect)
+- Keine Reminder-/Planungslogik
+- Barcode-Flow laut Roadmap noch weiter zu haerten
+- Portion-Default aus API noch nicht voll ausgenutzt (aktuell 100g Default)
+- "Copy"-Action in Meal-Eintrag-UI ist vorbereitet, aber funktional noch nicht umgesetzt
+
+
+8) Richtung fuer spaetere Feature-Diskussionen
+Die App steht aktuell auf einem klaren "Daily Nutrition Control"-Fundament.
+Sinnvolle naechste Schritte koennen daher entlang von drei Linien priorisiert werden:
+- Erfassung beschleunigen (Scanner/Suche/Portion-Intelligenz)
+- Datenqualitaet und Insights steigern (Trends, Zielabweichungen, Auswertungen)
+- Oekosystem erweitern (Sync, Health-Integrationen, ggf. Cloud)
+
