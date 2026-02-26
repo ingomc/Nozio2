@@ -2,6 +2,7 @@ package de.ingomc.nozio.ui.profile
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +38,10 @@ fun ProfileScreen(
     val state by viewModel.uiState.collectAsState()
     val appBarState = rememberTopAppBarState()
     val appBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(appBarState)
+    val proteinGoal = state.proteinGoal.toDoubleOrNull() ?: 0.0
+    val fatGoal = state.fatGoal.toDoubleOrNull() ?: 0.0
+    val carbsGoal = state.carbsGoal.toDoubleOrNull() ?: 0.0
+    val macroCalories = (proteinGoal * 4.0) + (carbsGoal * 4.0) + (fatGoal * 9.0)
 
     Column(
         modifier = modifier
@@ -86,37 +91,48 @@ fun ProfileScreen(
                 value = state.calorieGoal,
                 onValueChange = viewModel::onCalorieGoalChange,
                 label = { Text("Kalorienziel (kcal)") },
+                supportingText = {
+                    Text(
+                        text = "Aus Makro-Zielen: ${macroCalories.toInt()} kcal (EW ${proteinGoal.toInt()}g x4 + KH ${carbsGoal.toInt()}g x4 + Fett ${fatGoal.toInt()}g x9)",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
-                value = state.proteinGoal,
-                onValueChange = viewModel::onProteinGoalChange,
-                label = { Text("Eiweiß-Ziel (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = state.proteinGoal,
+                    onValueChange = viewModel::onProteinGoalChange,
+                    label = { Text("EW (g)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
 
-            OutlinedTextField(
-                value = state.fatGoal,
-                onValueChange = viewModel::onFatGoalChange,
-                label = { Text("Fett-Ziel (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+                OutlinedTextField(
+                    value = state.fatGoal,
+                    onValueChange = viewModel::onFatGoalChange,
+                    label = { Text("Fett (g)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
 
-            OutlinedTextField(
-                value = state.carbsGoal,
-                onValueChange = viewModel::onCarbsGoalChange,
-                label = { Text("Kohlenhydrate-Ziel (g)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+                OutlinedTextField(
+                    value = state.carbsGoal,
+                    onValueChange = viewModel::onCarbsGoalChange,
+                    label = { Text("KH (g)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             OutlinedTextField(
                 value = state.currentWeightKg,
