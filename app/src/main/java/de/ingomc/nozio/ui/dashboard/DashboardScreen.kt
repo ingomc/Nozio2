@@ -121,7 +121,7 @@ fun DashboardScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 18.dp),
+                            .padding(start = 16.dp, end = 16.dp, top = 26.dp, bottom = 18.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Row(

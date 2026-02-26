@@ -56,7 +56,7 @@ fun CalorieRing(
         modifier = modifier.size(140.dp)
     ) {
         Canvas(modifier = Modifier.size(152.dp)) {
-            val strokeWidth = 14.dp.toPx()
+            val strokeWidth = 10.dp.toPx()
             val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
 
             // Track
