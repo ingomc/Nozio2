@@ -71,7 +71,10 @@ fun NozioApp() {
         factory = SearchViewModel.Factory(app.foodRepository, app.diaryRepository)
     )
     val profileViewModel: ProfileViewModel = viewModel(
-        factory = ProfileViewModel.Factory(app.userPreferencesRepository)
+        factory = ProfileViewModel.Factory(
+            app.userPreferencesRepository,
+            app.dailyActivityRepository
+        )
     )
     val dashboardState by dashboardViewModel.uiState.collectAsState()
 

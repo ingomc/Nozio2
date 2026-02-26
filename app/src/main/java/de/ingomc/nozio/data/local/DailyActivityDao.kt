@@ -12,6 +12,15 @@ interface DailyActivityDao {
     @Query("SELECT * FROM daily_activity WHERE date = :date LIMIT 1")
     fun getByDate(date: LocalDate): Flow<DailyActivity?>
 
+    @Query("SELECT * FROM daily_activity WHERE date = :date LIMIT 1")
+    suspend fun getByDateNow(date: LocalDate): DailyActivity?
+
+    @Query("SELECT * FROM daily_activity WHERE weightKg IS NOT NULL ORDER BY date ASC")
+    fun getWeightHistory(): Flow<List<DailyActivity>>
+
+    @Query("SELECT * FROM daily_activity WHERE weightKg IS NOT NULL ORDER BY date DESC LIMIT 1")
+    fun getLatestWeightEntry(): Flow<DailyActivity?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(activity: DailyActivity)
 }

@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import de.ingomc.nozio.data.local.DiaryEntryWithFood
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.repository.DailyActivityRepository
+import de.ingomc.nozio.data.repository.DaySummary
 import de.ingomc.nozio.data.repository.DiaryRepository
+import de.ingomc.nozio.data.repository.LatestWeightEntry
 import de.ingomc.nozio.data.repository.UserPreferences
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,8 +29,10 @@ data class DashboardUiState(
     val preferences: UserPreferences = UserPreferences(),
     val totalSteps: Long = 0L,
     val activeCalories: Double = 0.0,
-    val stepsInput: String = "0",
-    val stepsSaved: Boolean = false
+    val stepsSaved: Boolean = false,
+    val weightForDate: Double? = null,
+    val latestWeightEntry: LatestWeightEntry? = null,
+    val weightSaved: Boolean = false
 )
 
 class DashboardViewModel(
@@ -36,12 +40,18 @@ class DashboardViewModel(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val dailyActivityRepository: DailyActivityRepository
 ) : ViewModel() {
+    private data class DashboardBaseData(
+        val selectedDate: LocalDate,
+        val summary: DaySummary,
+        val prefs: UserPreferences,
+        val stepsForDate: Long,
+        val weightForDate: Double?,
+        val latestWeightEntry: LatestWeightEntry?
+    )
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
     private val selectedDateState = MutableStateFlow(LocalDate.now())
-    private val stepsInputState = MutableStateFlow("0")
-    private val hasEditedStepsInput = MutableStateFlow(false)
 
     init {
         viewModelScope.launch {
@@ -51,25 +61,51 @@ class DashboardViewModel(
             val stepsForDateFlow = selectedDateState.flatMapLatest { date ->
                 dailyActivityRepository.getStepsForDate(date)
             }
-            val stepsEditorFlow = combine(stepsInputState, hasEditedStepsInput) { stepsInput, edited ->
-                stepsInput to edited
+            val weightForDateFlow = selectedDateState.flatMapLatest { date ->
+                dailyActivityRepository.getWeightForDate(date)
             }
+            val latestWeightEntryFlow = dailyActivityRepository.getLatestWeightEntry()
 
-            combine(
+            val dayAndPrefsFlow = combine(
                 selectedDateState,
                 daySummaryFlow,
-                userPreferencesRepository.userPreferences,
+                userPreferencesRepository.userPreferences
+            ) { selectedDate, summary, prefs ->
+                Triple(selectedDate, summary, prefs)
+            }
+            val activityAndWeightFlow = combine(
                 stepsForDateFlow,
-                stepsEditorFlow
-            ) { selectedDate, summary, prefs, stepsForDate, stepsEditor ->
-                val (stepsInput, edited) = stepsEditor
+                weightForDateFlow,
+                latestWeightEntryFlow
+            ) { stepsForDate, weightForDate, latestWeightEntry ->
+                Triple(stepsForDate, weightForDate, latestWeightEntry)
+            }
+            val baseFlow = combine(dayAndPrefsFlow, activityAndWeightFlow) { dayAndPrefs, activityAndWeight ->
+                val (selectedDate, summary, prefs) = dayAndPrefs
+                val (stepsForDate, weightForDate, latestWeightEntry) = activityAndWeight
+                DashboardBaseData(
+                    selectedDate = selectedDate,
+                    summary = summary,
+                    prefs = prefs,
+                    stepsForDate = stepsForDate,
+                    weightForDate = weightForDate,
+                    latestWeightEntry = latestWeightEntry
+                )
+            }
+
+            baseFlow.collect { base ->
+                val selectedDate = base.selectedDate
+                val summary = base.summary
+                val prefs = base.prefs
+                val stepsForDate = base.stepsForDate
+                val weightForDate = base.weightForDate
+                val latestWeightEntry = base.latestWeightEntry
                 val estimatedActiveCalories = estimateActiveCalories(
                     steps = stepsForDate,
                     weightKg = prefs.currentWeightKg,
                     bodyFatPercent = prefs.bodyFatPercent
                 )
-                val effectiveStepsInput = if (edited) stepsInput else stepsForDate.toString()
-                DashboardUiState(
+                _uiState.value = DashboardUiState(
                     selectedDate = selectedDate,
                     totalCalories = summary.totalCalories,
                     totalProtein = summary.totalProtein,
@@ -79,35 +115,32 @@ class DashboardViewModel(
                     preferences = prefs,
                     totalSteps = stepsForDate,
                     activeCalories = estimatedActiveCalories,
-                    stepsInput = effectiveStepsInput,
-                    stepsSaved = _uiState.value.stepsSaved
+                    stepsSaved = _uiState.value.stepsSaved,
+                    weightForDate = weightForDate,
+                    latestWeightEntry = latestWeightEntry,
+                    weightSaved = _uiState.value.weightSaved
                 )
-            }.collect { _uiState.value = it }
+            }
         }
     }
 
     fun selectDate(date: LocalDate) {
         if (selectedDateState.value == date) return
         selectedDateState.value = date
-        hasEditedStepsInput.value = false
-        stepsInputState.value = "0"
-        _uiState.value = _uiState.value.copy(selectedDate = date, stepsSaved = false)
+        _uiState.value = _uiState.value.copy(selectedDate = date, stepsSaved = false, weightSaved = false)
     }
 
-    fun onStepsInputChange(value: String) {
-        val sanitized = value.filter { it.isDigit() }
-        stepsInputState.value = sanitized
-        hasEditedStepsInput.value = true
-        _uiState.value = _uiState.value.copy(stepsInput = sanitized, stepsSaved = false)
-    }
-
-    fun saveStepsForSelectedDate() {
+    fun saveStepsForSelectedDate(steps: Long) {
         viewModelScope.launch {
-            val parsed = _uiState.value.stepsInput.toLongOrNull() ?: 0L
-            dailyActivityRepository.saveStepsForDate(selectedDateState.value, parsed)
-            hasEditedStepsInput.value = false
-            stepsInputState.value = parsed.toString()
+            dailyActivityRepository.saveStepsForDate(selectedDateState.value, steps)
             _uiState.value = _uiState.value.copy(stepsSaved = true)
+        }
+    }
+
+    fun saveWeightForSelectedDate(weightKg: Double) {
+        viewModelScope.launch {
+            dailyActivityRepository.saveWeightForDate(selectedDateState.value, weightKg)
+            _uiState.value = _uiState.value.copy(weightSaved = true)
         }
     }
 

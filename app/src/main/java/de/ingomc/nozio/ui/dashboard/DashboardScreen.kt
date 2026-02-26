@@ -30,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -56,6 +57,10 @@ fun DashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showStepsSheet by rememberSaveable { mutableStateOf(false) }
+    var pendingSteps by rememberSaveable { mutableStateOf(0L) }
+    var showWeightSheet by rememberSaveable { mutableStateOf(false) }
+    var pendingWeight by remember { mutableDoubleStateOf(0.0) }
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN)
     val appBarState = rememberTopAppBarState()
     val appBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(appBarState)
@@ -84,6 +89,30 @@ fun DashboardScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    if (showWeightSheet) {
+        WeightInputBottomSheet(
+            initialWeightKg = pendingWeight,
+            latestEntryDate = state.latestWeightEntry?.date,
+            latestEntryWeightKg = state.latestWeightEntry?.weightKg,
+            onDismiss = { showWeightSheet = false },
+            onSave = { selectedWeight ->
+                viewModel.saveWeightForSelectedDate(selectedWeight)
+                showWeightSheet = false
+            }
+        )
+    }
+
+    if (showStepsSheet) {
+        StepsInputBottomSheet(
+            initialSteps = pendingSteps,
+            onDismiss = { showStepsSheet = false },
+            onSave = { selectedSteps ->
+                viewModel.saveStepsForSelectedDate(selectedSteps)
+                showStepsSheet = false
+            }
+        )
     }
 
     Column(
@@ -197,20 +226,6 @@ fun DashboardScreen(
 
             item { Spacer(modifier = Modifier.height(4.dp)) }
 
-            // Activity Card
-            item {
-                ActivityCard(
-                    steps = state.totalSteps,
-                    activeCalories = state.activeCalories,
-                    stepsInput = state.stepsInput,
-                    stepsSaved = state.stepsSaved,
-                    onStepsInputChange = viewModel::onStepsInputChange,
-                    onSaveSteps = viewModel::saveStepsForSelectedDate
-                )
-            }
-
-            item { Spacer(modifier = Modifier.height(4.dp)) }
-
             // Meal Cards
             items(MealType.entries) { mealType ->
                 MealCard(
@@ -220,6 +235,34 @@ fun DashboardScreen(
                     onDeleteEntry = { viewModel.deleteEntry(it) },
                     onUpdateEntryAmount = { entryId, amount ->
                         viewModel.updateEntryAmount(entryId, amount)
+                    }
+                )
+            }
+
+            item { Spacer(modifier = Modifier.height(4.dp)) }
+
+            // Activity Card
+            item {
+                ActivityCard(
+                    steps = state.totalSteps,
+                    activeCalories = state.activeCalories,
+                    onClick = {
+                        pendingSteps = state.totalSteps
+                        showStepsSheet = true
+                    }
+                )
+            }
+
+            item { Spacer(modifier = Modifier.height(4.dp)) }
+
+            item {
+                WeightCard(
+                    currentWeightKg = state.weightForDate,
+                    onClick = {
+                        pendingWeight = state.weightForDate
+                            ?: state.latestWeightEntry?.weightKg
+                            ?: state.preferences.currentWeightKg
+                        showWeightSheet = true
                     }
                 )
             }

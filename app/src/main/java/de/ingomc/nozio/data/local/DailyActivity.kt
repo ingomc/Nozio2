@@ -7,5 +7,6 @@ import java.time.LocalDate
 @Entity(tableName = "daily_activity")
 data class DailyActivity(
     @PrimaryKey val date: LocalDate,
-    val steps: Long
+    val steps: Long,
+    val weightKg: Double? = null
 )
