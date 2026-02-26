@@ -15,6 +15,8 @@ data class ProfileUiState(
     val proteinGoal: String = "75",
     val fatGoal: String = "65",
     val carbsGoal: String = "250",
+    val currentWeightKg: String = "80",
+    val bodyFatPercent: String = "20",
     val saved: Boolean = false
 )
 
@@ -32,7 +34,9 @@ class ProfileViewModel(
                     calorieGoal = prefs.calorieGoal.toInt().toString(),
                     proteinGoal = prefs.proteinGoal.toInt().toString(),
                     fatGoal = prefs.fatGoal.toInt().toString(),
-                    carbsGoal = prefs.carbsGoal.toInt().toString()
+                    carbsGoal = prefs.carbsGoal.toInt().toString(),
+                    currentWeightKg = prefs.currentWeightKg.toString(),
+                    bodyFatPercent = prefs.bodyFatPercent.toString()
                 )
             }
         }
@@ -54,6 +58,14 @@ class ProfileViewModel(
         _uiState.value = _uiState.value.copy(carbsGoal = value, saved = false)
     }
 
+    fun onCurrentWeightKgChange(value: String) {
+        _uiState.value = _uiState.value.copy(currentWeightKg = value, saved = false)
+    }
+
+    fun onBodyFatPercentChange(value: String) {
+        _uiState.value = _uiState.value.copy(bodyFatPercent = value, saved = false)
+    }
+
     fun save() {
         val state = _uiState.value
         viewModelScope.launch {
@@ -62,7 +74,9 @@ class ProfileViewModel(
                     calorieGoal = state.calorieGoal.toDoubleOrNull() ?: 2000.0,
                     proteinGoal = state.proteinGoal.toDoubleOrNull() ?: 75.0,
                     fatGoal = state.fatGoal.toDoubleOrNull() ?: 65.0,
-                    carbsGoal = state.carbsGoal.toDoubleOrNull() ?: 250.0
+                    carbsGoal = state.carbsGoal.toDoubleOrNull() ?: 250.0,
+                    currentWeightKg = state.currentWeightKg.toDoubleOrNull() ?: 80.0,
+                    bodyFatPercent = state.bodyFatPercent.toDoubleOrNull() ?: 20.0
                 )
             )
             _uiState.value = _uiState.value.copy(saved = true)
@@ -78,4 +92,3 @@ class ProfileViewModel(
         }
     }
 }
-

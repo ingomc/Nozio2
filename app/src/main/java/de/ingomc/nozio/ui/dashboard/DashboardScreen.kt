@@ -32,8 +32,6 @@ import java.util.Locale
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onAddFood: (MealType) -> Unit,
-    onConnectHealth: () -> Unit,
-    onOpenHealthSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -116,9 +114,10 @@ fun DashboardScreen(
                 ActivityCard(
                     steps = state.totalSteps,
                     activeCalories = state.activeCalories,
-                    debugLogs = state.healthDebugLogs,
-                    onConnectHealth = onConnectHealth,
-                    onOpenHealthSettings = onOpenHealthSettings
+                    stepsInput = state.stepsInput,
+                    stepsSaved = state.stepsSaved,
+                    onStepsInputChange = viewModel::onStepsInputChange,
+                    onSaveSteps = viewModel::saveStepsForToday
                 )
             }
 

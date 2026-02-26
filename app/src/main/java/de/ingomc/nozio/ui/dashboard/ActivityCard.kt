@@ -1,37 +1,35 @@
 package de.ingomc.nozio.ui.dashboard
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun ActivityCard(
     steps: Long,
     activeCalories: Double,
-    debugLogs: List<String>,
-    onConnectHealth: () -> Unit,
-    onOpenHealthSettings: () -> Unit,
+    stepsInput: String,
+    stepsSaved: Boolean,
+    onStepsInputChange: (String) -> Unit,
+    onSaveSteps: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
@@ -49,26 +47,20 @@ fun ActivityCard(
                 )
             }
 
-            Button(onClick = onConnectHealth) {
-                Text("Health Connect verbinden")
-            }
+            OutlinedTextField(
+                value = stepsInput,
+                onValueChange = onStepsInputChange,
+                label = { Text("Schritte heute") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-            Button(onClick = onOpenHealthSettings) {
-                Text("Health Connect oeffnen")
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-                    .background(Color(0x11000000))
-                    .padding(8.dp)
-                    .verticalScroll(rememberScrollState())
+            FilledTonalButton(
+                onClick = onSaveSteps,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = if (debugLogs.isEmpty()) "Noch keine Debug-Logs." else debugLogs.joinToString("\n"),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(if (stepsSaved) "Schritte gespeichert ✓" else "Schritte speichern")
             }
         }
     }
