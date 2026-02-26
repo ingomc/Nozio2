@@ -277,6 +277,9 @@ private fun WeightChart(
     val tooltipDateTextSizePx = with(density) { 11.sp.toPx() }
     val tooltipWeightTextSizePx = with(density) { 13.sp.toPx() }
     val chartWidth = max(320, points.size * 56).dp
+    val firstDay = points.first().date.toEpochDay()
+    val lastDay = points.last().date.toEpochDay()
+    val dayRange = (lastDay - firstDay).coerceAtLeast(1L)
     val minWeight = points.minOf { it.weightKg }
     val maxWeight = points.maxOf { it.weightKg }
     val paddedMinWeight = minWeight - 1.0
@@ -337,12 +340,12 @@ private fun WeightChart(
                                     val bottom = chartSize.height.toFloat() - with(density) { 20.dp.toPx() }
                                     val plotWidth = (right - left).coerceAtLeast(1f)
                                     val plotHeight = (bottom - top).coerceAtLeast(1f)
-                                    val xStep = if (points.size > 1) plotWidth / (points.size - 1) else 0f
 
                                     var closestIndex = 0
                                     var closestDistance = Float.MAX_VALUE
                                     points.forEachIndexed { index, point ->
-                                        val x = left + index * xStep
+                                        val dayOffset = (point.date.toEpochDay() - firstDay).toFloat()
+                                        val x = left + (dayOffset / dayRange.toFloat()) * plotWidth
                                         val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
                                         val y = bottom - (normalized * plotHeight)
                                         val dx = tapOffset.x - x
@@ -363,7 +366,6 @@ private fun WeightChart(
                     val plotBottom = size.height - 20.dp.toPx()
                     val plotWidth = (right - left).coerceAtLeast(1f)
                     val plotHeight = (plotBottom - plotTop).coerceAtLeast(1f)
-                    val xStep = if (points.size > 1) plotWidth / (points.size - 1) else 0f
 
                     for (i in 0..3) {
                         val y = plotTop + (plotHeight / 3f) * i
@@ -377,7 +379,8 @@ private fun WeightChart(
 
                     val path = Path()
                     points.forEachIndexed { index, point ->
-                        val x = left + index * xStep
+                        val dayOffset = (point.date.toEpochDay() - firstDay).toFloat()
+                        val x = left + (dayOffset / dayRange.toFloat()) * plotWidth
                         val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
                         val y = plotBottom - (normalized * plotHeight)
                         if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
@@ -390,7 +393,8 @@ private fun WeightChart(
                     )
 
                     points.forEachIndexed { index, point ->
-                        val x = left + index * xStep
+                        val dayOffset = (point.date.toEpochDay() - firstDay).toFloat()
+                        val x = left + (dayOffset / dayRange.toFloat()) * plotWidth
                         val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
                         val y = plotBottom - (normalized * plotHeight)
                         drawCircle(
@@ -404,7 +408,8 @@ private fun WeightChart(
                         val selectedPoint = points[selectedPointIndex]
                         val tooltipDate = selectedPoint.date.format(tooltipDateFormatter)
                         val tooltipWeight = "${formatWeight(selectedPoint.weightKg)} kg"
-                        val x = left + selectedPointIndex * xStep
+                        val selectedDayOffset = (selectedPoint.date.toEpochDay() - firstDay).toFloat()
+                        val x = left + (selectedDayOffset / dayRange.toFloat()) * plotWidth
                         val normalized = ((selectedPoint.weightKg - paddedMinWeight) / weightRange).toFloat()
                         val y = plotBottom - (normalized * plotHeight)
 
