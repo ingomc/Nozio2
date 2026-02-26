@@ -16,6 +16,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -110,48 +111,67 @@ fun DashboardScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Calorie Ring
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CalorieRing(
-                        consumed = state.totalCalories,
-                        goal = state.preferences.calorieGoal
-                    )
-                }
-            }
+                val consumedCalories = state.totalCalories
+                val burnedCalories = state.activeCalories
+                val remainingCalories = (state.preferences.calorieGoal - consumedCalories + burnedCalories)
+                    .coerceAtLeast(0.0)
 
-            // Macro Bars
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MacroBar(
-                        label = "Eiweiß",
-                        consumed = state.totalProtein,
-                        goal = state.preferences.proteinGoal,
-                        color = Color(0xFF4CAF50),
-                        modifier = Modifier.weight(1f)
-                    )
-                    MacroBar(
-                        label = "Fett",
-                        consumed = state.totalFat,
-                        goal = state.preferences.fatGoal,
-                        color = Color(0xFFFF9800),
-                        modifier = Modifier.weight(1f)
-                    )
-                    MacroBar(
-                        label = "Kohlenhydrate",
-                        consumed = state.totalCarbs,
-                        goal = state.preferences.carbsGoal,
-                        color = Color(0xFF2196F3),
-                        modifier = Modifier.weight(1f)
-                    )
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TopMetric(
+                                value = consumedCalories.toInt().toString(),
+                                label = "Gegessen"
+                            )
+                            CalorieRing(
+                                consumed = consumedCalories,
+                                goal = state.preferences.calorieGoal,
+                                centerValue = remainingCalories.toInt().toString(),
+                                centerLabel = "Übrig"
+                            )
+                            TopMetric(
+                                value = burnedCalories.toInt().toString(),
+                                label = "Verbrannt"
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            MacroBar(
+                                label = "Kohlenhydrate",
+                                consumed = state.totalCarbs,
+                                goal = state.preferences.carbsGoal,
+                                color = Color(0xFF2196F3),
+                                modifier = Modifier.weight(1f)
+                            )
+                            MacroBar(
+                                label = "Eiweiß",
+                                consumed = state.totalProtein,
+                                goal = state.preferences.proteinGoal,
+                                color = Color(0xFF4CAF50),
+                                modifier = Modifier.weight(1f)
+                            )
+                            MacroBar(
+                                label = "Fett",
+                                consumed = state.totalFat,
+                                goal = state.preferences.fatGoal,
+                                color = Color(0xFFFF9800),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -183,6 +203,29 @@ fun DashboardScreen(
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
         }
+    }
+}
+
+@Composable
+private fun TopMetric(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

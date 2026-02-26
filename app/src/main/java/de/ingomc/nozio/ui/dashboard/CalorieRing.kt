@@ -26,6 +26,8 @@ import kotlin.math.min
 fun CalorieRing(
     consumed: Double,
     goal: Double,
+    centerValue: String = consumed.toInt().toString(),
+    centerLabel: String = "von ${goal.toInt()} kcal",
     modifier: Modifier = Modifier
 ) {
     val progress = if (goal > 0) (consumed / goal).toFloat() else 0f
@@ -76,17 +78,16 @@ fun CalorieRing(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "${consumed.toInt()}",
+                text = centerValue,
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "von ${goal.toInt()} kcal",
+                text = centerLabel,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
-
