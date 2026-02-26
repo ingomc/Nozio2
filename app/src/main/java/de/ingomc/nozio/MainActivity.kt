@@ -111,9 +111,6 @@ fun NozioApp() {
                             label = { Text(it.label) },
                             selected = it == currentDestination,
                             onClick = {
-                                if (it != AppDestinations.SEARCH) {
-                                    preselectedMealType = null
-                                }
                                 currentDestination = it
                             },
                             colors = NavigationBarItemDefaults.colors(
