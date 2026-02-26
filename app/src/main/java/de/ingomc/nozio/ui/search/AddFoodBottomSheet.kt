@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -157,7 +157,7 @@ fun AddFoodBottomSheet(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Add button
-            FilledTonalButton(
+            Button(
                 onClick = { onAdd(selectedMealType, amount) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -169,6 +169,5 @@ fun AddFoodBottomSheet(
         }
     }
 }
-
 
 
