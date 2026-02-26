@@ -217,7 +217,10 @@ fun DashboardScreen(
                     mealType = mealType,
                     entries = state.entriesByMeal[mealType] ?: emptyList(),
                     onAddClick = { onAddFood(mealType) },
-                    onDeleteEntry = { viewModel.deleteEntry(it) }
+                    onDeleteEntry = { viewModel.deleteEntry(it) },
+                    onUpdateEntryAmount = { entryId, amount ->
+                        viewModel.updateEntryAmount(entryId, amount)
+                    }
                 )
             }
 

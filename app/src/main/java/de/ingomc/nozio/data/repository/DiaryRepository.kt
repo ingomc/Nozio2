@@ -53,6 +53,10 @@ class DiaryRepository(private val diaryDao: DiaryDao) {
         diaryDao.deleteById(entryId)
     }
 
+    suspend fun updateEntryAmount(entryId: Long, amountInGrams: Double) {
+        diaryDao.updateAmountInGrams(entryId, amountInGrams)
+    }
+
     suspend fun getRecentlyAddedFoods(limit: Int = 8): List<FoodItem> {
         return diaryDao.getRecentlyAddedFoods(limit)
     }

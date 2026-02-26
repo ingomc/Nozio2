@@ -32,6 +32,9 @@ interface DiaryDao {
     @Query("DELETE FROM diary_entries WHERE id = :entryId")
     suspend fun deleteById(entryId: Long)
 
+    @Query("UPDATE diary_entries SET amountInGrams = :amountInGrams WHERE id = :entryId")
+    suspend fun updateAmountInGrams(entryId: Long, amountInGrams: Double)
+
     @Query(
         """
         SELECT 

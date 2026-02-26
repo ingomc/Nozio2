@@ -125,6 +125,12 @@ class DashboardViewModel(
         }
     }
 
+    fun updateEntryAmount(entryId: Long, amountInGrams: Double) {
+        viewModelScope.launch {
+            diaryRepository.updateEntryAmount(entryId, amountInGrams)
+        }
+    }
+
     class Factory(
         private val diaryRepository: DiaryRepository,
         private val userPreferencesRepository: UserPreferencesRepository,
