@@ -32,6 +32,8 @@ fun CalorieRing(
 ) {
     val progress = if (goal > 0) (consumed / goal).toFloat() else 0f
     val clampedProgress = min(progress, 1f)
+    val arcStartAngle = 140f
+    val arcSweepAngle = 260f
 
     var animatedTarget by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(clampedProgress) {
@@ -51,17 +53,17 @@ fun CalorieRing(
 
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier.size(180.dp)
+        modifier = modifier.size(140.dp)
     ) {
-        Canvas(modifier = Modifier.size(180.dp)) {
+        Canvas(modifier = Modifier.size(152.dp)) {
             val strokeWidth = 14.dp.toPx()
             val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
 
             // Track
             drawArc(
                 color = trackColor,
-                startAngle = -90f,
-                sweepAngle = 360f,
+                startAngle = arcStartAngle,
+                sweepAngle = arcSweepAngle,
                 useCenter = false,
                 style = stroke
             )
@@ -69,8 +71,8 @@ fun CalorieRing(
             // Progress
             drawArc(
                 color = ringColor,
-                startAngle = -90f,
-                sweepAngle = 360f * animatedProgress,
+                startAngle = arcStartAngle,
+                sweepAngle = arcSweepAngle * animatedProgress,
                 useCenter = false,
                 style = stroke
             )
@@ -79,13 +81,13 @@ fun CalorieRing(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = centerValue,
-                style = MaterialTheme.typography.headlineLarge,
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = centerLabel,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

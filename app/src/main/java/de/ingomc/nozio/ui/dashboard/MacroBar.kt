@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlin.math.min
@@ -63,8 +62,9 @@ fun MacroBar(
                 .height(8.dp)
                 .padding(top = 2.dp),
             color = color,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            strokeCap = StrokeCap.Round
+            trackColor = color.copy(alpha = 0.25f),
+            gapSize = 0.dp,
+            drawStopIndicator = {}
         )
         Text(
             text = "${consumed.toInt()} / ${goal.toInt()} g",
