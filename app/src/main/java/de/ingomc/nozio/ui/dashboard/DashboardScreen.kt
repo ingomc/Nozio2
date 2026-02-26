@@ -109,6 +109,20 @@ fun DashboardScreen(
 
             item { Spacer(modifier = Modifier.height(4.dp)) }
 
+            // Activity Card
+            item {
+                ActivityCard(
+                    steps = state.totalSteps,
+                    activeCalories = state.activeCalories,
+                    stepsInput = state.stepsInput,
+                    stepsSaved = state.stepsSaved,
+                    onStepsInputChange = viewModel::onStepsInputChange,
+                    onSaveSteps = viewModel::saveStepsForToday
+                )
+            }
+
+            item { Spacer(modifier = Modifier.height(4.dp)) }
+
             // Meal Cards
             items(MealType.entries) { mealType ->
                 MealCard(
@@ -123,4 +137,3 @@ fun DashboardScreen(
         }
     }
 }
-

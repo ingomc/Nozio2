@@ -100,6 +100,24 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            OutlinedTextField(
+                value = state.currentWeightKg,
+                onValueChange = viewModel::onCurrentWeightKgChange,
+                label = { Text("Aktuelles Gewicht (kg)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = state.bodyFatPercent,
+                onValueChange = viewModel::onBodyFatPercentChange,
+                label = { Text("KFA geschaetzt (%)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Spacer(modifier = Modifier.height(8.dp))
 
             FilledTonalButton(
@@ -115,4 +133,3 @@ fun ProfileScreen(
         }
     }
 }
-

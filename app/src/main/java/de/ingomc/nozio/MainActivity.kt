@@ -37,6 +37,7 @@ import de.ingomc.nozio.ui.search.SearchViewModel
 import de.ingomc.nozio.ui.theme.NozioTheme
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -55,7 +56,11 @@ fun NozioApp() {
     var preselectedMealType by rememberSaveable { mutableStateOf<MealType?>(null) }
 
     val dashboardViewModel: DashboardViewModel = viewModel(
-        factory = DashboardViewModel.Factory(app.diaryRepository, app.userPreferencesRepository)
+        factory = DashboardViewModel.Factory(
+            app.diaryRepository,
+            app.userPreferencesRepository,
+            app.dailyActivityRepository
+        )
     )
     val searchViewModel: SearchViewModel = viewModel(
         factory = SearchViewModel.Factory(app.foodRepository, app.diaryRepository)
@@ -104,11 +109,13 @@ fun NozioApp() {
                     currentDestination = AppDestinations.SEARCH
                 }
             )
+
             AppDestinations.SEARCH -> SearchScreen(
                 viewModel = searchViewModel,
                 preselectedMealType = preselectedMealType,
                 modifier = Modifier.padding(it)
             )
+
             AppDestinations.PROFILE -> ProfileScreen(
                 viewModel = profileViewModel,
                 modifier = Modifier
