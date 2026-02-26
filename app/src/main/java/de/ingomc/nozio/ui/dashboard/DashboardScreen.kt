@@ -10,20 +10,34 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DatePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.MealType
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -35,8 +49,34 @@ fun DashboardScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
-    val today = LocalDate.now()
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN)
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerStateForDate(state.selectedDate)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            viewModel.selectDate(millisToLocalDate(millis))
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         TopAppBar(
@@ -48,9 +88,17 @@ fun DashboardScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = today.format(dateFormatter),
+                        text = state.selectedDate.format(dateFormatter),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            actions = {
+                IconButton(onClick = { showDatePicker = true }) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Datum wählen"
                     )
                 }
             }
@@ -117,7 +165,7 @@ fun DashboardScreen(
                     stepsInput = state.stepsInput,
                     stepsSaved = state.stepsSaved,
                     onStepsInputChange = viewModel::onStepsInputChange,
-                    onSaveSteps = viewModel::saveStepsForToday
+                    onSaveSteps = viewModel::saveStepsForSelectedDate
                 )
             }
 
@@ -136,4 +184,19 @@ fun DashboardScreen(
             item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun rememberDatePickerStateForDate(date: LocalDate): DatePickerState {
+    val initialDateMillis = remember(date) {
+        date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    }
+    return androidx.compose.material3.rememberDatePickerState(
+        initialSelectedDateMillis = initialDateMillis
+    )
+}
+
+private fun millisToLocalDate(millis: Long): LocalDate {
+    return Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
 }

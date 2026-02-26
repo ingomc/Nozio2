@@ -38,6 +38,7 @@ class SearchViewModel(
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
+    private val selectedDate = MutableStateFlow(LocalDate.now())
 
     init {
         viewModelScope.launch {
@@ -85,11 +86,15 @@ class SearchViewModel(
         _uiState.value = _uiState.value.copy(showBottomSheet = false, selectedFood = null)
     }
 
+    fun setSelectedDate(date: LocalDate) {
+        selectedDate.value = date
+    }
+
     fun addFood(mealType: MealType, amountInGrams: Double) {
         val food = _uiState.value.selectedFood ?: return
         viewModelScope.launch {
             diaryRepository.addEntry(
-                date = LocalDate.now(),
+                date = selectedDate.value,
                 mealType = mealType,
                 foodItemId = food.id,
                 amountInGrams = amountInGrams

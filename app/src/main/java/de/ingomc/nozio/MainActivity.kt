@@ -18,6 +18,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -68,6 +70,11 @@ fun NozioApp() {
     val profileViewModel: ProfileViewModel = viewModel(
         factory = ProfileViewModel.Factory(app.userPreferencesRepository)
     )
+    val dashboardState by dashboardViewModel.uiState.collectAsState()
+
+    LaunchedEffect(dashboardState.selectedDate) {
+        searchViewModel.setSelectedDate(dashboardState.selectedDate)
+    }
 
     val density = LocalDensity.current
     val isKeyboardOpen = WindowInsets.ime.getBottom(density) > 0
@@ -105,6 +112,7 @@ fun NozioApp() {
                     .padding(it)
                     .statusBarsPadding(),
                 onAddFood = { mealType ->
+                    searchViewModel.setSelectedDate(dashboardState.selectedDate)
                     preselectedMealType = mealType
                     currentDestination = AppDestinations.SEARCH
                 }
