@@ -1,6 +1,7 @@
 package de.ingomc.nozio.ui.profile
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,9 +29,11 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -38,8 +41,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -256,26 +263,92 @@ private fun WeightChart(
 ) {
     val lineColor = MaterialTheme.colorScheme.primary
     val pointColor = MaterialTheme.colorScheme.primary
+    val selectedPointColor = MaterialTheme.colorScheme.secondary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.", Locale.GERMAN) }
+    val selectedPointDateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMAN) }
+    val density = LocalDensity.current
     val chartWidth = max(320, points.size * 56).dp
     val minWeight = points.minOf { it.weightKg }
     val maxWeight = points.maxOf { it.weightKg }
-    val weightRange = (maxWeight - minWeight).takeIf { it > 0.0 } ?: 1.0
+    val paddedMinWeight = minWeight - 1.0
+    val paddedMaxWeight = maxWeight + 1.0
+    val weightRange = (paddedMaxWeight - paddedMinWeight).takeIf { it > 0.0 } ?: 2.0
+    val midWeight = paddedMinWeight + (weightRange / 2.0)
+    var chartSize by remember(points) { mutableStateOf(IntSize.Zero) }
+    var selectedPointIndex by remember(points) { mutableIntStateOf(points.lastIndex) }
 
     Card(modifier = modifier) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 12.dp)
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Top
         ) {
-            Column(modifier = Modifier.width(chartWidth)) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                ) {
+            Column(
+                modifier = Modifier
+                    .height(220.dp)
+                    .padding(start = 4.dp, end = 8.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = formatWeight(paddedMaxWeight),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = formatWeight(midWeight),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = formatWeight(paddedMinWeight),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState())
+            ) {
+                Column(modifier = Modifier.width(chartWidth)) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                            .onSizeChanged { chartSize = it }
+                            .pointerInput(points, paddedMinWeight, weightRange, chartSize) {
+                                detectTapGestures { tapOffset ->
+                                    if (points.isEmpty() || chartSize.width <= 0 || chartSize.height <= 0) return@detectTapGestures
+                                    val left = with(density) { 16.dp.toPx() }
+                                    val right = chartSize.width.toFloat() - with(density) { 16.dp.toPx() }
+                                    val top = with(density) { 16.dp.toPx() }
+                                    val bottom = chartSize.height.toFloat() - with(density) { 20.dp.toPx() }
+                                    val plotWidth = (right - left).coerceAtLeast(1f)
+                                    val plotHeight = (bottom - top).coerceAtLeast(1f)
+                                    val xStep = if (points.size > 1) plotWidth / (points.size - 1) else 0f
+
+                                    var closestIndex = 0
+                                    var closestDistance = Float.MAX_VALUE
+                                    points.forEachIndexed { index, point ->
+                                        val x = left + index * xStep
+                                        val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
+                                        val y = bottom - (normalized * plotHeight)
+                                        val dx = tapOffset.x - x
+                                        val dy = tapOffset.y - y
+                                        val distance = (dx * dx) + (dy * dy)
+                                        if (distance < closestDistance) {
+                                            closestDistance = distance
+                                            closestIndex = index
+                                        }
+                                    }
+                                    selectedPointIndex = closestIndex
+                                }
+                            }
+                    ) {
                     val left = 16.dp.toPx()
                     val right = size.width - 16.dp.toPx()
                     val top = 16.dp.toPx()
@@ -297,7 +370,7 @@ private fun WeightChart(
                     val path = Path()
                     points.forEachIndexed { index, point ->
                         val x = left + index * xStep
-                        val normalized = ((point.weightKg - minWeight) / weightRange).toFloat()
+                        val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
                         val y = bottom - (normalized * plotHeight)
                         if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
@@ -310,32 +383,43 @@ private fun WeightChart(
 
                     points.forEachIndexed { index, point ->
                         val x = left + index * xStep
-                        val normalized = ((point.weightKg - minWeight) / weightRange).toFloat()
+                        val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
                         val y = bottom - (normalized * plotHeight)
                         drawCircle(
-                            color = pointColor,
-                            radius = 4.dp.toPx(),
+                            color = if (index == selectedPointIndex) selectedPointColor else pointColor,
+                            radius = if (index == selectedPointIndex) 6.dp.toPx() else 4.dp.toPx(),
                             center = Offset(x, y)
                         )
                     }
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = points.first().date.format(dateFormatter),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = points.last().date.format(dateFormatter),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = points.first().date.format(dateFormatter),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = points.last().date.format(dateFormatter),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (selectedPointIndex in points.indices) {
+                        val selectedPoint = points[selectedPointIndex]
+                        Text(
+                            text = "Ausgewählt: ${selectedPoint.date.format(selectedPointDateFormatter)} · ${formatWeight(selectedPoint.weightKg)} kg",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
                 }
             }
         }
