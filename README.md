@@ -198,6 +198,8 @@ curl -sS -X POST 'http://127.0.0.1:7700/indexes/foods/documents?primaryKey=id' \
 
 Fuer Dokploy ist der relevante Service das Image aus [Dockerfile](/Users/andre/Documents/dev/Nozio2/services/food-api/Dockerfile) plus eine laufende Meilisearch-Instanz mit denselben Env-Variablen.
 
+Eine konkrete Dokploy-Anleitung fuer `noziodb.ingomc.de` liegt in [DOKPLOY.md](/Users/andre/Documents/dev/Nozio2/docs/DOKPLOY.md).
+
 ## Production Compose
 
 Fuer Serverbetrieb liegt eine getrennte Compose-Datei unter [docker-compose.prod.yml](/Users/andre/Documents/dev/Nozio2/infra/docker-compose.prod.yml). Sie trennt lokale Dev-Einstellungen von dem, was du in Dokploy oder auf einem Server deployen willst.
