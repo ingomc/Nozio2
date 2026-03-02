@@ -30,6 +30,19 @@ class FoodRepository(
         }
     }
 
+    suspend fun ensureFoodStored(foodItem: FoodItem): FoodItem {
+        if (foodItem.id > 0) return foodItem
+
+        val barcode = foodItem.barcode?.takeIf { it.isNotBlank() }
+        if (barcode != null) {
+            val localMatch = foodDao.getByBarcode(barcode)
+            if (localMatch != null) return localMatch
+        }
+
+        val id = foodDao.insert(foodItem)
+        return foodItem.copy(id = id)
+    }
+
     suspend fun getFoodByBarcode(barcode: String): FoodItem? {
         if (barcode.isBlank()) return null
 

@@ -100,7 +100,7 @@ fun SearchScreen(
         animationSpec = tween(durationMillis = 1400, easing = LinearEasing),
         label = "addedBannerProgress"
     )
-    val showingSuggestions = state.query.length < 2
+    val showingSuggestions = state.query.length < 3
     val foodsToShow = if (showingSuggestions) state.recentSuggestions else state.results
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -160,7 +160,7 @@ fun SearchScreen(
                 }
 
                 // Empty state
-                if (!state.isLoading && state.results.isEmpty() && state.query.length >= 2 && state.error == null) {
+                if (!state.isLoading && state.results.isEmpty() && state.query.length >= 3 && state.error == null) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -176,7 +176,7 @@ fun SearchScreen(
                 }
 
                 // Hint when no query
-                if (state.query.length < 2 && state.recentSuggestions.isEmpty()) {
+                if (state.query.length < 3 && state.recentSuggestions.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -196,7 +196,7 @@ fun SearchScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "Mindestens 2 Zeichen eingeben",
+                                text = "Mindestens 3 Zeichen eingeben",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

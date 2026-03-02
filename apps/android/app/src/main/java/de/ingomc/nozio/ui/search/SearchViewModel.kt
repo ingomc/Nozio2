@@ -11,6 +11,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -34,6 +35,9 @@ class SearchViewModel(
     private val foodRepository: FoodRepository,
     private val diaryRepository: DiaryRepository
 ) : ViewModel() {
+    private companion object {
+        const val MIN_SEARCH_QUERY_LENGTH = 3
+    }
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
@@ -46,8 +50,8 @@ class SearchViewModel(
             _searchQuery
                 .debounce(400)
                 .distinctUntilChanged()
-                .filter { it.length >= 2 }
-                .collect { query ->
+                .filter { it.length >= MIN_SEARCH_QUERY_LENGTH }
+                .collectLatest { query ->
                     performSearch(query)
                 }
         }
@@ -62,7 +66,7 @@ class SearchViewModel(
             showBarcodeResultsSheet = false
         )
         _searchQuery.value = query
-        if (query.length < 2) {
+        if (query.length < MIN_SEARCH_QUERY_LENGTH) {
             _uiState.value = _uiState.value.copy(results = emptyList(), isLoading = false)
         }
     }
@@ -104,10 +108,11 @@ class SearchViewModel(
     fun addFood(mealType: MealType, amountInGrams: Double) {
         val food = _uiState.value.selectedFood ?: return
         viewModelScope.launch {
+            val storedFood = foodRepository.ensureFoodStored(food)
             diaryRepository.addEntry(
                 date = selectedDate.value,
                 mealType = mealType,
-                foodItemId = food.id,
+                foodItemId = storedFood.id,
                 amountInGrams = amountInGrams
             )
             val recentSuggestions = diaryRepository.getRecentlyAddedFoods()

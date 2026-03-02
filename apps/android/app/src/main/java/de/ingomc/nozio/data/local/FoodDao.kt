@@ -13,7 +13,7 @@ interface FoodDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(foodItems: List<FoodItem>): List<Long>
 
-    @Query("SELECT * FROM food_items WHERE name LIKE '%' || :query || '%' LIMIT 50")
+    @Query("SELECT * FROM food_items WHERE name LIKE '%' || :query || '%' LIMIT 10")
     suspend fun searchByName(query: String): List<FoodItem>
 
     @Query("SELECT * FROM food_items WHERE id = :id")
@@ -22,5 +22,4 @@ interface FoodDao {
     @Query("SELECT * FROM food_items WHERE barcode = :barcode LIMIT 1")
     suspend fun getByBarcode(barcode: String): FoodItem?
 }
-
 
