@@ -20,8 +20,12 @@ services:
       - ./food-api.env
     environment:
       MEILI_URL: http://meilisearch:7700
+      MEILI_SEED_FILE: /data/seeds/foods.json
     ports:
       - "${FOOD_API_HOST_PORT:-3000}:3000"
+    volumes:
+      - seed_data:/data/seeds
 
 volumes:
   meili_data:
+  seed_data:

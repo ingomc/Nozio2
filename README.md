@@ -129,6 +129,11 @@ HOST=0.0.0.0
 MEILI_URL=http://127.0.0.1:7700
 MEILI_MASTER_KEY=change-me
 MEILI_INDEX_NAME=foods
+ADMIN_API_TOKEN=change-me-admin
+MAX_SEED_UPLOAD_MB=100
+MEILI_AUTO_SEED=true
+MEILI_SEED_FILE=data/seed/runtime/foods.json
+MEILI_SEED_FALLBACK_FILE=data/seed/foods.de.sample.json
 FOOD_API_KEY=dev-change-me
 FOOD_API_HOST_PORT=3000
 ```
@@ -228,9 +233,12 @@ Eigenschaften des Production-Setups:
 - `food-api` ist der einzige nach aussen freigegebene Service
 - `food-api` spricht intern ueber `http://meilisearch:7700`
 - Daten liegen persistent im Volume `meili_data`
+- Seed-Dateien fuer Uploads liegen persistent im Volume `seed_data`
+- bei leerem Index importiert der Container zuerst `MEILI_SEED_FILE`, sonst `MEILI_SEED_FALLBACK_FILE`
 
 Empfehlung fuer Dokploy:
 
 - `food-api` hinter deine Domain oder Reverse Proxy legen
 - `meilisearch` nur intern erreichbar lassen
 - TLS und oeffentliche Exposition nicht auf Compose-Ebene, sondern ueber Dokploy/Proxy terminieren
+- fuer Uploads den Admin-Endpoint mit `x-admin-token` und dem persistenten `seed_data`-Volume nutzen

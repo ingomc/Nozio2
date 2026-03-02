@@ -7,7 +7,7 @@ Diese Anleitung beschreibt den Deploy des Stacks nach Dokploy unter `noziodb.ing
 - `food-api` ist oeffentlich unter `https://noziodb.ingomc.de` erreichbar
 - `meilisearch` bleibt intern
 - TLS endet in Dokploy
-- der Suchindex `foods` wird nach dem Deploy separat importiert
+- der Suchindex `foods` wird beim ersten Start automatisch aus einer eingecheckten JSON-Datei befuellt, falls er noch leer ist
 
 ## Dateien
 
@@ -55,6 +55,11 @@ HOST=0.0.0.0
 MEILI_URL=http://meilisearch:7700
 MEILI_MASTER_KEY=<gleiches-meili-secret>
 MEILI_INDEX_NAME=foods
+ADMIN_API_TOKEN=<separates-admin-secret>
+MAX_SEED_UPLOAD_MB=100
+MEILI_AUTO_SEED=true
+MEILI_SEED_FILE=/data/seeds/foods.json
+MEILI_SEED_FALLBACK_FILE=data/seed/foods.de.sample.json
 FOOD_API_KEY=<separates-api-secret>
 FOOD_API_PUBLIC_PORT=3000
 ```
@@ -64,6 +69,9 @@ Hinweis:
 - `MEILI_URL` muss intern auf `http://meilisearch:7700` zeigen
 - `MEILI_MASTER_KEY` muss in beiden Services identisch sein
 - `FOOD_API_KEY` ist dein Client-Key fuer die Android-App
+- `ADMIN_API_TOKEN` schuetzt den Upload-Endpoint
+- `MEILI_SEED_FILE` zeigt auf die persistent gespeicherte Server-Seed-Datei
+- `MEILI_SEED_FALLBACK_FILE` bleibt dein Repo-Fallback fuer leere Volumes
 
 ### 3. Domain binden
 
@@ -85,7 +93,7 @@ Nach dem ersten Deploy:
 
 1. Stack starten lassen
 2. `https://noziodb.ingomc.de/health` pruefen
-3. dann erst Daten importieren
+3. automatische Seed-Befuellung abwarten, falls der Index leer war
 
 Der Healthcheck muss liefern:
 
@@ -93,11 +101,35 @@ Der Healthcheck muss liefern:
 {"status":"ok"}
 ```
 
-## Datenimport
+## Seed-Daten
 
-Der Import passiert bewusst separat vom Deploy.
+Standardmaessig nutzt der Container zuerst `/data/seeds/foods.json` aus dem persistenten Volume. Wenn dort noch nichts liegt, faellt er auf `data/seed/foods.de.sample.json` aus dem Repo zurueck.
 
-### 1. Import-JSON aus Parquet erzeugen
+Wichtig:
+
+- der Auto-Seed laeuft nur, wenn `MEILI_AUTO_SEED=true` ist
+- importiert wird nur, wenn `foods` noch nicht existiert oder `0` Dokumente hat
+- bestehende Daten werden nicht ueberschrieben
+
+### Seed-Datei per API hochladen
+
+Wenn du deine grosse JSON auf den Server pushen willst, kannst du sie direkt an Fastify senden:
+
+```bash
+curl -X POST \
+  'https://noziodb.ingomc.de/admin/seed-upload?importNow=true&resetIndex=false' \
+  -H 'x-admin-token: <dein-admin-secret>' \
+  -H 'Content-Type: application/json' \
+  --data-binary @/pfad/zu/foods.json
+```
+
+Das macht drei Dinge:
+
+- speichert die Datei persistent unter `/data/seeds/foods.json`
+- importiert sie optional sofort in Meili
+- nutzt dieselbe Datei spaeter wieder fuer leere Neu-Deployments
+
+### Eigenes Start-Dataset aus Parquet erzeugen
 
 Lokal:
 
@@ -111,7 +143,7 @@ PATH="$(pwd)/.venv-parquet/bin:$PATH" corepack pnpm extract:off \
   --min-completeness 0.2
 ```
 
-### 2. In den Server-Index importieren
+### Optional: manuell in den Server-Index importieren
 
 Setze vor dem Import die produktiven Variablen:
 
@@ -131,15 +163,16 @@ Wichtig:
 
 - dieser Befehl spricht direkt gegen die Meili-API-URL aus `MEILI_URL`
 - wenn du Meili in Dokploy nicht oeffentlich expose willst, fuehre den Import stattdessen auf dem Server oder in einem internen Kontext aus
+- fuer kuenftige Neu-Deploys ohne bestehendes Volume bleibt der Repo-Fallback unter `MEILI_SEED_FALLBACK_FILE` bestehen
 
-## Empfehlung fuer den Import in Dokploy
+## Empfehlung fuer Seed und Import in Dokploy
 
 Wenn `meilisearch` nicht oeffentlich erreichbar ist, hast du zwei saubere Wege:
 
-1. den Import einmal direkt auf dem Server laufen lassen
-2. temporaer eine interne Shell/Job gegen denselben Docker-Netzwerk-Kontext verwenden
+1. fuer den initialen Grundbestand den Admin-Upload nach `/data/seeds/foods.json` verwenden
+2. fuer groessere spaetere Updates denselben Endpoint erneut aufrufen oder bewusst manuell importieren
 
-Fuer den Start ist Weg 1 meist am einfachsten.
+Fuer deinen Fall mit kleiner Datenbasis ist Weg 1 der passende Default.
 
 ## Android danach
 
@@ -182,7 +215,8 @@ curl -H 'x-api-key: <dein-api-secret>' \
   - `MEILI_URL` oder der interne Service-Name stimmt nicht
 
 - leere Treffer
-  - Import wurde noch nicht ausgefuehrt
+  - Auto-Seed-Datei wurde nicht gefunden oder war leer
+  - oder ein manueller Import wurde noch nicht ausgefuehrt
   - oder der Index `foods` ist leer
 
 - nach Redeploy keine Daten mehr
