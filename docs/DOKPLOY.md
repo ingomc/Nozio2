@@ -41,7 +41,7 @@ In Dokploy:
 
 ### 2. Env-Dateien in Dokploy setzen
 
-Lege in Dokploy die Variablen aus den Beispiel-Dateien an.
+Lege in Dokploy die Variablen aus den Beispiel-Dateien an. Die Production-Compose-Datei mappt diese Variablen explizit unter `environment`, damit die Werte aus Dokploy direkt in den jeweiligen Containern landen.
 
 Fuer `meilisearch`:
 
