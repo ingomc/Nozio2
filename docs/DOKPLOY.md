@@ -7,7 +7,8 @@ Diese Anleitung beschreibt den Deploy des Stacks nach Dokploy unter `noziodb.ing
 - `food-api` ist oeffentlich unter `https://noziodb.ingomc.de` erreichbar
 - `meilisearch` bleibt intern
 - TLS endet in Dokploy
-- der Suchindex `foods` wird beim ersten Start automatisch aus einer eingecheckten JSON-Datei befuellt, falls er noch leer ist
+- hochgeladene Seed-Dateien bleiben persistent im Server-Volume erhalten
+- der Suchindex `foods` wird bei leerem Index automatisch aus `/data/seeds/foods.json` oder dem Repo-Fallback befuellt
 
 ## Dateien
 
@@ -23,7 +24,8 @@ Du brauchst:
 - DNS-Eintrag fuer `noziodb.ingomc.de` auf deinen Server
 - ein langes `MEILI_MASTER_KEY`
 - ein separates langes `FOOD_API_KEY`
-- die Parquet-Datei lokal oder auf einer Build-Maschine fuer den spaeteren Import
+- ein separates langes `ADMIN_API_TOKEN`
+- optional deine grosse JSON-Datei lokal fuer den spaeteren Upload
 
 ## Dokploy Setup
 
@@ -83,9 +85,12 @@ In Dokploy die Domain am `food-api`-Service hinterlegen:
 
 `meilisearch` bekommt keine oeffentliche Domain.
 
-### 4. Volume
+### 4. Volumes
 
-Stelle sicher, dass das Compose-Volume `meili_data` persistent bleibt. Dort liegt dein Suchindex.
+Stelle sicher, dass beide Compose-Volumes persistent bleiben:
+
+- `meili_data` fuer den Suchindex
+- `seed_data` fuer hochgeladene Seed-Dateien unter `/data/seeds`
 
 ## Erster Start
 
@@ -93,7 +98,8 @@ Nach dem ersten Deploy:
 
 1. Stack starten lassen
 2. `https://noziodb.ingomc.de/health` pruefen
-3. automatische Seed-Befuellung abwarten, falls der Index leer war
+3. optional deine echte Seed-Datei per Admin-Endpoint hochladen
+4. danach Such-Endpunkte testen
 
 Der Healthcheck muss liefern:
 
@@ -103,7 +109,7 @@ Der Healthcheck muss liefern:
 
 ## Seed-Daten
 
-Standardmaessig nutzt der Container zuerst `/data/seeds/foods.json` aus dem persistenten Volume. Wenn dort noch nichts liegt, faellt er auf `data/seed/foods.de.sample.json` aus dem Repo zurueck.
+Standardmaessig nutzt der Container zuerst `/data/seeds/foods.json` aus dem persistenten `seed_data`-Volume. Wenn dort noch nichts liegt, faellt er auf `data/seed/foods.de.sample.json` aus dem Repo zurueck.
 
 Wichtig:
 
@@ -129,6 +135,16 @@ Das macht drei Dinge:
 - importiert sie optional sofort in Meili
 - nutzt dieselbe Datei spaeter wieder fuer leere Neu-Deployments
 
+Fuer eine komplette Neu-Befuellung des Index kannst du `resetIndex=true` setzen:
+
+```bash
+curl -X POST \
+  'https://noziodb.ingomc.de/admin/seed-upload?importNow=true&resetIndex=true' \
+  -H 'x-admin-token: <dein-admin-secret>' \
+  -H 'Content-Type: application/json' \
+  --data-binary @/pfad/zu/foods.json
+```
+
 ### Eigenes Start-Dataset aus Parquet erzeugen
 
 Lokal:
@@ -144,6 +160,8 @@ PATH="$(pwd)/.venv-parquet/bin:$PATH" corepack pnpm extract:off \
 ```
 
 ### Optional: manuell in den Server-Index importieren
+
+Das ist nur noch der Fallback, falls du bewusst am Admin-Upload vorbei direkt gegen Meili arbeiten willst.
 
 Setze vor dem Import die produktiven Variablen:
 
@@ -162,7 +180,8 @@ corepack pnpm import:meili --file "$(pwd)/data/seed/foods.de.cleaned.json"
 Wichtig:
 
 - dieser Befehl spricht direkt gegen die Meili-API-URL aus `MEILI_URL`
-- wenn du Meili in Dokploy nicht oeffentlich expose willst, fuehre den Import stattdessen auf dem Server oder in einem internen Kontext aus
+- in deinem Dokploy-Setup ist Meili normalerweise nicht oeffentlich erreichbar
+- daher funktioniert dieser Weg nur auf dem Server selbst oder in einem internen Docker-/Dokploy-Kontext
 - fuer kuenftige Neu-Deploys ohne bestehendes Volume bleibt der Repo-Fallback unter `MEILI_SEED_FALLBACK_FILE` bestehen
 
 ## Empfehlung fuer Seed und Import in Dokploy
@@ -170,7 +189,8 @@ Wichtig:
 Wenn `meilisearch` nicht oeffentlich erreichbar ist, hast du zwei saubere Wege:
 
 1. fuer den initialen Grundbestand den Admin-Upload nach `/data/seeds/foods.json` verwenden
-2. fuer groessere spaetere Updates denselben Endpoint erneut aufrufen oder bewusst manuell importieren
+2. fuer spaetere Updates denselben Endpoint erneut aufrufen
+3. den direkten Meili-Import nur als Sonderfall fuer interne Wartung nutzen
 
 Fuer deinen Fall mit kleiner Datenbasis ist Weg 1 der passende Default.
 
@@ -210,6 +230,12 @@ curl -H 'x-api-key: <dein-api-secret>' \
 - `401 Unauthorized`
   - `FOOD_API_KEY` in App/Client passt nicht zum Server
 
+- `401 Unauthorized` beim Upload
+  - `x-admin-token` passt nicht zu `ADMIN_API_TOKEN`
+
+- `503 ADMIN_DISABLED`
+  - `ADMIN_API_TOKEN` ist in Dokploy nicht gesetzt
+
 - `502 MEILI_UNAVAILABLE`
   - `food-api` erreicht `meilisearch` intern nicht
   - `MEILI_URL` oder der interne Service-Name stimmt nicht
@@ -221,3 +247,4 @@ curl -H 'x-api-key: <dein-api-secret>' \
 
 - nach Redeploy keine Daten mehr
   - pruefen, ob `meili_data` persistent gemountet bleibt
+  - pruefen, ob `seed_data` persistent gemountet bleibt
