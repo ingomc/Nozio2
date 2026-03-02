@@ -1,0 +1,26 @@
+{
+  "name": "@nozio/meili-import",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "import": "tsx src/index.ts",
+    "extract:off": "python3 src/extract-off.py",
+    "inspect:off": "python3 src/inspect-off-parquet.py",
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test --import tsx tests/*.test.ts"
+  },
+  "dependencies": {
+    "@nozio/food-contracts": "workspace:*",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.7",
+    "meilisearch": "^0.50.0",
+    "undici": "^7.16.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

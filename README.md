@@ -1,118 +1,234 @@
-# Nozio
+# Nozio Monorepo
 
-Nozio ist eine Android-App zum einfachen, taeglichen Ernaehrungs-Tracking.  
-Fokus: Lebensmittel schnell erfassen, Kalorien/Makros gegen Ziele vergleichen und Aktivitaet/Gewicht im Blick behalten.
+Nozio ist jetzt als Monorepo organisiert. Die bestehende Android-App lebt unter `apps/android`, dazu kommen ein self-hosted Food API auf Basis von Fastify + Meilisearch sowie ein Importskript fuer dein OpenFoodFacts-Parquet.
 
-## Status
-
-- Version: `0.1.0`
-- Plattform: Android (Kotlin + Jetpack Compose)
-- Reifegrad: aktive Entwicklung
-
-## Features
-
-- Tages-Dashboard mit:
-  - gegessenen Kalorien
-  - geschaetzten Aktivitaetskalorien
-  - verbleibenden Kalorien
-  - Makro-Balken (KH, Eiweiss, Fett)
-- Mahlzeiten-Tracking (`Fruehstueck`, `Mittagessen`, `Abendessen`, `Snacks`)
-- Lebensmittel-Suche (OpenFoodFacts)
-- Barcode-Scan (CameraX + ML Kit)
-- Add-Food-Flow mit Mengenwahl und Mahlzeitzuordnung
-- Bearbeiten/Loeschen von Eintraegen
-- Schritte pro Tag erfassen
-- Gewicht pro Tag erfassen
-- Profil mit Zielwerten (Kalorien + Makros, Gewicht, KFA)
-- Gewichtsverlauf mit Zeitfiltern (7T / 30T / 90T / Alle)
-
-## Tech Stack
-
-- Kotlin
-- Jetpack Compose + Material3
-- Android Architecture Components (ViewModel, Flow)
-- Room (lokale Datenbank)
-- DataStore Preferences
-- Retrofit + Kotlinx Serialization
-- OpenFoodFacts API
-- CameraX
-- Google ML Kit Barcode Scanning
-
-## Projektstruktur
+## Struktur
 
 ```text
-app/src/main/java/de/ingomc/nozio
-├─ data
-│  ├─ local        # Room Entities, DAOs, DB
-│  ├─ remote       # Retrofit API + DTOs
-│  └─ repository   # Fachlogik und Datenzugriff
-├─ ui
-│  ├─ dashboard    # Home/Tagesueberblick
-│  ├─ search       # Suche + Barcode + Add-Food
-│  ├─ profile      # Ziele + Gewichtsverlauf
-│  └─ theme
-├─ MainActivity.kt
-└─ NozioApplication.kt
+.
+├─ apps/
+│  └─ android/
+├─ data/
+│  ├─ examples/
+│  └─ seed/
+├─ infra/
+├─ packages/
+│  └─ food-contracts/
+├─ scripts/
+│  └─ meili-import/
+└─ services/
+   └─ food-api/
 ```
 
-## Voraussetzungen
+## Schnellstart
 
-- Android Studio (aktuelle stabile Version empfohlen)
-- JDK 11
-- Android SDK:
-  - `compileSdk 35`
-  - `targetSdk 35`
-  - `minSdk 26`
-
-## Lokales Setup
-
-1. Repository klonen
-2. Projekt in Android Studio oeffnen
-3. Gradle-Sync abwarten
-4. App auf Emulator oder Geraet starten
-
-Alternative per CLI:
+### 1. Meilisearch starten
 
 ```bash
-./gradlew assembleDebug
-./gradlew installDebug
+cp infra/meilisearch.env.example infra/meilisearch.env
+docker compose -f infra/docker-compose.yml --env-file infra/meilisearch.env up -d meilisearch
 ```
 
-## Build-Konfiguration
+### 2. Node-Dependencies installieren
 
-- `applicationId`: `de.ingomc.nozio`
-- `versionName`: `0.1.0`
-- `versionCode`: `1`
+```bash
+pnpm install
+```
 
-## Datenquellen und Persistenz
+### 3. Beispieldaten oder eigenes JSON importieren
 
-- Extern: OpenFoodFacts (Suche + Barcode)
-- Lokal:
-  - Room DB (`food_items`, `diary_entries`, `daily_activity`)
-  - DataStore (`user_preferences`)
-- Bei Netzproblemen nutzt die Suche einen lokalen Fallback (Cache-Suche in Room).
+```bash
+cp infra/food-api.env.example infra/food-api.env
+pnpm import:meili --file data/examples/foods.sample.json
+```
 
-## Aktueller Konzeptfokus
+Fuer dein eigenes JSON lege z. B. `data/seed/foods.cleaned.json` an und uebergib den Pfad per `--file`.
 
-- Daily Nutrition Control (Single-User, local-first)
-- Schnelle Eingabe statt komplexer Planungslogik
-- Zielorientierte Darstellung im Dashboard
+Wenn du mit dem OpenFoodFacts-Parquet `food.parquet` arbeitest, extrahierst du daraus zuerst ein schlankes JSON:
 
-Detailierte Bestandsaufnahme:
-- [APP_KONZEPT_AKTUELL.txt](APP_KONZEPT_AKTUELL.txt)
+```bash
+python3 -m venv .venv-parquet
+.venv-parquet/bin/pip install -r scripts/meili-import/requirements-parquet.txt
+corepack pnpm extract:off --input /Users/andre/Documents/dev/Nozio2/food.parquet --output /Users/andre/Documents/dev/Nozio2/data/seed/foods.de.cleaned.json --country Germany --min-completeness 0.2
+corepack pnpm import:meili --file /Users/andre/Documents/dev/Nozio2/data/seed/foods.de.cleaned.json
+```
 
-## Roadmap / Releases
+Default-Verhalten des Extractors:
 
-- [ROADMAP.md](ROADMAP.md)
-- [RELEASE_NOTES_0.1.0.md](RELEASE_NOTES_0.1.0.md)
+- `product_name`, `code` und `energy-kcal` aus `nutriments` sind Pflicht
+- Makros pro 100g sind standardmaessig ebenfalls Pflicht
+- `completeness >= 0.2`
+- Bild und Serving-Angaben sind optional
 
-## Hinweise
+Unterstuetzte Flags:
 
-- Kamera-Berechtigung wird fuer Barcode-Scan benoetigt.
-- Die App ist derzeit nicht auf Multi-Device-Sync ausgelegt (kein Account/Cloud).
+- `--input <pfad>`
+- `--output <pfad>`
+- `--country Germany`
+- `--min-completeness 0.2`
+- `--require-image true`
+- `--require-full-macros false`
+- `--limit 10000`
 
-## Lizenz
+### 4. Food API starten
 
-Aktuell keine Lizenzdatei hinterlegt.  
-Falls das Repo oeffentlich genutzt werden soll, empfiehlt sich eine `LICENSE` (z. B. MIT).
+```bash
+pnpm dev:food-api
+```
 
+### 5. Android-App starten
+
+```bash
+cd apps/android
+./gradlew assembleDebug
+```
+
+Die Android-App erwartet standardmaessig:
+
+- `FOOD_API_BASE_URL = http://10.0.2.2:3000/`
+- `FOOD_API_KEY = dev-change-me`
+
+Fuer echte Geraete musst du die Base-URL auf deine LAN-IP anpassen.
+
+## Services
+
+### Android
+
+- Pfad: `apps/android`
+- Stack: Kotlin, Jetpack Compose, Room, Retrofit
+- Die App spricht nur noch mit dem self-hosted Food API.
+
+### Food API
+
+- Pfad: `services/food-api`
+- Stack: Node.js, TypeScript, Fastify, Meilisearch
+- Endpunkte:
+  - `GET /health`
+  - `GET /v1/foods/search?q=<query>&limit=<n>`
+  - `GET /v1/foods/barcode/:barcode`
+
+### Importskript
+
+- Pfad: `scripts/meili-import`
+- Validiert und transformiert dein JSON in indexierbare Meilisearch-Dokumente.
+
+## Umgebung
+
+### `infra/meilisearch.env`
+
+```env
+MEILI_MASTER_KEY=change-me
+MEILI_HOST_PORT=7700
+```
+
+### `infra/food-api.env`
+
+```env
+PORT=3000
+HOST=0.0.0.0
+MEILI_URL=http://127.0.0.1:7700
+MEILI_MASTER_KEY=change-me
+MEILI_INDEX_NAME=foods
+FOOD_API_KEY=dev-change-me
+FOOD_API_HOST_PORT=3000
+```
+
+Fuer Docker Compose wird `MEILI_URL` automatisch auf `http://meilisearch:7700` gesetzt. Der Wert in `food-api.env` ist fuer den lokalen Non-Docker-Start per `pnpm dev:food-api`.
+
+## Android-Hinweise
+
+- Fuer lokale HTTP-Entwicklung ist `usesCleartextTraffic="true"` gesetzt.
+- Room bleibt als lokaler Cache/Fallback fuer Suchdaten erhalten.
+- Barcode- und Textsuche laufen ueber dein Backend statt direkt ueber OpenFoodFacts.
+
+## JSON-Anforderungen
+
+Jeder Datensatz sollte diese Felder liefern:
+
+- `id`
+- `name`
+- `brand`
+- `barcode`
+- `caloriesPer100g`
+- `proteinPer100g`
+- `fatPer100g`
+- `carbsPer100g`
+
+Fehlende Makros werden beim Import auf `0` gesetzt. Datensaetze ohne `name` oder ohne numerische `caloriesPer100g` werden verworfen.
+
+## Tests
+
+Node:
+
+```bash
+pnpm test
+```
+
+Android:
+
+```bash
+cd apps/android
+./gradlew testDebugUnitTest
+```
+
+## Docker Start
+
+Beide Services zusammen lokal:
+
+```bash
+docker compose -p nozio-local -f infra/docker-compose.yml --env-file infra/meilisearch.env up -d --build
+```
+
+Danach ist das API unter `http://127.0.0.1:3000` erreichbar. Den Datenimport machst du weiter separat vom Host aus:
+
+```bash
+python3 -m venv .venv-parquet
+.venv-parquet/bin/pip install -r /Users/andre/Documents/dev/Nozio2/scripts/meili-import/requirements-parquet.txt
+.venv-parquet/bin/python /Users/andre/Documents/dev/Nozio2/scripts/meili-import/src/extract-off.py \
+  --input /Users/andre/Documents/dev/Nozio2/food.parquet \
+  --output /Users/andre/Documents/dev/Nozio2/data/seed/foods.de.cleaned.json \
+  --country Germany \
+  --min-completeness 0.2
+
+curl -sS -X POST 'http://127.0.0.1:7700/indexes/foods/documents?primaryKey=id' \
+  -H 'Authorization: Bearer change-me' \
+  -H 'Content-Type: application/json' \
+  --data-binary @/Users/andre/Documents/dev/Nozio2/data/seed/foods.de.cleaned.json
+```
+
+Fuer Dokploy ist der relevante Service das Image aus [Dockerfile](/Users/andre/Documents/dev/Nozio2/services/food-api/Dockerfile) plus eine laufende Meilisearch-Instanz mit denselben Env-Variablen.
+
+## Production Compose
+
+Fuer Serverbetrieb liegt eine getrennte Compose-Datei unter [docker-compose.prod.yml](/Users/andre/Documents/dev/Nozio2/infra/docker-compose.prod.yml). Sie trennt lokale Dev-Einstellungen von dem, was du in Dokploy oder auf einem Server deployen willst.
+
+Vorbereitung:
+
+```bash
+cp infra/meilisearch.prod.env.example infra/meilisearch.prod.env
+cp infra/food-api.prod.env.example infra/food-api.prod.env
+```
+
+Dann Secrets setzen:
+
+- `MEILI_MASTER_KEY` lang und zufaellig
+- `FOOD_API_KEY` separat und ebenfalls lang
+
+Start:
+
+```bash
+docker compose -p nozio-prod -f infra/docker-compose.prod.yml up -d --build
+```
+
+Eigenschaften des Production-Setups:
+
+- `meilisearch` ist nicht oeffentlich per Host-Port exposed
+- `food-api` ist der einzige nach aussen freigegebene Service
+- `food-api` spricht intern ueber `http://meilisearch:7700`
+- Daten liegen persistent im Volume `meili_data`
+
+Empfehlung fuer Dokploy:
+
+- `food-api` hinter deine Domain oder Reverse Proxy legen
+- `meilisearch` nur intern erreichbar lassen
+- TLS und oeffentliche Exposition nicht auf Compose-Ebene, sondern ueber Dokploy/Proxy terminieren

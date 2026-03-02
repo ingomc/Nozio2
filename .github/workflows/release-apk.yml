@@ -26,13 +26,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
+        run: chmod +x ./apps/android/gradlew
 
       - name: Build release APK (unsigned)
+        working-directory: ./apps/android
         run: ./gradlew :app:assembleRelease
 
       - name: Upload APK(s) to release
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/*.apk
+          files: apps/android/app/build/outputs/apk/release/*.apk
           fail_on_unmatched_files: true

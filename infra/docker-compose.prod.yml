@@ -1,0 +1,25 @@
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.13
+    restart: unless-stopped
+    env_file:
+      - ./meilisearch.prod.env
+    volumes:
+      - meili_data:/meili_data
+
+  food-api:
+    build:
+      context: ..
+      dockerfile: services/food-api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - meilisearch
+    env_file:
+      - ./food-api.prod.env
+    environment:
+      MEILI_URL: http://meilisearch:7700
+    ports:
+      - "${FOOD_API_PUBLIC_PORT:-3000}:3000"
+
+volumes:
+  meili_data:

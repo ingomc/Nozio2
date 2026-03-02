@@ -1,0 +1,14 @@
+{
+  "name": "nozio-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "build": "corepack pnpm -r build",
+    "test": "corepack pnpm -r test",
+    "dev:food-api": "corepack pnpm --filter @nozio/food-api dev",
+    "build:food-api": "corepack pnpm --filter @nozio/food-api build",
+    "import:meili": "corepack pnpm --filter @nozio/meili-import run import",
+    "extract:off": "corepack pnpm --filter @nozio/meili-import run extract:off",
+    "inspect:off": "corepack pnpm --filter @nozio/meili-import run inspect:off"
+  }
+}

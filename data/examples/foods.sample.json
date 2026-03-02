@@ -1,0 +1,22 @@
+[
+  {
+    "id": "off-1234567890123",
+    "name": "Haferflocken",
+    "brand": "Ja",
+    "barcode": "1234567890123",
+    "caloriesPer100g": 370,
+    "proteinPer100g": 13.5,
+    "fatPer100g": 7,
+    "carbsPer100g": 58
+  },
+  {
+    "id": "off-9876543210987",
+    "name": "Magerquark",
+    "brand": "Milbona",
+    "barcode": "9876543210987",
+    "caloriesPer100g": 67,
+    "proteinPer100g": 12,
+    "fatPer100g": 0.2,
+    "carbsPer100g": 4
+  }
+]
