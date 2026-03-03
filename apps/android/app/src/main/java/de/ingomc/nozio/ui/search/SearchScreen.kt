@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -46,6 +48,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -68,6 +71,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -211,6 +215,15 @@ fun SearchScreen(
                         .weight(1f),
                     contentPadding = PaddingValues(bottom = listBottomPadding)
                 ) {
+                    if (state.query.length < 3) {
+                        item {
+                            QuickActionsCard(
+                                onQuickAddClick = viewModel::showQuickAddSheet,
+                                onCreateFoodClick = viewModel::showCreateCustomFoodSheet
+                            )
+                            HorizontalDivider()
+                        }
+                    }
                     if (showingSuggestions && foodsToShow.isNotEmpty()) {
                         item {
                             Text(
@@ -410,6 +423,22 @@ fun SearchScreen(
             onAdd = { mealType, amount -> viewModel.addFood(mealType, amount) }
         )
     }
+
+    if (state.showQuickAddSheet) {
+        QuickAddBottomSheet(
+            preselectedMealType = preselectedMealType,
+            onDismiss = viewModel::dismissQuickAddSheet,
+            onAdd = viewModel::addQuickEntry
+        )
+    }
+
+    if (state.showCreateCustomFoodSheet) {
+        CreateCustomFoodBottomSheet(
+            isSubmitting = state.isSubmittingCustomFood,
+            onDismiss = viewModel::dismissCreateCustomFoodSheet,
+            onSave = viewModel::createCustomFood
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -421,10 +450,14 @@ private fun BarcodeResultsBottomSheet(
     onResultClick: (FoodItem) -> Unit,
     onShowAllResults: () -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val maxSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.88f
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = maxSheetHeight)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Text(
@@ -505,6 +538,47 @@ private fun FoodSearchItem(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun QuickActionsCard(
+    onQuickAddClick: () -> Unit,
+    onCreateFoodClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Text(
+            text = "Schnell eintragen",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = "Kalorien direkt loggen oder ein eigenes Produkt anlegen.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = onQuickAddClick,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Quick Add")
+            }
+            OutlinedButton(
+                onClick = onCreateFoodClick,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Eigenes Produkt")
+            }
         }
     }
 }

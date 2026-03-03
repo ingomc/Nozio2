@@ -4,7 +4,22 @@ import de.ingomc.nozio.data.local.FoodDao
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.FoodSource
 import de.ingomc.nozio.data.remote.FoodApi
+import de.ingomc.nozio.data.remote.CreateCustomFoodRequestDto
 import de.ingomc.nozio.data.remote.FoodSearchItemDto
+
+data class CustomFoodInput(
+    val name: String,
+    val brand: String? = null,
+    val barcode: String? = null,
+    val caloriesPer100g: Double,
+    val proteinPer100g: Double = 0.0,
+    val fatPer100g: Double = 0.0,
+    val carbsPer100g: Double = 0.0,
+    val servingSize: String? = null,
+    val servingQuantity: Double? = null,
+    val packageSize: String? = null,
+    val packageQuantity: Double? = null
+)
 
 class FoodRepository(
     private val api: FoodApi,
@@ -50,6 +65,27 @@ class FoodRepository(
         }
     }
 
+    suspend fun createCustomFood(input: CustomFoodInput): FoodItem {
+        val response = api.createCustomFood(
+            CreateCustomFoodRequestDto(
+                name = input.name.trim(),
+                brand = input.brand?.trim()?.ifBlank { null },
+                barcode = input.barcode?.filter(Char::isDigit)?.ifBlank { null },
+                caloriesPer100g = input.caloriesPer100g,
+                proteinPer100g = input.proteinPer100g,
+                fatPer100g = input.fatPer100g,
+                carbsPer100g = input.carbsPer100g,
+                servingSize = input.servingSize?.trim()?.ifBlank { null },
+                servingQuantity = input.servingQuantity,
+                packageSize = input.packageSize?.trim()?.ifBlank { null },
+                packageQuantity = input.packageQuantity
+            )
+        )
+        val storedFood = response.item.toFoodItem()
+        val id = foodDao.insert(storedFood)
+        return storedFood.copy(id = id)
+    }
+
     private fun FoodSearchItemDto.hasValidData(): Boolean {
         return displayName.isNotBlank() && caloriesPer100g >= 0
     }
@@ -66,7 +102,15 @@ class FoodRepository(
             servingQuantity = servingQuantity,
             packageSize = packageSize,
             packageQuantity = packageQuantity,
-            source = FoodSource.SELF_HOSTED_OFF
+            source = source.toFoodSource()
         )
+    }
+
+    private fun String.toFoodSource(): FoodSource {
+        return when (this) {
+            "CUSTOM" -> FoodSource.CUSTOM
+            "SELF_HOSTED_OFF" -> FoodSource.SELF_HOSTED_OFF
+            else -> FoodSource.OPEN_FOOD_FACTS
+        }
     }
 }

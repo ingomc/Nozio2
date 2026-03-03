@@ -1,6 +1,9 @@
 import { z } from "zod";
 
+export const FOOD_SOURCE_VALUES = ["SELF_HOSTED_OFF", "CUSTOM"] as const;
 export const FOOD_SOURCE = "SELF_HOSTED_OFF" as const;
+export const CUSTOM_FOOD_SOURCE = "CUSTOM" as const;
+export const foodSourceSchema = z.enum(FOOD_SOURCE_VALUES);
 
 const numberField = z.number().finite();
 
@@ -18,7 +21,7 @@ export const foodItemSchema = z.object({
   servingQuantity: numberField.nullable().optional(),
   packageSize: z.string().trim().nullable().optional(),
   packageQuantity: numberField.nullable().optional(),
-  source: z.literal(FOOD_SOURCE)
+  source: foodSourceSchema
 });
 
 export const foodSearchResponseSchema = z.object({
@@ -27,6 +30,29 @@ export const foodSearchResponseSchema = z.object({
 });
 
 export const foodBarcodeResponseSchema = z.object({
+  item: foodItemSchema
+});
+
+export const createCustomFoodRequestSchema = z.object({
+  name: z.string().trim().min(1),
+  brand: z.string().trim().nullable().optional(),
+  barcode: z
+    .string()
+    .trim()
+    .regex(/^\d+$/)
+    .nullable()
+    .optional(),
+  caloriesPer100g: numberField.nonnegative(),
+  proteinPer100g: numberField.nonnegative().default(0),
+  fatPer100g: numberField.nonnegative().default(0),
+  carbsPer100g: numberField.nonnegative().default(0),
+  servingSize: z.string().trim().nullable().optional(),
+  servingQuantity: numberField.nonnegative().nullable().optional(),
+  packageSize: z.string().trim().nullable().optional(),
+  packageQuantity: numberField.nonnegative().nullable().optional()
+});
+
+export const createCustomFoodResponseSchema = z.object({
   item: foodItemSchema
 });
 
@@ -59,6 +85,8 @@ export const meiliFoodDocumentSchema = foodItemSchema.extend({
 export type FoodItem = z.infer<typeof foodItemSchema>;
 export type FoodSearchResponse = z.infer<typeof foodSearchResponseSchema>;
 export type FoodBarcodeResponse = z.infer<typeof foodBarcodeResponseSchema>;
+export type CreateCustomFoodRequest = z.infer<typeof createCustomFoodRequestSchema>;
+export type CreateCustomFoodResponse = z.infer<typeof createCustomFoodResponseSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
 export type ImportInput = z.infer<typeof importInputSchema>;
 export type MeiliFoodDocument = z.infer<typeof meiliFoodDocumentSchema>;

@@ -6,7 +6,7 @@ import {
   getSeedSourcePath,
   importSeedRecords,
   isIndexEmpty,
-  loadSeedRecordsFromFile,
+  loadConfiguredSeedRecords,
   waitForMeili
 } from "./seed.js";
 
@@ -27,7 +27,7 @@ async function seedIndexIfEmpty() {
     return;
   }
 
-  const rawRecords = await loadSeedRecordsFromFile(sourcePath);
+  const rawRecords = await loadConfiguredSeedRecords(config);
   await importSeedRecords(config, rawRecords);
 }
 

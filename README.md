@@ -106,6 +106,7 @@ Fuer echte Geraete musst du die Base-URL auf deine LAN-IP anpassen.
   - `GET /health`
   - `GET /v1/foods/search?q=<query>&limit=<n>`
   - `GET /v1/foods/barcode/:barcode`
+  - `POST /v1/foods/custom`
 
 ### Importskript
 
@@ -175,6 +176,11 @@ Android:
 cd apps/android
 ./gradlew testDebugUnitTest
 ```
+
+## Release Notes
+
+- [RELEASE_NOTES_0.1.0.md](/Users/ap4716/AndroidStudioProjects/Nozio2/RELEASE_NOTES_0.1.0.md)
+- [RELEASE_NOTES_0.3.0.md](/Users/ap4716/AndroidStudioProjects/Nozio2/RELEASE_NOTES_0.3.0.md)
 
 ## Docker Start
 

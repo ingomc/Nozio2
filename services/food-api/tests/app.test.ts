@@ -71,3 +71,19 @@ test("admin seed upload validates json array payload", async () => {
   assert.equal(response.statusCode, 400);
   assert.equal(response.json().error.code, "INVALID_SEED");
 });
+
+test("custom food endpoint validates payload before meili call", async () => {
+  const app = buildApp(baseConfig);
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/foods/custom",
+    headers: { "x-api-key": "secret" },
+    payload: {
+      name: "",
+      caloriesPer100g: -1
+    }
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error.code, "INVALID_BODY");
+});

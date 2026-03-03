@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import de.ingomc.nozio.data.local.FoodItem
+import de.ingomc.nozio.data.local.FoodSource
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.repository.DiaryRepository
+import de.ingomc.nozio.data.repository.CustomFoodInput
 import de.ingomc.nozio.data.repository.FoodRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,8 +28,11 @@ data class SearchUiState(
     val error: String? = null,
     val selectedFood: FoodItem? = null,
     val showBottomSheet: Boolean = false,
+    val showQuickAddSheet: Boolean = false,
+    val showCreateCustomFoodSheet: Boolean = false,
     val addedSuccessfully: Boolean = false,
-    val showBarcodeResultsSheet: Boolean = false
+    val showBarcodeResultsSheet: Boolean = false,
+    val isSubmittingCustomFood: Boolean = false
 )
 
 @OptIn(FlowPreview::class)
@@ -97,6 +102,30 @@ class SearchViewModel(
         _uiState.value = _uiState.value.copy(showBottomSheet = false, selectedFood = null)
     }
 
+    fun showQuickAddSheet() {
+        _uiState.value = _uiState.value.copy(
+            showQuickAddSheet = true,
+            showCreateCustomFoodSheet = false,
+            addedSuccessfully = false
+        )
+    }
+
+    fun dismissQuickAddSheet() {
+        _uiState.value = _uiState.value.copy(showQuickAddSheet = false)
+    }
+
+    fun showCreateCustomFoodSheet() {
+        _uiState.value = _uiState.value.copy(
+            showCreateCustomFoodSheet = true,
+            showQuickAddSheet = false,
+            addedSuccessfully = false
+        )
+    }
+
+    fun dismissCreateCustomFoodSheet() {
+        _uiState.value = _uiState.value.copy(showCreateCustomFoodSheet = false)
+    }
+
     fun dismissBarcodeResultsSheet() {
         _uiState.value = _uiState.value.copy(showBarcodeResultsSheet = false)
     }
@@ -125,6 +154,66 @@ class SearchViewModel(
                 selectedFood = null,
                 addedSuccessfully = true
             )
+        }
+    }
+
+    fun addQuickEntry(
+        mealType: MealType,
+        calories: Double,
+        protein: Double,
+        fat: Double,
+        carbs: Double,
+        name: String?
+    ) {
+        viewModelScope.launch {
+            val quickFood = FoodItem(
+                name = name?.trim()?.ifBlank { null } ?: "Quick Add",
+                caloriesPer100g = calories,
+                proteinPer100g = protein,
+                fatPer100g = fat,
+                carbsPer100g = carbs,
+                source = FoodSource.CUSTOM
+            )
+            val storedFood = foodRepository.ensureFoodStored(quickFood)
+            diaryRepository.addEntry(
+                date = selectedDate.value,
+                mealType = mealType,
+                foodItemId = storedFood.id,
+                amountInGrams = 100.0
+            )
+            val recentSuggestions = diaryRepository.getRecentlyAddedFoods()
+            _searchQuery.value = ""
+            _uiState.value = _uiState.value.copy(
+                query = "",
+                results = emptyList(),
+                recentSuggestions = recentSuggestions,
+                showQuickAddSheet = false,
+                addedSuccessfully = true
+            )
+        }
+    }
+
+    fun createCustomFood(input: CustomFoodInput) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isSubmittingCustomFood = true,
+                error = null,
+                addedSuccessfully = false
+            )
+            try {
+                val createdFood = foodRepository.createCustomFood(input)
+                _uiState.value = _uiState.value.copy(
+                    isSubmittingCustomFood = false,
+                    showCreateCustomFoodSheet = false,
+                    selectedFood = createdFood,
+                    showBottomSheet = true
+                )
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isSubmittingCustomFood = false,
+                    error = "Eigenes Produkt konnte nicht gespeichert werden."
+                )
+            }
         }
     }
 

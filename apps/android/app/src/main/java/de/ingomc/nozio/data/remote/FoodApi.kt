@@ -1,6 +1,8 @@
 package de.ingomc.nozio.data.remote
 
 import retrofit2.http.GET
+import retrofit2.http.Body
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -15,4 +17,9 @@ interface FoodApi {
     suspend fun getFoodByBarcode(
         @Path("barcode") barcode: String
     ): FoodBarcodeResponseDto
+
+    @POST("v1/foods/custom")
+    suspend fun createCustomFood(
+        @Body request: CreateCustomFoodRequestDto
+    ): CreateCustomFoodResponseDto
 }

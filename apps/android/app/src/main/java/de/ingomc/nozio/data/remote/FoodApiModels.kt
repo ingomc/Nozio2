@@ -15,6 +15,26 @@ data class FoodBarcodeResponseDto(
 )
 
 @Serializable
+data class CreateCustomFoodRequestDto(
+    val name: String,
+    val brand: String? = null,
+    val barcode: String? = null,
+    val caloriesPer100g: Double,
+    val proteinPer100g: Double = 0.0,
+    val fatPer100g: Double = 0.0,
+    val carbsPer100g: Double = 0.0,
+    val servingSize: String? = null,
+    val servingQuantity: Double? = null,
+    val packageSize: String? = null,
+    val packageQuantity: Double? = null
+)
+
+@Serializable
+data class CreateCustomFoodResponseDto(
+    val item: FoodSearchItemDto
+)
+
+@Serializable
 data class FoodSearchItemDto(
     val id: String,
     val name: String,

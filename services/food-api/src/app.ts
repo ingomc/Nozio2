@@ -1,6 +1,8 @@
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 import {
+  createCustomFoodRequestSchema,
+  createCustomFoodResponseSchema,
   foodBarcodeResponseSchema,
   foodItemSchema,
   foodSearchResponseSchema
@@ -13,6 +15,7 @@ import { createMeiliClient } from "./meili.js";
 import {
   importSeedRecords,
   parseSeedPayload,
+  persistCustomFood,
   saveSeedRecordsToFile,
   waitForMeili
 } from "./seed.js";
@@ -163,6 +166,26 @@ export function buildApp(config: AppConfig): FastifyInstance {
         return sendApiError(reply, 502, "MEILI_UNAVAILABLE", "Search backend is unavailable.");
       }
       request.log.error({ err: error }, "barcode lookup failed");
+      return sendApiError(reply, 500, "INTERNAL_ERROR", "Unexpected server error.");
+    }
+  });
+
+  app.post("/v1/foods/custom", async (request, reply) => {
+    const parsedBody = createCustomFoodRequestSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendApiError(reply, 400, "INVALID_BODY", "Custom food payload is invalid.");
+    }
+
+    try {
+      const document = await persistCustomFood(config, parsedBody.data);
+      return createCustomFoodResponseSchema.parse({
+        item: foodItemSchema.parse(document)
+      });
+    } catch (error) {
+      if (isMeiliUnavailable(error)) {
+        return sendApiError(reply, 502, "MEILI_UNAVAILABLE", "Search backend is unavailable.");
+      }
+      request.log.error({ err: error }, "custom food create failed");
       return sendApiError(reply, 500, "INTERNAL_ERROR", "Unexpected server error.");
     }
   });

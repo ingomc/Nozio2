@@ -1,10 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
+  CUSTOM_FOOD_SOURCE,
   FOOD_SOURCE,
+  createCustomFoodRequestSchema,
   importInputSchema,
   meiliFoodDocumentSchema,
+  type CreateCustomFoodRequest,
   type ImportInput,
   type MeiliFoodDocument
 } from "@nozio/food-contracts";
@@ -146,6 +150,15 @@ export async function saveSeedRecordsToFile(filePath: string, rawRecords: unknow
   await writeFile(filePath, `${JSON.stringify(rawRecords)}\n`, "utf8");
 }
 
+export async function loadWritableSeedRecords(config: AppConfig): Promise<unknown[]> {
+  const writablePath = resolveConfiguredPath(config.MEILI_SEED_FILE);
+  if (await fileExists(writablePath)) {
+    return loadSeedRecordsFromFile(writablePath);
+  }
+
+  return [];
+}
+
 export async function waitForMeili(config: AppConfig, timeoutMs = 60_000, pollMs = 2_000) {
   const client = createMeiliClient(config);
   const startedAt = Date.now();
@@ -175,6 +188,29 @@ export async function getSeedSourcePath(config: AppConfig): Promise<string | nul
   }
 
   return null;
+}
+
+export async function loadConfiguredSeedRecords(config: AppConfig): Promise<unknown[]> {
+  const primaryPath = resolveConfiguredPath(config.MEILI_SEED_FILE);
+  const fallbackPath = resolveConfiguredPath(config.MEILI_SEED_FALLBACK_FILE);
+  const mergedRecords = new Map<string, unknown>();
+
+  for (const filePath of [fallbackPath, primaryPath]) {
+    if (!(await fileExists(filePath))) {
+      continue;
+    }
+
+    const records = await loadSeedRecordsFromFile(filePath);
+    records.forEach((record, index) => {
+      const recordId =
+        typeof record === "object" && record !== null && "id" in record
+          ? String(record.id)
+          : `${filePath}:${index}`;
+      mergedRecords.set(recordId, record);
+    });
+  }
+
+  return Array.from(mergedRecords.values());
 }
 
 export async function importSeedRecords(
@@ -218,6 +254,71 @@ export async function importSeedRecords(
     imported: documents.length,
     ...stats
   };
+}
+
+export function buildCustomFoodDocument(input: CreateCustomFoodRequest): MeiliFoodDocument {
+  const parsedInput = createCustomFoodRequestSchema.parse(input);
+  const normalizedBarcode = normalizeBarcode(parsedInput.barcode);
+  const brand = normalizeNullableText(parsedInput.brand);
+  const name = parsedInput.name.trim();
+
+  return meiliFoodDocumentSchema.parse({
+    id: `custom-${randomUUID()}`,
+    name,
+    brand,
+    displayName: buildDisplayName(name, brand),
+    barcode: normalizedBarcode,
+    searchTerms: buildSearchTerms({ name, brand, barcode: normalizedBarcode }),
+    caloriesPer100g: parsedInput.caloriesPer100g,
+    proteinPer100g: parsedInput.proteinPer100g,
+    fatPer100g: parsedInput.fatPer100g,
+    carbsPer100g: parsedInput.carbsPer100g,
+    servingSize: normalizeNullableText(parsedInput.servingSize),
+    servingQuantity: normalizeNullableNumber(parsedInput.servingQuantity),
+    packageSize: normalizeNullableText(parsedInput.packageSize),
+    packageQuantity: normalizeNullableNumber(parsedInput.packageQuantity),
+    source: CUSTOM_FOOD_SOURCE
+  });
+}
+
+export async function persistCustomFood(config: AppConfig, input: CreateCustomFoodRequest) {
+  const document = buildCustomFoodDocument(input);
+  const existingRecords = await loadWritableSeedRecords(config);
+  const rawRecord = {
+    id: document.id,
+    name: document.name,
+    brand: document.brand,
+    barcode: document.barcode,
+    caloriesPer100g: document.caloriesPer100g,
+    proteinPer100g: document.proteinPer100g,
+    fatPer100g: document.fatPer100g,
+    carbsPer100g: document.carbsPer100g,
+    servingSize: document.servingSize,
+    servingQuantity: document.servingQuantity,
+    packageSize: document.packageSize,
+    packageQuantity: document.packageQuantity,
+    source: CUSTOM_FOOD_SOURCE
+  };
+  await saveSeedRecordsToFile(resolveConfiguredPath(config.MEILI_SEED_FILE), [...existingRecords, rawRecord]);
+
+  const client = createMeiliClient(config);
+  const index = client.index(config.MEILI_INDEX_NAME);
+  try {
+    await client.createIndex(config.MEILI_INDEX_NAME, { primaryKey: "id" });
+  } catch (error) {
+    if (!isTaskError(error, "index_already_exists")) {
+      throw error;
+    }
+  }
+  const settingsTask = await index.updateSettings({
+    searchableAttributes: SEARCHABLE_ATTRIBUTES,
+    filterableAttributes: FILTERABLE_ATTRIBUTES
+  });
+  await client.tasks.waitForTask(settingsTask.taskUid);
+  const task = await index.addDocuments([document], { primaryKey: "id" });
+  await client.tasks.waitForTask(task.taskUid);
+
+  return document;
 }
 
 export async function isIndexEmpty(config: AppConfig): Promise<boolean> {
