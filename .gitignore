@@ -10,6 +10,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+*.keystore
+*.jks
 node_modules
 dist
 .gradle-home
@@ -25,4 +27,3 @@ infra/*.env
 data/seed/*.json
 data/seed/*.csv
 !data/seed/*.sample.json
-*.keystore
