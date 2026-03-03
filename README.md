@@ -2,6 +2,21 @@
 
 Nozio ist jetzt als Monorepo organisiert. Die bestehende Android-App lebt unter `apps/android`, dazu kommen ein self-hosted Food API auf Basis von Fastify + Meilisearch sowie ein Importskript fuer dein OpenFoodFacts-Parquet.
 
+## App installieren
+
+Wenn du Nozio einfach auf einem Android-Geraet installieren willst:
+
+1. Oeffne die aktuelle Release-Seite auf GitHub und lade die neueste `.apk` aus den Assets herunter.
+2. Oeffne die heruntergeladene APK auf dem Geraet.
+3. Falls Android blockiert, erlaube fuer den verwendeten Downloader oder Dateimanager kurz `Apps aus unbekannten Quellen`.
+4. Bestaetige die Installation und oeffne danach die App.
+
+Typische Hinweise:
+
+- Je nach Android-Version erscheint die Freigabe unter `Einstellungen > Sicherheit`, `Datenschutz` oder direkt im Installationsdialog.
+- Wenn beim Update `App nicht installiert` erscheint, zuerst die bestehende Version deinstallieren und dann die neue APK installieren.
+- Releases findest du im GitHub-Repo unter `Releases`.
+
 ## Struktur
 
 ```text
