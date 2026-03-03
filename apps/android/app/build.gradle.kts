@@ -31,6 +31,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "FOOD_API_BASE_URL", "\"https://noziodb.ingomc.de/\"")
+            buildConfigField("String", "FOOD_API_KEY", "\"IUA/XvLeH6JVu8EVe0vLqmHkjK+pfSxW9uGp/fFPVeM=\"")
         }
     }
     compileOptions {
