@@ -28,7 +28,11 @@ jobs:
 
       - name: Decode Android signing keystore
         working-directory: ./apps/android/app
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+        run: |
+          test -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}"
+          printf '%s' "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+          test -s release.keystore
+          ls -l release.keystore
 
       - name: Create Android local.properties
         working-directory: ./apps/android
@@ -37,7 +41,7 @@ jobs:
             echo "sdk.dir=$ANDROID_SDK_ROOT"
             echo "FOOD_API_BASE_URL=${{ secrets.FOOD_API_BASE_URL }}"
             echo "FOOD_API_KEY=${{ secrets.FOOD_API_KEY }}"
-            echo "RELEASE_STORE_FILE=release.keystore"
+            echo "RELEASE_STORE_FILE=$GITHUB_WORKSPACE/apps/android/app/release.keystore"
             echo "RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_STORE_PASSWORD }}"
             echo "RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}"
             echo "RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}"
