@@ -13,21 +13,10 @@ class FoodRepository(
     suspend fun searchFood(query: String): List<FoodItem> {
         if (query.isBlank()) return emptyList()
 
-        return try {
-            val response = api.searchFoods(query = query)
-            val foodItems = response.items
-                .filter { it.hasValidData() }
-                .map { it.toFoodItem() }
-
-            if (foodItems.isNotEmpty()) {
-                val ids = foodDao.insertAll(foodItems)
-                foodItems.mapIndexed { index, item -> item.copy(id = ids[index]) }
-            } else {
-                emptyList()
-            }
-        } catch (_: Exception) {
-            foodDao.searchByName(query)
-        }
+        val response = api.searchFoods(query = query)
+        return response.items
+            .filter { it.hasValidData() }
+            .map { it.toFoodItem() }
     }
 
     suspend fun ensureFoodStored(foodItem: FoodItem): FoodItem {

@@ -511,6 +511,9 @@ private fun FoodSearchItem(
 
 private fun buildFoodSubtitle(food: FoodItem): String {
     val macroLine = "E ${food.proteinPer100g.toInt()}g · F ${food.fatPer100g.toInt()}g · K ${food.carbsPer100g.toInt()}g"
-    val sizeLine = food.packageSize ?: food.servingSize
-    return if (sizeLine.isNullOrBlank()) macroLine else "$macroLine · $sizeLine"
+    val sizeParts = buildList {
+        food.servingSize?.takeIf { it.isNotBlank() }?.let { add("Portion $it") }
+        food.packageSize?.takeIf { it.isNotBlank() }?.let { add("Packung $it") }
+    }
+    return if (sizeParts.isEmpty()) macroLine else "$macroLine · ${sizeParts.joinToString(" · ")}"
 }

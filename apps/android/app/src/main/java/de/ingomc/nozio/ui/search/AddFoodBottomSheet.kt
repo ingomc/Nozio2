@@ -186,19 +186,31 @@ fun AddFoodBottomSheet(
 
 private fun buildMetaLine(food: FoodItem): String {
     val parts = mutableListOf<String>()
-    food.servingSize?.let { parts += "Portion $it" }
-    food.packageSize?.let { parts += "Packung $it" }
+    food.servingSize?.takeIf { it.isNotBlank() }?.let { parts += "Portion $it" }
+        ?: food.servingQuantity?.takeIf { it > 0 }?.let { parts += "Portion ${formatAmountValue(it)} g" }
+    food.packageSize?.takeIf { it.isNotBlank() }?.let { parts += "Packung $it" }
+        ?: food.packageQuantity?.takeIf { it > 0 }?.let { parts += "Packung ${formatAmountValue(it)} g" }
     return parts.joinToString(" · ")
 }
 
 private fun formatQuickAmount(food: FoodItem, amount: Double): String {
-    val rounded = amount.roundToInt()
+    val rounded = formatAmountValue(amount)
     return when {
         food.packageQuantity != null && kotlin.math.abs(food.packageQuantity - amount) < 0.01 ->
-            food.packageSize?.let { "1x $it" } ?: "Packung"
+            food.packageSize?.takeIf { it.isNotBlank() }?.let { "1x Packung ($it)" }
+                ?: "1x Packung (${rounded}g)"
         food.servingQuantity != null && kotlin.math.abs(food.servingQuantity - amount) < 0.01 ->
-            food.servingSize?.let { "1x $it" } ?: "Portion"
+            food.servingSize?.takeIf { it.isNotBlank() }?.let { "1x Portion ($it)" }
+                ?: "1x Portion (${rounded}g)"
         else -> "${rounded}g"
     }
 }
 
+private fun formatAmountValue(amount: Double): String {
+    val rounded = amount.roundToInt().toDouble()
+    return if (kotlin.math.abs(amount - rounded) < 0.01) {
+        rounded.roundToInt().toString()
+    } else {
+        amount.toString()
+    }
+}

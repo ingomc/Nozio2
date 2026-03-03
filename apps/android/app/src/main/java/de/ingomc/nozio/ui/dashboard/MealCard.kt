@@ -278,7 +278,7 @@ private fun SwipeRevealEntryRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "KH: ${entry.carbs.toInt()}g, EW: ${entry.protein.toInt()}g, F: ${entry.fat.toInt()}g",
+                    text = "${entry.calories.toInt()} kcal, KH: ${entry.carbs.toInt()}g, EW: ${entry.protein.toInt()}g, F: ${entry.fat.toInt()}g",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
