@@ -25,3 +25,4 @@ infra/*.env
 data/seed/*.json
 data/seed/*.csv
 !data/seed/*.sample.json
+*.keystore

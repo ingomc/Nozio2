@@ -26,6 +26,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Decode Android signing keystore
+        working-directory: ./apps/android
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+
       - name: Create Android local.properties
         working-directory: ./apps/android
         run: |
@@ -33,12 +37,16 @@ jobs:
             echo "sdk.dir=$ANDROID_SDK_ROOT"
             echo "FOOD_API_BASE_URL=${{ secrets.FOOD_API_BASE_URL }}"
             echo "FOOD_API_KEY=${{ secrets.FOOD_API_KEY }}"
+            echo "RELEASE_STORE_FILE=release.keystore"
+            echo "RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_STORE_PASSWORD }}"
+            echo "RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}"
+            echo "RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}"
           } > local.properties
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./apps/android/gradlew
 
-      - name: Build release APK (unsigned)
+      - name: Build release APK
         working-directory: ./apps/android
         run: ./gradlew :app:assembleRelease
 

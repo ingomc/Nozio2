@@ -6,6 +6,19 @@ val localProps = Properties().apply {
     if (f.exists()) f.inputStream().use(::load)
 }
 
+fun propOrEnv(name: String): String? = localProps.getProperty(name) ?: System.getenv(name)
+
+val releaseStoreFile = propOrEnv("RELEASE_STORE_FILE")
+val releaseStorePassword = propOrEnv("RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = propOrEnv("RELEASE_KEY_ALIAS")
+val releaseKeyPassword = propOrEnv("RELEASE_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -17,6 +30,17 @@ plugins {
 android {
     namespace = "de.ingomc.nozio"
     compileSdk = 35
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "de.ingomc.nozio"
@@ -39,6 +63,9 @@ android {
             )
             buildConfigField("String", "FOOD_API_BASE_URL", "\"${localProps.getProperty("FOOD_API_BASE_URL", "http://10.0.2.2:3000/")}\"")
             buildConfigField("String", "FOOD_API_KEY", "\"${localProps.getProperty("FOOD_API_KEY", "dev-change-me")}\"")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
