@@ -11,6 +11,7 @@ permissions:
 jobs:
   build-and-attach-apk:
     runs-on: ubuntu-latest
+    environment: prod
 
     steps:
       - name: Checkout
@@ -24,6 +25,15 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Create Android local.properties
+        working-directory: ./apps/android
+        run: |
+          {
+            echo "sdk.dir=$ANDROID_SDK_ROOT"
+            echo "FOOD_API_BASE_URL=${{ secrets.FOOD_API_BASE_URL }}"
+            echo "FOOD_API_KEY=${{ secrets.FOOD_API_KEY }}"
+          } > local.properties
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./apps/android/gradlew
