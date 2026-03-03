@@ -26,8 +26,6 @@ services:
       MEILI_SEED_FILE: ${MEILI_SEED_FILE:-/data/seeds/foods.json}
       MEILI_SEED_FALLBACK_FILE: ${MEILI_SEED_FALLBACK_FILE:-data/seed/foods.de.sample.json}
       FOOD_API_KEY: ${FOOD_API_KEY}
-    ports:
-      - "${FOOD_API_PUBLIC_PORT:-3000}:3000"
     volumes:
       - seed_data:/data/seeds
 
