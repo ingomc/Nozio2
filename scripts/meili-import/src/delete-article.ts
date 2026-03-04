@@ -1,10 +1,28 @@
 import path from "node:path";
 import process from "node:process";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { config as loadDotenv } from "dotenv";
 import { createInterface } from "node:readline/promises";
 
+function resolveDotenvPath(): string {
+  if (process.env.DOTENV_CONFIG_PATH) {
+    return process.env.DOTENV_CONFIG_PATH;
+  }
+
+  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.resolve(process.cwd(), "infra/food-api.env"),
+    path.resolve(process.cwd(), "../../infra/food-api.env"),
+    path.resolve(scriptDir, "../../../infra/food-api.env")
+  ];
+
+  const found = candidates.find((candidate) => existsSync(candidate));
+  return found ?? candidates[0];
+}
+
 loadDotenv({
-  path: process.env.DOTENV_CONFIG_PATH || path.resolve(process.cwd(), "infra/food-api.env")
+  path: resolveDotenvPath()
 });
 
 type CliConfig = {
@@ -61,14 +79,21 @@ function parseCliConfig(argv: string[], env: NodeJS.ProcessEnv): CliConfig {
     if (!current) {
       continue;
     }
+    if (current === "--") {
+      continue;
+    }
     if (current === "--yes" || current === "-y") {
       args.set("yes", "true");
       continue;
     }
     if (current.startsWith("--")) {
+      const key = current.slice(2);
+      if (!key) {
+        continue;
+      }
       const next = argv[index + 1];
       if (next && !next.startsWith("--")) {
-        args.set(current.slice(2), next);
+        args.set(key, next);
         index += 1;
       }
       continue;
