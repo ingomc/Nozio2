@@ -1,7 +1,10 @@
 package de.ingomc.nozio.ui.settings
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,11 +35,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import android.content.pm.PackageManager
 import de.ingomc.nozio.data.repository.AppThemeMode
+import de.ingomc.nozio.notifications.MealReminderReceiver
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -158,6 +159,19 @@ fun SettingsScreen(
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
+                }
+
+                Button(
+                    onClick = {
+                        if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            MealReminderReceiver.showNotification(context)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Test-Reminder jetzt senden")
                 }
             }
 
