@@ -9,7 +9,7 @@ class LegalInfoContentTest {
     fun legalSectionsContainRequiredGermanDocuments() {
         val titles = legalSections.map { it.title }
         assertTrue(titles.contains("Impressum"))
-        assertTrue(titles.contains("Datenschutzerklaerung"))
+        assertTrue(titles.contains("Datenschutzerklärung"))
         assertTrue(titles.contains("Nutzungsbedingungen"))
     }
 

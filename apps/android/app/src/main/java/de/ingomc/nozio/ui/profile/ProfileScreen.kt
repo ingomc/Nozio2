@@ -263,7 +263,7 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .height(48.dp)
             ) {
-                Text("Impressum & Datenschutz")
+                Text("Rechtliche Hinweise")
             }
 
             Spacer(modifier = Modifier.height(32.dp))

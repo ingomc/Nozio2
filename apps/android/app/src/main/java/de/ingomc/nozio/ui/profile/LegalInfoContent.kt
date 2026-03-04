@@ -6,42 +6,43 @@ data class LegalSection(
 )
 
 val legalSections = listOf(
+    // TODO: Replace placeholders with legally reviewed real details before Play Store release.
     LegalSection(
         title = "Impressum",
         content = """
-            Angaben gemaess § 5 TMG:
+            Angaben gemäß § 5 TMG:
             Nozio
             [Bitte Name/Firma eintragen]
-            [Bitte vollstaendige Postadresse eintragen]
+            [Bitte vollständige Postadresse eintragen]
 
             Kontakt:
             E-Mail: [Bitte Kontakt-E-Mail eintragen]
 
-            Verantwortlich fuer Inhalte nach § 18 Abs. 2 MStV:
+            Verantwortlich für Inhalte nach § 18 Abs. 2 MStV:
             [Bitte verantwortliche Person eintragen]
             [Bitte Anschrift eintragen]
         """.trimIndent()
     ),
     LegalSection(
-        title = "Datenschutzerklaerung",
+        title = "Datenschutzerklärung",
         content = """
             Diese App verarbeitet personenbezogene Daten nur, soweit dies zur Bereitstellung der App-Funktionen erforderlich ist.
-            Dazu gehoeren insbesondere:
-            - vom Nutzer eingegebene Profil- und Ernaehrungsdaten
+            Dazu gehören insbesondere:
+            - vom Nutzer eingegebene Profil- und Ernährungsdaten
             - technische Verbindungsdaten beim Zugriff auf das API
 
             Rechtsgrundlagen:
-            - Art. 6 Abs. 1 lit. b DSGVO (Vertragserfuellung/Funktionsbereitstellung)
-            - Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an Stabilitaet und Sicherheit)
+            - Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung/Funktionsbereitstellung)
+            - Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an Stabilität und Sicherheit)
 
             Speicherdauer:
-            Daten werden nur so lange gespeichert, wie es fuer die Bereitstellung der App erforderlich ist oder gesetzliche Pflichten bestehen.
+            Daten werden nur so lange gespeichert, wie es für die Bereitstellung der App erforderlich ist oder gesetzliche Pflichten bestehen.
 
             Betroffenenrechte:
-            Es bestehen Rechte auf Auskunft, Berichtigung, Loeschung, Einschraenkung der Verarbeitung, Datenuebertragbarkeit und Widerspruch nach DSGVO.
-            Ausserdem besteht ein Beschwerderecht bei einer Datenschutzaufsichtsbehoerde.
+            Es bestehen Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch nach DSGVO.
+            Außerdem besteht ein Beschwerderecht bei einer Datenschutzaufsichtsbehörde.
 
-            Kontakt fuer Datenschutzanfragen:
+            Kontakt für Datenschutzanfragen:
             [Bitte Datenschutz-Kontakt eintragen]
         """.trimIndent()
     ),
@@ -49,10 +50,10 @@ val legalSections = listOf(
         title = "Nutzungsbedingungen",
         content = """
             Die Nutzung der App erfolgt auf eigene Verantwortung.
-            Die bereitgestellten Ernaehrungs- und Fitnessdaten dienen ausschliesslich der allgemeinen Information und ersetzen keine medizinische Beratung.
+            Die bereitgestellten Ernährungs- und Fitnessdaten dienen ausschließlich der allgemeinen Information und ersetzen keine medizinische Beratung.
 
-            Der Betreiber haftet nur fuer Vorsatz und grobe Fahrlaessigkeit, soweit gesetzlich zulaessig.
-            Bei leicht fahrlaessiger Verletzung wesentlicher Vertragspflichten ist die Haftung auf den vorhersehbaren, vertragstypischen Schaden begrenzt.
+            Der Betreiber haftet nur für Vorsatz und grobe Fahrlässigkeit, soweit gesetzlich zulässig.
+            Bei leicht fahrlässiger Verletzung wesentlicher Vertragspflichten ist die Haftung auf den vorhersehbaren, vertragstypischen Schaden begrenzt.
         """.trimIndent()
     )
 )
