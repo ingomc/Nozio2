@@ -115,8 +115,8 @@ abstract class BaseCalorieWidgetProvider(
                     R.id.widget_remaining_ring,
                     createRemainingRingBitmap(
                         context = context,
-                        progressPercent = data.remainingProgress,
-                        isPositive = data.remaining >= 0,
+                        progressPercent = data.ringProgress,
+                        isOverGoal = data.isOverGoal,
                         sizeDp = variant.ringSizeDp,
                         strokeWidthDp = variant.ringStrokeWidthDp
                     )
@@ -171,16 +171,14 @@ abstract class BaseCalorieWidgetProvider(
             val eaten = summary.totalCalories.roundToInt()
             val burnedRounded = burned.roundToInt()
             val remaining = goal - eaten + burnedRounded
-            val remainingProgress = if (goal > 0) {
-                ((remaining.coerceAtLeast(0).toDouble() / goal.toDouble()) * 100.0).roundToInt().coerceIn(0, 100)
-            } else {
-                0
-            }
+            val ringProgress = progressPercent(summary.totalCalories, preferences.calorieGoal)
+            val isOverGoal = summary.totalCalories > preferences.calorieGoal
             return WidgetCalorieData(
                 eaten = eaten,
                 burned = burnedRounded,
                 remaining = remaining,
-                remainingProgress = remainingProgress,
+                ringProgress = ringProgress,
+                isOverGoal = isOverGoal,
                 carbsProgress = progressPercent(summary.totalCarbs, preferences.carbsGoal),
                 proteinProgress = progressPercent(summary.totalProtein, preferences.proteinGoal),
                 fatProgress = progressPercent(summary.totalFat, preferences.fatGoal),
@@ -210,7 +208,7 @@ abstract class BaseCalorieWidgetProvider(
         private fun createRemainingRingBitmap(
             context: Context,
             progressPercent: Int,
-            isPositive: Boolean,
+            isOverGoal: Boolean,
             sizeDp: Float,
             strokeWidthDp: Float
         ): Bitmap {
@@ -233,7 +231,7 @@ abstract class BaseCalorieWidgetProvider(
             }
             val progressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = context.getColor(
-                    if (isPositive) R.color.widget_calorie_eaten else R.color.widget_calorie_negative
+                    if (isOverGoal) R.color.widget_calorie_negative else R.color.widget_calorie_eaten
                 )
                 style = Paint.Style.STROKE
                 strokeWidth = strokeWidthPx
@@ -257,7 +255,8 @@ private data class WidgetCalorieData(
     val eaten: Int,
     val burned: Int,
     val remaining: Int,
-    val remainingProgress: Int,
+    val ringProgress: Int,
+    val isOverGoal: Boolean,
     val carbsProgress: Int,
     val proteinProgress: Int,
     val fatProgress: Int,

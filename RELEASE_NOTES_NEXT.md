@@ -10,6 +10,8 @@
 - Der 5-Sekunden-Countdown der Add-Bestaetigung laeuft als kapselfoermiger Progress und blendet den Banner sauber wieder aus.
 - Add-Bestaetigung und Undo sind fuer normale Food-Adds und Quick Add konsistent umgesetzt.
 - Die Add-Confirmation-Logik wurde im Search-State strukturiert modelliert, wodurch UI und Undo robuster zusammenarbeiten.
+- Systemleisten (Status-/Navigationsleiste) passen ihre Icon-Farben jetzt an das in der App ausgewaehlte Theme an, auch wenn das Systemtheme abweicht.
+- Die Ring-Fuellung im Widget wurde an die Dashboard-Logik angeglichen und basiert jetzt konsistent auf gegessen/goal.
 
 ## Notes
 - Undo gilt immer fuer den zuletzt hinzugefuegten Eintrag, solange die Benachrichtigung sichtbar ist.
@@ -18,3 +20,4 @@
   - Mittagessen: 11:00-14:59
   - Abendessen: 18:00-21:59
   - sonst: Snacks
+- Der Widget-Kreis zeigt den Verbrauchsfortschritt; der Mittelpunkt zeigt weiterhin die verbleibenden Kalorien.

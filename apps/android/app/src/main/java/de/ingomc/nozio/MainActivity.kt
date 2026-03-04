@@ -1,6 +1,8 @@
 package de.ingomc.nozio
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -31,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,7 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.ingomc.nozio.data.local.MealType
@@ -185,8 +190,11 @@ fun NozioApp(
 
     val density = LocalDensity.current
     val isKeyboardOpen = WindowInsets.ime.getBottom(density) > 0
+    val resolvedDarkTheme = darkTheme ?: isSystemInDarkTheme()
 
-    NozioTheme(darkTheme = darkTheme ?: isSystemInDarkTheme()) {
+    SyncSystemBarsWithTheme(darkTheme = resolvedDarkTheme)
+
+    NozioTheme(darkTheme = resolvedDarkTheme) {
         Scaffold(
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
@@ -292,6 +300,25 @@ fun NozioApp(
             }
         }
     }
+}
+
+@Composable
+private fun SyncSystemBarsWithTheme(darkTheme: Boolean) {
+    val view = LocalView.current
+    if (view.isInEditMode) return
+    val activity = view.context.findActivity() ?: return
+
+    SideEffect {
+        val insetsController = WindowCompat.getInsetsController(activity.window, view)
+        insetsController.isAppearanceLightStatusBars = !darkTheme
+        insetsController.isAppearanceLightNavigationBars = !darkTheme
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 enum class AppDestinations(
