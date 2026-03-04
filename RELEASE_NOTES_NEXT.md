@@ -8,6 +8,7 @@
 - Validierung im Custom-Food-Formular verbessert; Makrofelder sind erforderlich (Protein, Kohlenhydrate, Fett, Zucker).
 - Zucker darf nicht größer als Kohlenhydrate sein.
 - Dezimaleingaben mit `,` und `.` werden unterstützt.
+- Portions- und Packungsfelder im Custom-Food-Formular wurden klarer benannt; Name/Bezeichnung wird nur mit gesetzter Menge gespeichert.
 
 ## Notes
 - TBA

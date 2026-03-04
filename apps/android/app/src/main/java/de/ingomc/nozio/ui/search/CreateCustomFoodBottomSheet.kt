@@ -55,6 +55,12 @@ fun CreateCustomFoodBottomSheet(
     val fatValue = parseDecimalInput(fat)
     val carbsValue = parseDecimalInput(carbs)
     val sugarValue = parseDecimalInput(sugar)
+    val servingQuantityValue = parseDecimalInput(servingQuantity)
+    val packageQuantityValue = parseDecimalInput(packageQuantity)
+    val hasServingQuantity = servingQuantityValue != null
+    val hasPackageQuantity = packageQuantityValue != null
+    val servingQuantityInvalid = servingQuantity.isNotBlank() && servingQuantityValue == null
+    val packageQuantityInvalid = packageQuantity.isNotBlank() && packageQuantityValue == null
     val macrosValid =
         proteinValue != null && proteinValue >= 0 &&
             fatValue != null && fatValue >= 0 &&
@@ -97,6 +103,7 @@ fun CreateCustomFoodBottomSheet(
             ProductField(
                 calories,
                 "Kalorien pro 100g",
+                placeholder = "z. B. 450",
                 suffix = "kcal",
                 keyboardType = KeyboardType.Number,
                 onValueChange = { calories = it }
@@ -104,6 +111,7 @@ fun CreateCustomFoodBottomSheet(
             ProductField(
                 protein,
                 "Eiweiss pro 100g",
+                placeholder = "z. B. 22,5",
                 suffix = "g",
                 keyboardType = KeyboardType.Number,
                 onValueChange = { protein = it }
@@ -111,6 +119,7 @@ fun CreateCustomFoodBottomSheet(
             ProductField(
                 carbs,
                 "Kohlenhydrate pro 100g",
+                placeholder = "z. B. 55",
                 suffix = "g",
                 keyboardType = KeyboardType.Number,
                 onValueChange = { carbs = it }
@@ -118,6 +127,7 @@ fun CreateCustomFoodBottomSheet(
             ProductField(
                 sugar,
                 "Davon Zucker pro 100g",
+                placeholder = "z. B. 12",
                 suffix = "g",
                 keyboardType = KeyboardType.Number,
                 isError = sugarValue != null && carbsValue != null && sugarValue > carbsValue,
@@ -131,33 +141,62 @@ fun CreateCustomFoodBottomSheet(
             ProductField(
                 fat,
                 "Fett pro 100g",
+                placeholder = "z. B. 9",
                 suffix = "g",
                 keyboardType = KeyboardType.Number,
                 onValueChange = { fat = it }
             )
             ProductField(
-                servingSize,
-                "Portionsanzeige optional",
-                onValueChange = { servingSize = it }
-            )
-            ProductField(
                 servingQuantity,
-                "Portionsmenge optional",
+                "Portionsmenge in g (optional)",
+                placeholder = "z. B. 30",
                 suffix = "g",
                 keyboardType = KeyboardType.Number,
+                isError = servingQuantityInvalid,
+                supportingText = if (servingQuantityInvalid) {
+                    "Bitte eine gueltige Zahl eingeben (Komma oder Punkt)."
+                } else {
+                    null
+                },
                 onValueChange = { servingQuantity = it }
             )
             ProductField(
-                packageSize,
-                "Packungsanzeige optional",
-                onValueChange = { packageSize = it }
+                servingSize,
+                "Portionsname (optional)",
+                placeholder = "z. B. 1 Riegel",
+                enabled = hasServingQuantity,
+                supportingText = if (!hasServingQuantity) {
+                    "Wird nur gespeichert, wenn eine Portionsmenge gesetzt ist."
+                } else {
+                    null
+                },
+                onValueChange = { servingSize = it }
             )
             ProductField(
                 packageQuantity,
-                "Packungsmenge optional",
+                "Packungsmenge in g (optional)",
+                placeholder = "z. B. 250",
                 suffix = "g",
                 keyboardType = KeyboardType.Number,
+                isError = packageQuantityInvalid,
+                supportingText = if (packageQuantityInvalid) {
+                    "Bitte eine gueltige Zahl eingeben (Komma oder Punkt)."
+                } else {
+                    null
+                },
                 onValueChange = { packageQuantity = it }
+            )
+            ProductField(
+                packageSize,
+                "Packungsname (optional)",
+                placeholder = "z. B. 1 Packung",
+                enabled = hasPackageQuantity,
+                supportingText = if (!hasPackageQuantity) {
+                    "Wird nur gespeichert, wenn eine Packungsmenge gesetzt ist."
+                } else {
+                    null
+                },
+                onValueChange = { packageSize = it }
             )
 
             Button(
@@ -172,10 +211,18 @@ fun CreateCustomFoodBottomSheet(
                             fatPer100g = fatValue ?: 0.0,
                             carbsPer100g = carbsValue ?: 0.0,
                             sugarPer100g = sugarValue ?: 0.0,
-                            servingSize = servingSize.ifBlank { null },
-                            servingQuantity = parseDecimalInput(servingQuantity),
-                            packageSize = packageSize.ifBlank { null },
-                            packageQuantity = parseDecimalInput(packageQuantity)
+                            servingSize = if (hasServingQuantity) {
+                                servingSize.ifBlank { null }
+                            } else {
+                                null
+                            },
+                            servingQuantity = servingQuantityValue,
+                            packageSize = if (hasPackageQuantity) {
+                                packageSize.ifBlank { null }
+                            } else {
+                                null
+                            },
+                            packageQuantity = packageQuantityValue
                         )
                     )
                 },
@@ -183,6 +230,8 @@ fun CreateCustomFoodBottomSheet(
                     name.isNotBlank() &&
                     caloriesValue != null &&
                     caloriesValue >= 0 &&
+                    !servingQuantityInvalid &&
+                    !packageQuantityInvalid &&
                     macrosValid,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -207,8 +256,10 @@ fun CreateCustomFoodBottomSheet(
 private fun ProductField(
     value: String,
     label: String,
+    placeholder: String? = null,
     suffix: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
+    enabled: Boolean = true,
     isError: Boolean = false,
     supportingText: String? = null,
     onValueChange: (String) -> Unit
@@ -216,7 +267,9 @@ private fun ProductField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         label = { Text(label) },
+        placeholder = placeholder?.let { text -> { Text(text) } },
         suffix = suffix?.let { { Text(it) } },
         isError = isError,
         supportingText = supportingText?.let { text -> { Text(text) } },
