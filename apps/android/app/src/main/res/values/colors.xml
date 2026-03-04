@@ -7,4 +7,12 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="widget_calorie_background">#1F1F22</color>
+    <color name="widget_calorie_actions_background">#17A7E7</color>
+    <color name="widget_calorie_text_primary">#FFF2F2F2</color>
+    <color name="widget_calorie_text_secondary">#FFD0D0D0</color>
+    <color name="widget_calorie_eaten">#FFFF0A78</color>
+    <color name="widget_calorie_burned">#FFFFC400</color>
+    <color name="widget_calorie_positive">#FF8BD94F</color>
+    <color name="widget_calorie_negative">#FFFF5D5D</color>
 </resources>

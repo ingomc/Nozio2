@@ -87,6 +87,10 @@ import kotlin.math.roundToInt
 fun SearchScreen(
     viewModel: SearchViewModel,
     preselectedMealType: MealType?,
+    openQuickAddOnStart: Boolean = false,
+    openBarcodeScannerOnStart: Boolean = false,
+    onQuickAddOpened: () -> Unit = {},
+    onBarcodeScannerOpened: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -115,6 +119,31 @@ fun SearchScreen(
             coroutineScope.launch {
                 snackbarHostState.showSnackbar("Kamera-Berechtigung benötigt")
             }
+        }
+    }
+    val launchBarcodeScanner: () -> Unit = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            showScannerSheet = true
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    LaunchedEffect(openQuickAddOnStart) {
+        if (openQuickAddOnStart) {
+            viewModel.showQuickAddSheet()
+            onQuickAddOpened()
+        }
+    }
+
+    LaunchedEffect(openBarcodeScannerOnStart) {
+        if (openBarcodeScannerOnStart) {
+            launchBarcodeScanner()
+            onBarcodeScannerOpened()
         }
     }
 
@@ -308,15 +337,7 @@ fun SearchScreen(
                             ) {
                                 IconButton(
                                     onClick = {
-                                        val hasPermission = ContextCompat.checkSelfPermission(
-                                            context,
-                                            Manifest.permission.CAMERA
-                                        ) == PackageManager.PERMISSION_GRANTED
-                                        if (hasPermission) {
-                                            showScannerSheet = true
-                                        } else {
-                                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                        }
+                                        launchBarcodeScanner()
                                     },
                                     modifier = Modifier.size(56.dp)
                                 ) {

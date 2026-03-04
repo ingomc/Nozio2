@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Nozio</string>
+    <string name="widget_description">Kalorienübersicht und Schnellzugriffe</string>
+    <string name="widget_goal">Ziel</string>
+    <string name="widget_eaten">Gegessen</string>
+    <string name="widget_burned">Verbrannt</string>
+    <string name="widget_remaining">Übrig</string>
+    <string name="widget_scan">Barcode scannen</string>
+    <string name="widget_add_food">Lebensmittel hinzufügen</string>
 </resources>
