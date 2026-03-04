@@ -44,7 +44,7 @@ fun QuickAddBottomSheet(
     var protein by remember { mutableStateOf("") }
     var fat by remember { mutableStateOf("") }
     var carbs by remember { mutableStateOf("") }
-    var selectedMealType by remember { mutableStateOf(preselectedMealType ?: MealType.BREAKFAST) }
+    var selectedMealType by remember { mutableStateOf(resolveInitialMealType(preselectedMealType)) }
 
     val caloriesValue = calories.toDoubleOrNull()
     val proteinValue = protein.toDoubleOrNull() ?: 0.0

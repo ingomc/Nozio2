@@ -5,13 +5,19 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,7 +51,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -61,8 +66,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,6 +81,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
@@ -103,17 +107,13 @@ fun SearchScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val searchFocusRequester = remember { FocusRequester() }
+    val addConfirmationProgress = remember { Animatable(0f) }
+    val addBannerVisibilityState = remember { MutableTransitionState(false) }
+    var displayedAddConfirmation by remember { mutableStateOf<AddConfirmationState?>(null) }
     var showScannerSheet by remember { mutableStateOf(false) }
-    var showAddedBanner by remember { mutableStateOf(false) }
-    var addedBannerRunId by remember { mutableIntStateOf(0) }
     var searchContainerHeightPx by remember { mutableStateOf(0) }
     val density = LocalDensity.current
     val listBottomPadding = with(density) { searchContainerHeightPx.toDp() + 8.dp }
-    val addedBannerProgress by animateFloatAsState(
-        targetValue = if (showAddedBanner) 0f else 1f,
-        animationSpec = tween(durationMillis = 1400, easing = LinearEasing),
-        label = "addedBannerProgress"
-    )
     val showingSuggestions = state.query.length < 3
     val foodsToShow = if (showingSuggestions) state.recentSuggestions else state.results
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
@@ -161,14 +161,43 @@ fun SearchScreen(
         }
     }
 
-    LaunchedEffect(state.addedSuccessfully) {
-        if (state.addedSuccessfully) {
-            addedBannerRunId += 1
-            showAddedBanner = false
-            showAddedBanner = true
-            kotlinx.coroutines.delay(1400)
-            showAddedBanner = false
-            viewModel.onAddedMessageShown()
+    LaunchedEffect(state.activeAddConfirmation?.bannerId) {
+        val confirmation = state.activeAddConfirmation
+        if (confirmation == null) {
+            addConfirmationProgress.snapTo(0f)
+        } else {
+            addConfirmationProgress.snapTo(1f)
+            addConfirmationProgress.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 5000, easing = LinearEasing)
+            )
+            viewModel.dismissAddConfirmation()
+        }
+    }
+
+    LaunchedEffect(state.activeAddConfirmation) {
+        val confirmation = state.activeAddConfirmation
+        if (confirmation != null) {
+            displayedAddConfirmation = confirmation
+            addBannerVisibilityState.targetState = true
+        } else {
+            addBannerVisibilityState.targetState = false
+        }
+    }
+
+    LaunchedEffect(
+        addBannerVisibilityState.currentState,
+        addBannerVisibilityState.targetState,
+        addBannerVisibilityState.isIdle,
+        state.activeAddConfirmation
+    ) {
+        if (
+            state.activeAddConfirmation == null &&
+            addBannerVisibilityState.isIdle &&
+            !addBannerVisibilityState.currentState &&
+            !addBannerVisibilityState.targetState
+        ) {
+            displayedAddConfirmation = null
         }
     }
 
@@ -376,55 +405,48 @@ fun SearchScreen(
                     .padding(top = 72.dp)
             )
 
-            key(addedBannerRunId) {
-                AnimatedVisibility(
-                    visible = showAddedBanner,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .statusBarsPadding()
-                        .padding(top = 8.dp, start = 16.dp, end = 16.dp),
-                    enter = fadeIn(animationSpec = tween(220)) + slideInVertically(
-                        animationSpec = tween(220),
-                        initialOffsetY = { -it / 2 }
+            AnimatedVisibility(
+                visibleState = addBannerVisibilityState,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 8.dp, start = 16.dp, end = 16.dp),
+                enter = fadeIn(animationSpec = tween(durationMillis = 180)) +
+                    slideInVertically(
+                        animationSpec = spring(
+                            dampingRatio = 0.8f,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        initialOffsetY = { -it }
+                    ) +
+                    scaleIn(
+                        initialScale = 0.96f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                        animationSpec = spring(
+                            dampingRatio = 0.88f,
+                            stiffness = Spring.StiffnessMedium
+                        )
                     ),
-                    exit = fadeOut(animationSpec = tween(180)) + slideOutVertically(
-                        animationSpec = tween(180),
-                        targetOffsetY = { -it / 3 }
+                exit = fadeOut(animationSpec = tween(durationMillis = 140)) +
+                    slideOutVertically(
+                        animationSpec = tween(
+                            durationMillis = 180,
+                            easing = FastOutLinearInEasing
+                        ),
+                        targetOffsetY = { -it / 2 }
+                    ) +
+                    scaleOut(
+                        targetScale = 0.98f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                        animationSpec = tween(durationMillis = 140)
                     )
-                ) {
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        tonalElevation = 2.dp,
-                        shadowElevation = 0.dp
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Spacer(modifier = Modifier.size(8.dp))
-                                Text(
-                                    text = "Lebensmittel hinzugefügt",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
-                            LinearProgressIndicator(
-                                progress = { addedBannerProgress },
-                                modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.secondaryContainer
-                            )
-                        }
-                    }
+            ) {
+                displayedAddConfirmation?.let { confirmation ->
+                    AddConfirmationBanner(
+                        confirmation = confirmation,
+                        progress = addConfirmationProgress.value,
+                        onUndo = viewModel::undoLastAddedFood
+                    )
                 }
             }
         }
@@ -456,7 +478,9 @@ fun SearchScreen(
             food = state.selectedFood!!,
             preselectedMealType = preselectedMealType,
             onDismiss = viewModel::dismissBottomSheet,
-            onAdd = { mealType, amount -> viewModel.addFood(mealType, amount) }
+            onAdd = { mealType, amount, amountLabel ->
+                viewModel.addFood(mealType, amount, amountLabel)
+            }
         )
     }
 
