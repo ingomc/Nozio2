@@ -12,6 +12,9 @@
 - Die Add-Confirmation-Logik wurde im Search-State strukturiert modelliert, wodurch UI und Undo robuster zusammenarbeiten.
 - Systemleisten (Status-/Navigationsleiste) passen ihre Icon-Farben jetzt an das in der App ausgewaehlte Theme an, auch wenn das Systemtheme abweicht.
 - Die Ring-Fuellung im Widget wurde an die Dashboard-Logik angeglichen und basiert jetzt konsistent auf gegessen/goal.
+- Kompaktes Widget-Layout neu auf 3 Spalten optimiert: links grosser Restkalorien-Kreis, mittig Makros, rechts grosse Schnellaktionen.
+- Scan- und Add-Buttons im kompakten Widget sind groesser, mit mehr Abstand und besserer Treffflaeche.
+- Empty-State vom Widget-Kreis ist jetzt sichtbar und farblich konsistent zum Makro-Track.
 
 ## Notes
 - Undo gilt immer fuer den zuletzt hinzugefuegten Eintrag, solange die Benachrichtigung sichtbar ist.
@@ -21,3 +24,4 @@
   - Abendessen: 18:00-21:59
   - sonst: Snacks
 - Der Widget-Kreis zeigt den Verbrauchsfortschritt; der Mittelpunkt zeigt weiterhin die verbleibenden Kalorien.
+- Kompaktes Widget zeigt bewusst keine separaten "Gegessen/Verbrannt"-Werte mehr, um Fokus und Touch-Bedienung zu verbessern.

@@ -40,8 +40,8 @@ enum class WidgetVariant(
 ) {
     COMPACT(
         layoutResId = R.layout.widget_calorie_summary,
-        ringSizeDp = 64f,
-        ringStrokeWidthDp = 4f
+        ringSizeDp = 84f,
+        ringStrokeWidthDp = 5f
     ),
     EXPANDED(
         layoutResId = R.layout.widget_calorie_summary_expanded,
@@ -100,13 +100,13 @@ abstract class BaseCalorieWidgetProvider(
             val data = loadWidgetData(context)
             appWidgetIds.forEach { appWidgetId ->
                 val views = RemoteViews(context.packageName, variant.layoutResId)
-                views.setTextViewText(R.id.widget_eaten_value, data.eaten.toString())
-                views.setTextViewText(R.id.widget_burned_value, data.burned.toString())
                 views.setTextViewText(R.id.widget_remaining_value, data.remaining.toString())
                 views.setProgressBar(R.id.widget_carbs_progress, 100, data.carbsProgress, false)
                 views.setProgressBar(R.id.widget_protein_progress, 100, data.proteinProgress, false)
                 views.setProgressBar(R.id.widget_fat_progress, 100, data.fatProgress, false)
                 if (variant == WidgetVariant.EXPANDED) {
+                    views.setTextViewText(R.id.widget_eaten_value, data.eaten.toString())
+                    views.setTextViewText(R.id.widget_burned_value, data.burned.toString())
                     views.setTextViewText(R.id.widget_carbs_value, data.carbsText)
                     views.setTextViewText(R.id.widget_protein_value, data.proteinText)
                     views.setTextViewText(R.id.widget_fat_value, data.fatText)
@@ -224,7 +224,9 @@ abstract class BaseCalorieWidgetProvider(
             val oval = RectF(inset, inset, sizePx - inset, sizePx - inset)
 
             val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = context.getColor(R.color.widget_calorie_border)
+                color = context.getColor(
+                    if (progressPercent <= 0) R.color.widget_calorie_macro_track else R.color.widget_calorie_border
+                )
                 style = Paint.Style.STROKE
                 strokeWidth = strokeWidthPx
                 strokeCap = Paint.Cap.ROUND
