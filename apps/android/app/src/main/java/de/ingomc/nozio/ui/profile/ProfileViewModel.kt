@@ -1,11 +1,13 @@
 package de.ingomc.nozio.ui.profile
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import de.ingomc.nozio.data.repository.DailyActivityRepository
 import de.ingomc.nozio.data.repository.UserPreferences
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
+import de.ingomc.nozio.widget.CalorieWidgetProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +35,7 @@ data class ProfileUiState(
 )
 
 class ProfileViewModel(
+    private val appContext: Context,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val dailyActivityRepository: DailyActivityRepository
 ) : ViewModel() {
@@ -105,6 +108,7 @@ class ProfileViewModel(
             userPreferencesRepository.updatePreferences(
                 state.toPreferences()
             )
+            CalorieWidgetProvider.updateAll(appContext)
             _uiState.value = _uiState.value.copy(saved = true, hasChanges = false)
         }
     }
@@ -141,12 +145,13 @@ class ProfileViewModel(
     }
 
     class Factory(
+        private val appContext: Context,
         private val userPreferencesRepository: UserPreferencesRepository,
         private val dailyActivityRepository: DailyActivityRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ProfileViewModel(userPreferencesRepository, dailyActivityRepository) as T
+            return ProfileViewModel(appContext, userPreferencesRepository, dailyActivityRepository) as T
         }
     }
 }

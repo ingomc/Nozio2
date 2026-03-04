@@ -1,5 +1,6 @@
 package de.ingomc.nozio.ui.search
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,6 +10,7 @@ import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.CustomFoodInput
 import de.ingomc.nozio.data.repository.FoodRepository
+import de.ingomc.nozio.widget.CalorieWidgetProvider
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +39,7 @@ data class SearchUiState(
 
 @OptIn(FlowPreview::class)
 class SearchViewModel(
+    private val appContext: Context,
     private val foodRepository: FoodRepository,
     private val diaryRepository: DiaryRepository
 ) : ViewModel() {
@@ -154,6 +157,7 @@ class SearchViewModel(
                 selectedFood = null,
                 addedSuccessfully = true
             )
+            CalorieWidgetProvider.updateAll(appContext)
         }
     }
 
@@ -190,6 +194,7 @@ class SearchViewModel(
                 showQuickAddSheet = false,
                 addedSuccessfully = true
             )
+            CalorieWidgetProvider.updateAll(appContext)
         }
     }
 
@@ -256,12 +261,13 @@ class SearchViewModel(
     }
 
     class Factory(
+        private val appContext: Context,
         private val foodRepository: FoodRepository,
         private val diaryRepository: DiaryRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return SearchViewModel(foodRepository, diaryRepository) as T
+            return SearchViewModel(appContext, foodRepository, diaryRepository) as T
         }
     }
 }

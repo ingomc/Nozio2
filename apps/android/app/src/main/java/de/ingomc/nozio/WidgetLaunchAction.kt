@@ -2,7 +2,7 @@ package de.ingomc.nozio
 
 enum class WidgetLaunchAction(val extraValue: String) {
     NONE("none"),
-    QUICK_ADD("quick_add"),
+    SEARCH_FOCUS("search_focus"),
     BARCODE_SCANNER("barcode_scanner");
 
     companion object {

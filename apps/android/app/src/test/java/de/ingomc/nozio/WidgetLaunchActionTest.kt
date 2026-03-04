@@ -6,7 +6,7 @@ import org.junit.Test
 class WidgetLaunchActionTest {
     @Test
     fun fromExtraValue_returnsExpectedAction() {
-        assertEquals(WidgetLaunchAction.QUICK_ADD, WidgetLaunchAction.fromExtraValue("quick_add"))
+        assertEquals(WidgetLaunchAction.SEARCH_FOCUS, WidgetLaunchAction.fromExtraValue("search_focus"))
         assertEquals(WidgetLaunchAction.BARCODE_SCANNER, WidgetLaunchAction.fromExtraValue("barcode_scanner"))
     }
 

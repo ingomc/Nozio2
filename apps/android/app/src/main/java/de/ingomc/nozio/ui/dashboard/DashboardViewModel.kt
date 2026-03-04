@@ -1,5 +1,6 @@
 package de.ingomc.nozio.ui.dashboard
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,7 @@ import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.LatestWeightEntry
 import de.ingomc.nozio.data.repository.UserPreferences
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
+import de.ingomc.nozio.widget.CalorieWidgetProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +38,7 @@ data class DashboardUiState(
 )
 
 class DashboardViewModel(
+    private val appContext: Context,
     private val diaryRepository: DiaryRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val dailyActivityRepository: DailyActivityRepository
@@ -133,6 +136,7 @@ class DashboardViewModel(
     fun saveStepsForSelectedDate(steps: Long) {
         viewModelScope.launch {
             dailyActivityRepository.saveStepsForDate(selectedDateState.value, steps)
+            CalorieWidgetProvider.updateAll(appContext)
             _uiState.value = _uiState.value.copy(stepsSaved = true)
         }
     }
@@ -140,6 +144,7 @@ class DashboardViewModel(
     fun saveWeightForSelectedDate(weightKg: Double) {
         viewModelScope.launch {
             dailyActivityRepository.saveWeightForDate(selectedDateState.value, weightKg)
+            CalorieWidgetProvider.updateAll(appContext)
             _uiState.value = _uiState.value.copy(weightSaved = true)
         }
     }
@@ -155,23 +160,31 @@ class DashboardViewModel(
     fun deleteEntry(entryId: Long) {
         viewModelScope.launch {
             diaryRepository.deleteEntry(entryId)
+            CalorieWidgetProvider.updateAll(appContext)
         }
     }
 
     fun updateEntryAmount(entryId: Long, amountInGrams: Double) {
         viewModelScope.launch {
             diaryRepository.updateEntryAmount(entryId, amountInGrams)
+            CalorieWidgetProvider.updateAll(appContext)
         }
     }
 
     class Factory(
+        private val appContext: Context,
         private val diaryRepository: DiaryRepository,
         private val userPreferencesRepository: UserPreferencesRepository,
         private val dailyActivityRepository: DailyActivityRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return DashboardViewModel(diaryRepository, userPreferencesRepository, dailyActivityRepository) as T
+            return DashboardViewModel(
+                appContext,
+                diaryRepository,
+                userPreferencesRepository,
+                dailyActivityRepository
+            ) as T
         }
     }
 }

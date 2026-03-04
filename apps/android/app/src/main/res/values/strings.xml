@@ -1,10 +1,16 @@
 <resources>
     <string name="app_name">Nozio</string>
     <string name="widget_description">Kalorienübersicht und Schnellzugriffe</string>
-    <string name="widget_goal">Ziel</string>
+    <string name="widget_description_compact">Kompaktes Kalorien-Widget</string>
+    <string name="widget_description_expanded">Großes Kalorien- und Makro-Widget</string>
+    <string name="widget_name_compact">Nozio Kompakt</string>
+    <string name="widget_name_expanded">Nozio Groß</string>
     <string name="widget_eaten">Gegessen</string>
     <string name="widget_burned">Verbrannt</string>
     <string name="widget_remaining">Übrig</string>
+    <string name="widget_carbs">Kohlenhydrate</string>
+    <string name="widget_protein">Eiweiß</string>
+    <string name="widget_fat">Fett</string>
     <string name="widget_scan">Barcode scannen</string>
-    <string name="widget_add_food">Lebensmittel hinzufügen</string>
+    <string name="widget_add_food">Suche öffnen</string>
 </resources>
