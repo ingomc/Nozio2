@@ -108,20 +108,32 @@
                     android:id="@+id/widget_scan_button"
                     android:layout_width="34dp"
                     android:layout_height="34dp"
-                    android:background="@drawable/widget_scan_button_background"
-                    android:contentDescription="@string/widget_scan"
+                    android:background="@drawable/widget_circle_button"
                     android:gravity="center"
-                    android:orientation="horizontal" />
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@string/widget_scan"
+                        android:src="@drawable/ic_widget_qr" />
+                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/widget_add_button"
                     android:layout_width="34dp"
                     android:layout_height="34dp"
                     android:layout_marginStart="8dp"
-                    android:background="@drawable/widget_add_button_background"
-                    android:contentDescription="@string/widget_add_food"
+                    android:background="@drawable/widget_circle_button"
                     android:gravity="center"
-                    android:orientation="horizontal" />
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@string/widget_add_food"
+                        android:src="@drawable/ic_widget_plus" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
