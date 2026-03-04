@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,12 +33,15 @@ fun AddConfirmationBanner(
     onUndo: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    ElevatedCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        tonalElevation = 4.dp,
-        shadowElevation = 0.dp
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 10.dp
+        )
     ) {
         Column(
             modifier = Modifier
@@ -51,41 +57,49 @@ fun AddConfirmationBanner(
                     modifier = Modifier.padding(end = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
                     ) {
-                        androidx.compose.material3.Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "Hinzugefügt",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Hinzugefügt",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(2.dp))
 
                     Text(
                         text = confirmation.title,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold
                     )
 
                     Text(
                         text = confirmation.mealType.displayName,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.78f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     confirmation.amountLabel?.let { amountLabel ->
                         Text(
                             text = amountLabel,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.92f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -100,7 +114,7 @@ fun AddConfirmationBanner(
             Text(
                 text = "${confirmation.calories} kcal  EW ${confirmation.protein}g  KH ${confirmation.carbs}g  F ${confirmation.fat}g",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium
             )
 
@@ -111,7 +125,7 @@ fun AddConfirmationBanner(
                     .fillMaxWidth()
                     .height(10.dp)
                     .clip(RoundedCornerShape(percent = 50))
-                    .background(MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.14f))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
             ) {
                 Box(
                     modifier = Modifier

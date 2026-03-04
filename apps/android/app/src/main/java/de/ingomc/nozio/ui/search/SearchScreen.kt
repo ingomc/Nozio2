@@ -6,12 +6,18 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,6 +81,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
@@ -101,6 +108,8 @@ fun SearchScreen(
     val coroutineScope = rememberCoroutineScope()
     val searchFocusRequester = remember { FocusRequester() }
     val addConfirmationProgress = remember { Animatable(0f) }
+    val addBannerVisibilityState = remember { MutableTransitionState(false) }
+    var displayedAddConfirmation by remember { mutableStateOf<AddConfirmationState?>(null) }
     var showScannerSheet by remember { mutableStateOf(false) }
     var searchContainerHeightPx by remember { mutableStateOf(0) }
     val density = LocalDensity.current
@@ -163,6 +172,32 @@ fun SearchScreen(
                 animationSpec = tween(durationMillis = 5000, easing = LinearEasing)
             )
             viewModel.dismissAddConfirmation()
+        }
+    }
+
+    LaunchedEffect(state.activeAddConfirmation) {
+        val confirmation = state.activeAddConfirmation
+        if (confirmation != null) {
+            displayedAddConfirmation = confirmation
+            addBannerVisibilityState.targetState = true
+        } else {
+            addBannerVisibilityState.targetState = false
+        }
+    }
+
+    LaunchedEffect(
+        addBannerVisibilityState.currentState,
+        addBannerVisibilityState.targetState,
+        addBannerVisibilityState.isIdle,
+        state.activeAddConfirmation
+    ) {
+        if (
+            state.activeAddConfirmation == null &&
+            addBannerVisibilityState.isIdle &&
+            !addBannerVisibilityState.currentState &&
+            !addBannerVisibilityState.targetState
+        ) {
+            displayedAddConfirmation = null
         }
     }
 
@@ -371,21 +406,42 @@ fun SearchScreen(
             )
 
             AnimatedVisibility(
-                visible = state.activeAddConfirmation != null,
+                visibleState = addBannerVisibilityState,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
                     .padding(top = 8.dp, start = 16.dp, end = 16.dp),
-                enter = fadeIn(animationSpec = tween(260)) + slideInVertically(
-                    animationSpec = tween(260),
-                    initialOffsetY = { -it / 2 }
-                ),
-                exit = fadeOut(animationSpec = tween(180)) + slideOutVertically(
-                    animationSpec = tween(180),
-                    targetOffsetY = { -it / 3 }
-                )
+                enter = fadeIn(animationSpec = tween(durationMillis = 180)) +
+                    slideInVertically(
+                        animationSpec = spring(
+                            dampingRatio = 0.8f,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        initialOffsetY = { -it }
+                    ) +
+                    scaleIn(
+                        initialScale = 0.96f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                        animationSpec = spring(
+                            dampingRatio = 0.88f,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    ),
+                exit = fadeOut(animationSpec = tween(durationMillis = 140)) +
+                    slideOutVertically(
+                        animationSpec = tween(
+                            durationMillis = 180,
+                            easing = FastOutLinearInEasing
+                        ),
+                        targetOffsetY = { -it / 2 }
+                    ) +
+                    scaleOut(
+                        targetScale = 0.98f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                        animationSpec = tween(durationMillis = 140)
+                    )
             ) {
-                state.activeAddConfirmation?.let { confirmation ->
+                displayedAddConfirmation?.let { confirmation ->
                     AddConfirmationBanner(
                         confirmation = confirmation,
                         progress = addConfirmationProgress.value,

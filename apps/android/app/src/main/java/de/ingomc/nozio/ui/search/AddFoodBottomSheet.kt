@@ -84,7 +84,7 @@ fun AddFoodBottomSheet(
     var amount by remember { mutableDoubleStateOf(100.0) }
     var selectedAmountUnit by remember { mutableStateOf(availableAmountUnits.first()) }
     var unitMenuExpanded by remember { mutableStateOf(false) }
-    var selectedMealType by remember { mutableStateOf(preselectedMealType ?: MealType.BREAKFAST) }
+    var selectedMealType by remember { mutableStateOf(resolveInitialMealType(preselectedMealType)) }
     val normalizedAmount = remember(amount, selectedAmountUnit) { amount * selectedAmountUnit.multiplier }
 
     val quickAmounts = remember(food, availableAmountUnits) {
