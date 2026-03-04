@@ -33,6 +33,9 @@ fun AddConfirmationBanner(
     onUndo: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val badgeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+    val badgeContentColor = MaterialTheme.colorScheme.primary
+
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -59,7 +62,7 @@ fun AddConfirmationBanner(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        color = badgeContainerColor
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -69,12 +72,12 @@ fun AddConfirmationBanner(
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                tint = badgeContentColor
                             )
                             Text(
                                 text = "Hinzugefügt",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                color = badgeContentColor,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
