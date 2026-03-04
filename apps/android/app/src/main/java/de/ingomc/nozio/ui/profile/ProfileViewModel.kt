@@ -106,7 +106,7 @@ class ProfileViewModel(
 
         viewModelScope.launch {
             userPreferencesRepository.updatePreferences(
-                state.toPreferences()
+                state.toPreferences(baselinePreferences)
             )
             CalorieWidgetProvider.updateAll(appContext)
             _uiState.value = _uiState.value.copy(saved = true, hasChanges = false)
@@ -119,18 +119,21 @@ class ProfileViewModel(
 
     private fun hasChanges(state: ProfileUiState): Boolean {
         val baseline = baselinePreferences ?: return false
-        val current = state.toPreferences()
+        val current = state.toPreferences(baseline)
         return current != baseline
     }
 
-    private fun ProfileUiState.toPreferences(): UserPreferences = UserPreferences(
-        calorieGoal = calorieGoal.toDoubleOrNull() ?: 2000.0,
-        proteinGoal = proteinGoal.toDoubleOrNull() ?: 75.0,
-        fatGoal = fatGoal.toDoubleOrNull() ?: 65.0,
-        carbsGoal = carbsGoal.toDoubleOrNull() ?: 250.0,
-        currentWeightKg = currentWeightKg.toDoubleOrNull() ?: 80.0,
-        bodyFatPercent = bodyFatPercent.toDoubleOrNull() ?: 20.0
-    )
+    private fun ProfileUiState.toPreferences(base: UserPreferences?): UserPreferences {
+        val fallback = base ?: UserPreferences()
+        return fallback.copy(
+            calorieGoal = calorieGoal.toDoubleOrNull() ?: 2000.0,
+            proteinGoal = proteinGoal.toDoubleOrNull() ?: 75.0,
+            fatGoal = fatGoal.toDoubleOrNull() ?: 65.0,
+            carbsGoal = carbsGoal.toDoubleOrNull() ?: 250.0,
+            currentWeightKg = currentWeightKg.toDoubleOrNull() ?: 80.0,
+            bodyFatPercent = bodyFatPercent.toDoubleOrNull() ?: 20.0
+        )
+    }
 
     private fun formatWeightForInput(value: Double): String {
         return String.format(Locale.US, "%.1f", value)
