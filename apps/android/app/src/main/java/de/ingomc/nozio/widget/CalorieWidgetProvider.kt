@@ -11,6 +11,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.widget.RemoteViews
+import androidx.core.graphics.createBitmap
 import de.ingomc.nozio.MainActivity
 import de.ingomc.nozio.NozioApplication
 import de.ingomc.nozio.R
@@ -220,7 +221,7 @@ abstract class BaseCalorieWidgetProvider(
             val sweepAngle = 260f
             val progressSweep = sweepAngle * (progressPercent.coerceIn(0, 100) / 100f)
 
-            val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+            val bitmap = createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             val oval = RectF(inset, inset, sizePx - inset, sizePx - inset)
 

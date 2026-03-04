@@ -72,8 +72,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
@@ -83,20 +83,19 @@ import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
     preselectedMealType: MealType?,
+    modifier: Modifier = Modifier,
     openQuickAddOnStart: Boolean = false,
     openBarcodeScannerOnStart: Boolean = false,
     focusSearchOnStart: Boolean = false,
     onQuickAddOpened: () -> Unit = {},
     onBarcodeScannerOpened: () -> Unit = {},
-    onSearchFocused: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onSearchFocused: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()

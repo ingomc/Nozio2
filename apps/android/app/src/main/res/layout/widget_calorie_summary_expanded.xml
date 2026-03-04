@@ -27,7 +27,7 @@
                 android:id="@+id/widget_eaten_value"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="0"
+                android:text="@string/widget_zero"
                 android:textColor="@color/widget_calorie_eaten"
                 android:textSize="20sp"
                 android:textStyle="bold" />
@@ -58,7 +58,7 @@
                 android:layout_height="wrap_content"
                 android:layout_centerHorizontal="true"
                 android:layout_marginTop="42dp"
-                android:text="0"
+                android:text="@string/widget_zero"
                 android:textColor="@color/widget_calorie_positive"
                 android:textSize="26sp"
                 android:textStyle="bold" />
@@ -85,7 +85,7 @@
                 android:id="@+id/widget_burned_value"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="0"
+                android:text="@string/widget_zero"
                 android:textColor="@color/widget_calorie_burned"
                 android:textSize="20sp"
                 android:textStyle="bold" />
@@ -108,34 +108,20 @@
                     android:id="@+id/widget_scan_button"
                     android:layout_width="34dp"
                     android:layout_height="34dp"
-                    android:background="@drawable/widget_circle_button"
+                    android:background="@drawable/widget_scan_button_background"
+                    android:contentDescription="@string/widget_scan"
                     android:gravity="center"
-                    android:orientation="horizontal">
-
-                    <ImageView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/widget_scan"
-                        android:src="@drawable/ic_widget_qr"
-                        android:tint="@color/widget_calorie_button_icon" />
-                </LinearLayout>
+                    android:orientation="horizontal" />
 
                 <LinearLayout
                     android:id="@+id/widget_add_button"
                     android:layout_width="34dp"
                     android:layout_height="34dp"
                     android:layout_marginStart="8dp"
-                    android:background="@drawable/widget_circle_button"
+                    android:background="@drawable/widget_add_button_background"
+                    android:contentDescription="@string/widget_add_food"
                     android:gravity="center"
-                    android:orientation="horizontal">
-
-                    <ImageView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/widget_add_food"
-                        android:src="@android:drawable/ic_input_add"
-                        android:tint="@color/widget_calorie_button_icon" />
-                </LinearLayout>
+                    android:orientation="horizontal" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
@@ -177,7 +163,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="5dp"
-                android:text="0 / 0 g"
+                android:text="@string/widget_macro_value_placeholder"
                 android:textColor="@color/widget_calorie_text_secondary"
                 android:textSize="9sp"
                 android:textStyle="bold" />
@@ -214,7 +200,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="5dp"
-                android:text="0 / 0 g"
+                android:text="@string/widget_macro_value_placeholder"
                 android:textColor="@color/widget_calorie_text_secondary"
                 android:textSize="9sp"
                 android:textStyle="bold" />
@@ -251,7 +237,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="5dp"
-                android:text="0 / 0 g"
+                android:text="@string/widget_macro_value_placeholder"
                 android:textColor="@color/widget_calorie_text_secondary"
                 android:textSize="9sp"
                 android:textStyle="bold" />

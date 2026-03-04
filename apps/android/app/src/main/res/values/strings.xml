@@ -5,6 +5,8 @@
     <string name="widget_description_expanded">Großes Kalorien- und Makro-Widget</string>
     <string name="widget_name_compact">Nozio Kompakt</string>
     <string name="widget_name_expanded">Nozio Groß</string>
+    <string name="widget_zero">0</string>
+    <string name="widget_macro_value_placeholder">0 / 0 g</string>
     <string name="widget_eaten">Gegessen</string>
     <string name="widget_burned">Verbrannt</string>
     <string name="widget_remaining">Übrig</string>

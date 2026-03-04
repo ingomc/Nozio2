@@ -84,7 +84,7 @@ class SearchViewModel(
         try {
             val results = foodRepository.searchFood(query)
             _uiState.value = _uiState.value.copy(results = results, isLoading = false)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             _uiState.value = _uiState.value.copy(
                 error = "Suche fehlgeschlagen. Bitte prüfe deine Internetverbindung.",
                 isLoading = false

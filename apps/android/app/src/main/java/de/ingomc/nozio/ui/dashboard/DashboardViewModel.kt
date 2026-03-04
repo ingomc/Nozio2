@@ -13,6 +13,7 @@ import de.ingomc.nozio.data.repository.LatestWeightEntry
 import de.ingomc.nozio.data.repository.UserPreferences
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
 import de.ingomc.nozio.widget.CalorieWidgetProvider
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +38,7 @@ data class DashboardUiState(
     val weightSaved: Boolean = false
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DashboardViewModel(
     private val appContext: Context,
     private val diaryRepository: DiaryRepository,
