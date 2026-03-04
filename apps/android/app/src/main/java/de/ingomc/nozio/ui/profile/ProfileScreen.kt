@@ -21,6 +21,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -67,6 +68,7 @@ private enum class WeightRange(val label: String, val days: Long?) {
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
+    onOpenLegalInfo: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -253,6 +255,15 @@ fun ProfileScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
+            }
+
+            OutlinedButton(
+                onClick = onOpenLegalInfo,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                Text("Impressum & Datenschutz")
             }
 
             Spacer(modifier = Modifier.height(32.dp))
