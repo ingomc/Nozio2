@@ -100,7 +100,7 @@ class CalorieWidgetProvider : AppWidgetProvider() {
             val goal = preferences.calorieGoal.roundToInt()
             val eaten = summary.totalCalories.roundToInt()
             val burnedRounded = burned.roundToInt()
-            WidgetCalorieData(
+            return WidgetCalorieData(
                 goal = goal,
                 eaten = eaten,
                 burned = burnedRounded,
