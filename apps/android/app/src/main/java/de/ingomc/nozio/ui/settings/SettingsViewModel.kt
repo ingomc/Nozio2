@@ -15,10 +15,8 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val mealReminderEnabled: Boolean = false,
-    val mealReminderHour: String = "19",
-    val mealReminderMinute: String = "00",
-    val saved: Boolean = false,
-    val hasChanges: Boolean = false
+    val mealReminderHour: Int = 19,
+    val mealReminderMinute: Int = 0
 )
 
 class SettingsViewModel(
@@ -29,65 +27,53 @@ class SettingsViewModel(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-    private var baselineState = SettingsUiState()
-
     init {
         viewModelScope.launch {
             userPreferencesRepository.userPreferences.collectLatest { prefs ->
-                val freshState = SettingsUiState(
+                _uiState.value = SettingsUiState(
                     themeMode = prefs.themeMode,
                     mealReminderEnabled = prefs.mealReminderEnabled,
-                    mealReminderHour = prefs.mealReminderHour.toString(),
-                    mealReminderMinute = "%02d".format(prefs.mealReminderMinute)
+                    mealReminderHour = prefs.mealReminderHour,
+                    mealReminderMinute = prefs.mealReminderMinute
                 )
-                baselineState = freshState
-                _uiState.value = freshState
             }
         }
     }
 
-    fun onThemeModeChange(mode: AppThemeMode) = update { it.copy(themeMode = mode, saved = false) }
-    fun onMealReminderEnabledChange(enabled: Boolean) = update { it.copy(mealReminderEnabled = enabled, saved = false) }
-    fun onMealReminderHourChange(hour: String) = update { it.copy(mealReminderHour = hour.filter(Char::isDigit), saved = false) }
-    fun onMealReminderMinuteChange(minute: String) = update { it.copy(mealReminderMinute = minute.filter(Char::isDigit), saved = false) }
-
-    fun save() {
-        val state = _uiState.value
-        if (!state.hasChanges) return
-
-        val hour = state.mealReminderHour.toIntOrNull()?.coerceIn(0, 23) ?: 19
-        val minute = state.mealReminderMinute.toIntOrNull()?.coerceIn(0, 59) ?: 0
-
+    fun onThemeModeChange(mode: AppThemeMode) {
         viewModelScope.launch {
             val currentPrefs = userPreferencesRepository.userPreferences.firstOrNull() ?: return@launch
-            userPreferencesRepository.updatePreferences(
-                currentPrefs.copy(
-                    themeMode = state.themeMode,
-                    mealReminderEnabled = state.mealReminderEnabled,
-                    mealReminderHour = hour,
-                    mealReminderMinute = minute
-                )
-            )
-            onReminderChanged(state.mealReminderEnabled, hour, minute)
-            _uiState.value = _uiState.value.copy(
-                mealReminderHour = hour.toString(),
-                mealReminderMinute = "%02d".format(minute),
-                saved = true,
-                hasChanges = false
-            )
+            if (currentPrefs.themeMode == mode) return@launch
+            userPreferencesRepository.updatePreferences(currentPrefs.copy(themeMode = mode))
         }
     }
 
-    private fun update(transform: (SettingsUiState) -> SettingsUiState) {
-        val candidate = transform(_uiState.value)
-        _uiState.value = candidate.copy(hasChanges = hasChanges(candidate))
+    fun onMealReminderEnabledChange(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentPrefs = userPreferencesRepository.userPreferences.firstOrNull() ?: return@launch
+            if (currentPrefs.mealReminderEnabled == enabled) return@launch
+            userPreferencesRepository.updatePreferences(currentPrefs.copy(mealReminderEnabled = enabled))
+            onReminderChanged(enabled, currentPrefs.mealReminderHour, currentPrefs.mealReminderMinute)
+        }
     }
 
-    private fun hasChanges(candidate: SettingsUiState): Boolean {
-        return candidate.themeMode != baselineState.themeMode ||
-            candidate.mealReminderEnabled != baselineState.mealReminderEnabled ||
-            candidate.mealReminderHour != baselineState.mealReminderHour ||
-            candidate.mealReminderMinute != baselineState.mealReminderMinute
+    fun onMealReminderTimeChange(hour: Int, minute: Int) {
+        val safeHour = hour.coerceIn(0, 23)
+        val safeMinute = minute.coerceIn(0, 59)
+
+        viewModelScope.launch {
+            val currentPrefs = userPreferencesRepository.userPreferences.firstOrNull() ?: return@launch
+            if (currentPrefs.mealReminderHour == safeHour && currentPrefs.mealReminderMinute == safeMinute) {
+                return@launch
+            }
+            userPreferencesRepository.updatePreferences(
+                currentPrefs.copy(
+                    mealReminderHour = safeHour,
+                    mealReminderMinute = safeMinute
+                )
+            )
+            onReminderChanged(currentPrefs.mealReminderEnabled, safeHour, safeMinute)
+        }
     }
 
     class Factory(
