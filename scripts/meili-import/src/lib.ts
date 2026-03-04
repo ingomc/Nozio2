@@ -75,6 +75,7 @@ export function transformRecord(raw: unknown): MeiliFoodDocument | null {
     proteinPer100g: normalizeNumber(value.proteinPer100g),
     fatPer100g: normalizeNumber(value.fatPer100g),
     carbsPer100g: normalizeNumber(value.carbsPer100g),
+    sugarPer100g: normalizeNumber(value.sugarPer100g),
     servingSize: normalizeNullableText(value.servingSize),
     servingQuantity: normalizeNullableNumber(value.servingQuantity),
     packageSize: normalizeNullableText(value.packageSize),

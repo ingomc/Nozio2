@@ -90,7 +90,8 @@ class FoodRepositoryTest {
                 caloriesPer100g = 410.0,
                 proteinPer100g = 26.0,
                 fatPer100g = 9.0,
-                carbsPer100g = 48.0
+                carbsPer100g = 48.0,
+                sugarPer100g = 5.0
             )
         )
 

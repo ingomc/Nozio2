@@ -44,12 +44,23 @@ fun CreateCustomFoodBottomSheet(
     var protein by remember { mutableStateOf("") }
     var fat by remember { mutableStateOf("") }
     var carbs by remember { mutableStateOf("") }
+    var sugar by remember { mutableStateOf("") }
     var servingSize by remember { mutableStateOf("") }
     var servingQuantity by remember { mutableStateOf("") }
     var packageSize by remember { mutableStateOf("") }
     var packageQuantity by remember { mutableStateOf("") }
 
-    val caloriesValue = calories.toDoubleOrNull()
+    val caloriesValue = parseDecimalInput(calories)
+    val proteinValue = parseDecimalInput(protein)
+    val fatValue = parseDecimalInput(fat)
+    val carbsValue = parseDecimalInput(carbs)
+    val sugarValue = parseDecimalInput(sugar)
+    val macrosValid =
+        proteinValue != null && proteinValue >= 0 &&
+            fatValue != null && fatValue >= 0 &&
+            carbsValue != null && carbsValue >= 0 &&
+            sugarValue != null && sugarValue >= 0 &&
+            sugarValue <= carbsValue
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -105,6 +116,19 @@ fun CreateCustomFoodBottomSheet(
                 onValueChange = { carbs = it }
             )
             ProductField(
+                sugar,
+                "Davon Zucker pro 100g",
+                suffix = "g",
+                keyboardType = KeyboardType.Number,
+                isError = sugarValue != null && carbsValue != null && sugarValue > carbsValue,
+                supportingText = if (sugarValue != null && carbsValue != null && sugarValue > carbsValue) {
+                    "Zucker kann nicht hoeher als Kohlenhydrate sein."
+                } else {
+                    null
+                },
+                onValueChange = { sugar = it }
+            )
+            ProductField(
                 fat,
                 "Fett pro 100g",
                 suffix = "g",
@@ -144,17 +168,22 @@ fun CreateCustomFoodBottomSheet(
                             brand = brand.ifBlank { null },
                             barcode = barcode.ifBlank { null },
                             caloriesPer100g = caloriesValue ?: 0.0,
-                            proteinPer100g = protein.toDoubleOrNull() ?: 0.0,
-                            fatPer100g = fat.toDoubleOrNull() ?: 0.0,
-                            carbsPer100g = carbs.toDoubleOrNull() ?: 0.0,
+                            proteinPer100g = proteinValue ?: 0.0,
+                            fatPer100g = fatValue ?: 0.0,
+                            carbsPer100g = carbsValue ?: 0.0,
+                            sugarPer100g = sugarValue ?: 0.0,
                             servingSize = servingSize.ifBlank { null },
-                            servingQuantity = servingQuantity.toDoubleOrNull(),
+                            servingQuantity = parseDecimalInput(servingQuantity),
                             packageSize = packageSize.ifBlank { null },
-                            packageQuantity = packageQuantity.toDoubleOrNull()
+                            packageQuantity = parseDecimalInput(packageQuantity)
                         )
                     )
                 },
-                enabled = !isSubmitting && name.isNotBlank() && caloriesValue != null && caloriesValue >= 0,
+                enabled = !isSubmitting &&
+                    name.isNotBlank() &&
+                    caloriesValue != null &&
+                    caloriesValue >= 0 &&
+                    macrosValid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp)
@@ -180,6 +209,8 @@ private fun ProductField(
     label: String,
     suffix: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
+    isError: Boolean = false,
+    supportingText: String? = null,
     onValueChange: (String) -> Unit
 ) {
     OutlinedTextField(
@@ -187,10 +218,21 @@ private fun ProductField(
         onValueChange = onValueChange,
         label = { Text(label) },
         suffix = suffix?.let { { Text(it) } },
+        isError = isError,
+        supportingText = supportingText?.let { text -> { Text(text) } },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         singleLine = true,
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 10.dp)
     )
+}
+
+internal fun parseDecimalInput(value: String): Double? {
+    val normalized = value
+        .trim()
+        .replace(',', '.')
+        .replace(" ", "")
+    if (normalized.isBlank()) return null
+    return normalized.toDoubleOrNull()
 }
