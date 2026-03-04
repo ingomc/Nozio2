@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "import": "tsx src/index.ts",
+    "delete:article": "tsx src/delete-article.ts",
     "extract:off": "python3 src/extract-off.py",
     "inspect:off": "python3 src/inspect-off-parquet.py",
     "build": "tsc -p tsconfig.json",

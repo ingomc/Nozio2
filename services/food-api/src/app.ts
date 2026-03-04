@@ -50,6 +50,14 @@ export function buildApp(config: AppConfig): FastifyInstance {
   });
   const meili = createMeiliClient(config);
   const index = meili.index(config.MEILI_INDEX_NAME);
+  const findFoodByBarcode = async (barcode: string) => {
+    const result = await index.search("", {
+      filter: [`barcode = "${barcode}"`],
+      limit: 1
+    });
+    const hit = result.hits[0];
+    return hit ? foodItemSchema.parse(hit) : null;
+  };
 
   app.addHook("onRequest", async (request, reply) => {
     if (request.url.startsWith("/v1/")) {
@@ -116,6 +124,55 @@ export function buildApp(config: AppConfig): FastifyInstance {
     }
   });
 
+  app.get("/admin/foods/barcode/:barcode", async (request, reply) => {
+    const parsedParams = barcodeParamsSchema.safeParse(request.params);
+    if (!parsedParams.success) {
+      return sendApiError(reply, 400, "INVALID_BARCODE", "Barcode must contain only digits.");
+    }
+
+    try {
+      const item = await findFoodByBarcode(parsedParams.data.barcode);
+      if (!item) {
+        return sendApiError(reply, 404, "NOT_FOUND", "No product found for barcode.");
+      }
+
+      return foodBarcodeResponseSchema.parse({ item });
+    } catch (error) {
+      if (isMeiliUnavailable(error)) {
+        return sendApiError(reply, 502, "MEILI_UNAVAILABLE", "Search backend is unavailable.");
+      }
+      request.log.error({ err: error }, "admin barcode lookup failed");
+      return sendApiError(reply, 500, "INTERNAL_ERROR", "Unexpected server error.");
+    }
+  });
+
+  app.delete("/admin/foods/barcode/:barcode", async (request, reply) => {
+    const parsedParams = barcodeParamsSchema.safeParse(request.params);
+    if (!parsedParams.success) {
+      return sendApiError(reply, 400, "INVALID_BARCODE", "Barcode must contain only digits.");
+    }
+
+    try {
+      const item = await findFoodByBarcode(parsedParams.data.barcode);
+      if (!item) {
+        return sendApiError(reply, 404, "NOT_FOUND", "No product found for barcode.");
+      }
+
+      await index.deleteDocument(item.id);
+
+      return reply.send({
+        deleted: true,
+        item
+      });
+    } catch (error) {
+      if (isMeiliUnavailable(error)) {
+        return sendApiError(reply, 502, "MEILI_UNAVAILABLE", "Search backend is unavailable.");
+      }
+      request.log.error({ err: error }, "admin barcode delete failed");
+      return sendApiError(reply, 500, "INTERNAL_ERROR", "Unexpected server error.");
+    }
+  });
+
   app.get("/v1/foods/search", async (request, reply) => {
     const parsedQuery = searchQuerySchema.safeParse(request.query);
     if (!parsedQuery.success) {
@@ -149,18 +206,12 @@ export function buildApp(config: AppConfig): FastifyInstance {
     }
 
     try {
-      const result = await index.search("", {
-        filter: [`barcode = "${parsedParams.data.barcode}"`],
-        limit: 1
-      });
-      const hit = result.hits[0];
-      if (!hit) {
+      const item = await findFoodByBarcode(parsedParams.data.barcode);
+      if (!item) {
         return sendApiError(reply, 404, "NOT_FOUND", "No product found for barcode.");
       }
 
-      return foodBarcodeResponseSchema.parse({
-        item: foodItemSchema.parse(hit)
-      });
+      return foodBarcodeResponseSchema.parse({ item });
     } catch (error) {
       if (isMeiliUnavailable(error)) {
         return sendApiError(reply, 502, "MEILI_UNAVAILABLE", "Search backend is unavailable.");

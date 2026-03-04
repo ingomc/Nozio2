@@ -57,6 +57,28 @@ test("admin seed upload requires admin token", async () => {
   assert.equal(response.json().error.code, "UNAUTHORIZED");
 });
 
+test("admin barcode preview requires admin token", async () => {
+  const app = buildApp(baseConfig);
+  const response = await app.inject({
+    method: "GET",
+    url: "/admin/foods/barcode/8721082520362"
+  });
+
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.json().error.code, "UNAUTHORIZED");
+});
+
+test("admin barcode delete requires admin token", async () => {
+  const app = buildApp(baseConfig);
+  const response = await app.inject({
+    method: "DELETE",
+    url: "/admin/foods/barcode/8721082520362"
+  });
+
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.json().error.code, "UNAUTHORIZED");
+});
+
 test("admin seed upload validates json array payload", async () => {
   const app = buildApp(baseConfig);
   const response = await app.inject({
@@ -86,4 +108,25 @@ test("custom food endpoint validates payload before meili call", async () => {
 
   assert.equal(response.statusCode, 400);
   assert.equal(response.json().error.code, "INVALID_BODY");
+});
+
+test("admin barcode endpoints validate barcode before meili call", async () => {
+  const app = buildApp(baseConfig);
+  const headers = { "x-admin-token": "admin-secret" };
+
+  const previewResponse = await app.inject({
+    method: "GET",
+    url: "/admin/foods/barcode/not-a-barcode",
+    headers
+  });
+  assert.equal(previewResponse.statusCode, 400);
+  assert.equal(previewResponse.json().error.code, "INVALID_BARCODE");
+
+  const deleteResponse = await app.inject({
+    method: "DELETE",
+    url: "/admin/foods/barcode/not-a-barcode",
+    headers
+  });
+  assert.equal(deleteResponse.statusCode, 400);
+  assert.equal(deleteResponse.json().error.code, "INVALID_BARCODE");
 });

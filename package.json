@@ -8,6 +8,7 @@
     "dev:food-api": "corepack pnpm --filter @nozio/food-api dev",
     "build:food-api": "corepack pnpm --filter @nozio/food-api build",
     "import:meili": "corepack pnpm --filter @nozio/meili-import run import",
+    "delete:article": "corepack pnpm --filter @nozio/meili-import run delete:article",
     "extract:off": "corepack pnpm --filter @nozio/meili-import run extract:off",
     "inspect:off": "corepack pnpm --filter @nozio/meili-import run inspect:off"
   }
