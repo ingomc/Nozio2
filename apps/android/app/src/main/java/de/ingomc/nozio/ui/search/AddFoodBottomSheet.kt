@@ -4,17 +4,29 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -30,9 +42,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import kotlin.math.roundToInt
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
+
+private enum class AmountUnitType {
+    GRAM,
+    MILLILITER,
+    PORTION,
+    PACKAGE
+}
+
+private data class AmountUnit(
+    val type: AmountUnitType,
+    val label: String,
+    val multiplier: Double = 1.0
+)
+
+private data class QuickAmountOption(
+    val amount: Double,
+    val unit: AmountUnit
+)
+
+private const val DEFAULT_AMOUNT_UNIT_LABEL = "g"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -44,15 +79,17 @@ fun AddFoodBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val maxSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.88f
+    val availableAmountUnits = remember(food) { buildAmountUnits(food) }
     var amountText by remember { mutableStateOf("100") }
     var amount by remember { mutableDoubleStateOf(100.0) }
+    var selectedAmountUnit by remember { mutableStateOf(availableAmountUnits.first()) }
+    var unitMenuExpanded by remember { mutableStateOf(false) }
     var selectedMealType by remember { mutableStateOf(preselectedMealType ?: MealType.BREAKFAST) }
+    val normalizedAmount = remember(amount, selectedAmountUnit) { amount * selectedAmountUnit.multiplier }
 
-    val quickAmounts = buildList {
-        addAll(listOf(50.0, 100.0, 150.0, 200.0, 250.0, 300.0))
-        food.servingQuantity?.takeIf { it > 0 }?.let { add(it) }
-        food.packageQuantity?.takeIf { it > 0 }?.let { add(it) }
-    }.distinct().sorted()
+    val quickAmounts = remember(food, availableAmountUnits) {
+        buildQuickAmountOptions(availableAmountUnits)
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -92,6 +129,31 @@ fun AddFoodBottomSheet(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+            // Meal type selection
+            Text(
+                text = "Mahlzeit",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(MealType.entries) { mealType ->
+                    FilterChip(
+                        selected = selectedMealType == mealType,
+                        onClick = { selectedMealType = mealType },
+                        colors = solidSelectionChipColors(),
+                        label = { Text(mealType.displayName) }
+                    )
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
             // Amount input
             Text(
                 text = "Menge",
@@ -101,17 +163,92 @@ fun AddFoodBottomSheet(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = amountText,
-                onValueChange = { value ->
-                    amountText = value
-                    amount = value.toDoubleOrNull() ?: 0.0
-                },
-                label = { Text("Menge (g/ml)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (selectedAmountUnit.type == AmountUnitType.PORTION || selectedAmountUnit.type == AmountUnitType.PACKAGE) {
+                    IconButton(
+                        onClick = {
+                            val nextAmount = (amount - 1.0).coerceAtLeast(0.0)
+                            amount = nextAmount
+                            amountText = formatAmountValue(nextAmount)
+                        },
+                        enabled = amount > 0,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Remove,
+                            contentDescription = "Menge verringern"
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { value ->
+                        amountText = value
+                        amount = value.toDoubleOrNull() ?: 0.0
+                    },
+                    label = { Text("Wert") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (selectedAmountUnit.type == AmountUnitType.PORTION || selectedAmountUnit.type == AmountUnitType.PACKAGE) {
+                    IconButton(
+                        onClick = {
+                            val nextAmount = amount + 1.0
+                            amount = nextAmount
+                            amountText = formatAmountValue(nextAmount)
+                        },
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Menge erhöhen"
+                        )
+                    }
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = unitMenuExpanded,
+                    onExpandedChange = { unitMenuExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedAmountUnit.label,
+                        onValueChange = {},
+                        readOnly = true,
+                        singleLine = true,
+                        label = { Text("Einheit") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitMenuExpanded)
+                        },
+                        modifier = Modifier
+                            .menuAnchor(
+                                type = MenuAnchorType.PrimaryNotEditable,
+                                enabled = true
+                            )
+                            .width(148.dp)
+                    )
+
+                    DropdownMenu(
+                        expanded = unitMenuExpanded,
+                        onDismissRequest = { unitMenuExpanded = false }
+                    ) {
+                        availableAmountUnits.forEach { unit ->
+                            DropdownMenuItem(
+                                text = { Text(unit.label) },
+                                onClick = {
+                                    selectedAmountUnit = unit
+                                    val defaultAmount = defaultAmountForUnit(unit)
+                                    amount = defaultAmount
+                                    amountText = formatAmountValue(defaultAmount)
+                                    unitMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -122,11 +259,13 @@ fun AddFoodBottomSheet(
             ) {
                 quickAmounts.forEach { quickAmount ->
                     FilterChip(
-                        selected = amount == quickAmount,
+                        selected = amount == quickAmount.amount && selectedAmountUnit == quickAmount.unit,
                         onClick = {
-                            amount = quickAmount
-                            amountText = quickAmount.roundToInt().toString()
+                            selectedAmountUnit = quickAmount.unit
+                            amount = quickAmount.amount
+                            amountText = formatAmountValue(quickAmount.amount)
                         },
+                        colors = solidSelectionChipColors(),
                         label = { Text(formatQuickAmount(food, quickAmount)) }
                     )
                 }
@@ -135,48 +274,24 @@ fun AddFoodBottomSheet(
             // Calculated nutrition
             if (amount > 0) {
                 Spacer(modifier = Modifier.height(12.dp))
-                val cal = food.caloriesPer100g * amount / 100.0
-                val prot = food.proteinPer100g * amount / 100.0
-                val fat = food.fatPer100g * amount / 100.0
-                val carbs = food.carbsPer100g * amount / 100.0
+                val cal = food.caloriesPer100g * normalizedAmount / 100.0
+                val prot = food.proteinPer100g * normalizedAmount / 100.0
+                val fat = food.fatPer100g * normalizedAmount / 100.0
+                val carbs = food.carbsPer100g * normalizedAmount / 100.0
 
                 Text(
-                    text = "Für ${amount.toInt()}g: ${cal.toInt()} kcal · E ${prot.toInt()}g · F ${fat.toInt()}g · K ${carbs.toInt()}g",
+                    text = "Für ${formatAmountWithUnit(amount, selectedAmountUnit, food)}: ${cal.toInt()} kcal · E ${prot.toInt()}g · F ${fat.toInt()}g · K ${carbs.toInt()}g",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            // Meal type selection
-            Text(
-                text = "Mahlzeit",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                MealType.entries.forEach { mealType ->
-                    FilterChip(
-                        selected = selectedMealType == mealType,
-                        onClick = { selectedMealType = mealType },
-                        label = { Text(mealType.displayName) }
-                    )
-                }
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
 
             // Add button
             Button(
-                onClick = { onAdd(selectedMealType, amount) },
+                onClick = { onAdd(selectedMealType, normalizedAmount) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
@@ -197,18 +312,82 @@ private fun buildMetaLine(food: FoodItem): String {
     return parts.joinToString(" · ")
 }
 
-private fun formatQuickAmount(food: FoodItem, amount: Double): String {
-    val rounded = formatAmountValue(amount)
-    return when {
-        food.packageQuantity != null && kotlin.math.abs(food.packageQuantity - amount) < 0.01 ->
-            food.packageSize?.takeIf { it.isNotBlank() }?.let { "1x Packung ($it)" }
-                ?: "1x Packung (${rounded}g)"
-        food.servingQuantity != null && kotlin.math.abs(food.servingQuantity - amount) < 0.01 ->
-            food.servingSize?.takeIf { it.isNotBlank() }?.let { "1x Portion ($it)" }
-                ?: "1x Portion (${rounded}g)"
-        else -> "${rounded}g"
+private fun formatQuickAmount(food: FoodItem, option: QuickAmountOption): String {
+    val rounded = formatAmountValue(option.amount)
+    return when (option.unit.type) {
+        AmountUnitType.PORTION -> {
+            val suffix = if (kotlin.math.abs(option.amount - 1.0) < 0.01) "Portion" else "Portionen"
+            val size = food.servingSize?.takeIf { it.isNotBlank() } ?: "${formatAmountValue(option.unit.multiplier)} g"
+            "$rounded $suffix"
+                .let { "$it ($size)" }
+        }
+        AmountUnitType.PACKAGE -> {
+            val suffix = if (kotlin.math.abs(option.amount - 1.0) < 0.01) "Packung" else "Packungen"
+            val size = food.packageSize?.takeIf { it.isNotBlank() } ?: "${formatAmountValue(option.unit.multiplier)} g"
+            "$rounded $suffix"
+                .let { "$it ($size)" }
+        }
+        AmountUnitType.GRAM -> "${rounded}g"
+        AmountUnitType.MILLILITER -> "${rounded}ml"
     }
 }
+
+private fun buildQuickAmountOptions(units: List<AmountUnit>): List<QuickAmountOption> = buildList {
+    units.firstOrNull { it.type == AmountUnitType.GRAM }?.let { gramUnit ->
+        add(QuickAmountOption(100.0, gramUnit))
+    }
+    units.firstOrNull { it.type == AmountUnitType.MILLILITER }?.let { milliliterUnit ->
+        add(QuickAmountOption(100.0, milliliterUnit))
+    }
+    units.firstOrNull { it.type == AmountUnitType.PORTION }?.let { portionUnit ->
+        add(QuickAmountOption(1.0, portionUnit))
+    }
+    units.firstOrNull { it.type == AmountUnitType.PACKAGE }?.let { packageUnit ->
+        add(QuickAmountOption(1.0, packageUnit))
+    }
+}
+
+private fun buildAmountUnits(food: FoodItem): List<AmountUnit> = buildList {
+    add(AmountUnit(type = AmountUnitType.GRAM, label = DEFAULT_AMOUNT_UNIT_LABEL))
+    add(AmountUnit(type = AmountUnitType.MILLILITER, label = "ml"))
+    food.servingQuantity?.takeIf { it > 0 }?.let {
+        add(AmountUnit(type = AmountUnitType.PORTION, label = "Portion", multiplier = it))
+    }
+    food.packageQuantity?.takeIf { it > 0 }?.let {
+        add(AmountUnit(type = AmountUnitType.PACKAGE, label = "Packung", multiplier = it))
+    }
+}
+
+private fun defaultAmountForUnit(unit: AmountUnit): Double = when (unit.type) {
+    AmountUnitType.GRAM, AmountUnitType.MILLILITER -> 100.0
+    AmountUnitType.PORTION, AmountUnitType.PACKAGE -> 1.0
+}
+
+private fun formatAmountWithUnit(amount: Double, unit: AmountUnit, food: FoodItem): String {
+    val roundedAmount = formatAmountValue(amount)
+    return when (unit.type) {
+        AmountUnitType.GRAM -> "${roundedAmount}g"
+        AmountUnitType.MILLILITER -> "${roundedAmount}ml"
+        AmountUnitType.PORTION -> {
+            val suffix = if (kotlin.math.abs(amount - 1.0) < 0.01) "Portion" else "Portionen"
+            val size = food.servingSize?.takeIf { it.isNotBlank() } ?: "${formatAmountValue(unit.multiplier)} g"
+            "$roundedAmount $suffix ($size)"
+        }
+        AmountUnitType.PACKAGE -> {
+            val suffix = if (kotlin.math.abs(amount - 1.0) < 0.01) "Packung" else "Packungen"
+            val size = food.packageSize?.takeIf { it.isNotBlank() } ?: "${formatAmountValue(unit.multiplier)} g"
+            "$roundedAmount $suffix ($size)"
+        }
+    }
+}
+
+@Composable
+private fun solidSelectionChipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primary,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
+    selectedTrailingIconColor = MaterialTheme.colorScheme.onPrimary
+)
 
 private fun formatAmountValue(amount: Double): String {
     val rounded = amount.roundToInt().toDouble()
