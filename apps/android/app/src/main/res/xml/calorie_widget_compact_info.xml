@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android enforces >=30min; this balances battery usage with data freshness. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description_compact"
+    android:initialLayout="@layout/widget_calorie_summary"
+    android:minWidth="250dp"
+    android:minHeight="72dp"
+    android:minResizeHeight="56dp"
+    android:previewLayout="@layout/widget_calorie_summary"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

@@ -69,9 +69,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,19 +83,26 @@ import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
     preselectedMealType: MealType?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    openQuickAddOnStart: Boolean = false,
+    openBarcodeScannerOnStart: Boolean = false,
+    focusSearchOnStart: Boolean = false,
+    onQuickAddOpened: () -> Unit = {},
+    onBarcodeScannerOpened: () -> Unit = {},
+    onSearchFocused: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
+    val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val searchFocusRequester = remember { FocusRequester() }
     var showScannerSheet by remember { mutableStateOf(false) }
     var showAddedBanner by remember { mutableStateOf(false) }
     var addedBannerRunId by remember { mutableIntStateOf(0) }
@@ -115,6 +125,39 @@ fun SearchScreen(
             coroutineScope.launch {
                 snackbarHostState.showSnackbar("Kamera-Berechtigung benötigt")
             }
+        }
+    }
+    val launchBarcodeScanner: () -> Unit = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            showScannerSheet = true
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    LaunchedEffect(openQuickAddOnStart) {
+        if (openQuickAddOnStart) {
+            viewModel.showQuickAddSheet()
+            onQuickAddOpened()
+        }
+    }
+
+    LaunchedEffect(openBarcodeScannerOnStart) {
+        if (openBarcodeScannerOnStart) {
+            launchBarcodeScanner()
+            onBarcodeScannerOpened()
+        }
+    }
+
+    LaunchedEffect(focusSearchOnStart) {
+        if (focusSearchOnStart) {
+            searchFocusRequester.requestFocus()
+            keyboardController?.show()
+            onSearchFocused()
         }
     }
 
@@ -284,7 +327,8 @@ fun SearchScreen(
                                 },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(56.dp),
+                                    .height(56.dp)
+                                    .focusRequester(searchFocusRequester),
                                 shape = RoundedCornerShape(28.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = MaterialTheme.colorScheme.outline,
@@ -308,15 +352,7 @@ fun SearchScreen(
                             ) {
                                 IconButton(
                                     onClick = {
-                                        val hasPermission = ContextCompat.checkSelfPermission(
-                                            context,
-                                            Manifest.permission.CAMERA
-                                        ) == PackageManager.PERMISSION_GRANTED
-                                        if (hasPermission) {
-                                            showScannerSheet = true
-                                        } else {
-                                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                        }
+                                        launchBarcodeScanner()
                                     },
                                     modifier = Modifier.size(56.dp)
                                 ) {

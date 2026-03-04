@@ -1,12 +1,11 @@
 package de.ingomc.nozio
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.padding
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.tween
@@ -14,16 +13,19 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +39,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.dashboard.DashboardScreen
@@ -48,39 +51,87 @@ import de.ingomc.nozio.ui.search.SearchScreen
 import de.ingomc.nozio.ui.search.SearchViewModel
 import de.ingomc.nozio.ui.theme.NozioTheme
 import de.ingomc.nozio.ui.theme.nozioColors
+import de.ingomc.nozio.widget.CalorieWidgetProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private val launchActionFlow = MutableStateFlow(WidgetLaunchAction.NONE)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        launchActionFlow.value = extractLaunchAction(intent)
         setContent {
+            val launchAction by launchActionFlow.collectAsState()
             NozioTheme {
-                NozioApp()
+                NozioApp(
+                    launchAction = launchAction,
+                    onLaunchActionHandled = {
+                        launchActionFlow.value = WidgetLaunchAction.NONE
+                    }
+                )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch(Dispatchers.IO) {
+            CalorieWidgetProvider.updateAll(this@MainActivity)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Keep activity intent in sync so callers reading `intent` see the latest widget action.
+        setIntent(intent)
+        launchActionFlow.value = extractLaunchAction(intent)
+    }
+
+    companion object {
+        fun createIntent(context: Context, launchAction: WidgetLaunchAction): Intent {
+            return Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(WidgetLaunchAction.EXTRA_WIDGET_LAUNCH_ACTION, launchAction.extraValue)
+        }
+    }
+
+    private fun extractLaunchAction(intent: Intent?): WidgetLaunchAction {
+        return WidgetLaunchAction.fromExtraValue(
+            intent?.getStringExtra(WidgetLaunchAction.EXTRA_WIDGET_LAUNCH_ACTION)
+        )
     }
 }
 
 @Composable
-fun NozioApp() {
+fun NozioApp(
+    launchAction: WidgetLaunchAction = WidgetLaunchAction.NONE,
+    onLaunchActionHandled: () -> Unit = {}
+) {
     val app = LocalContext.current.applicationContext as NozioApplication
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var preselectedMealType by rememberSaveable { mutableStateOf<MealType?>(null) }
     var showLegalInfo by rememberSaveable { mutableStateOf(false) }
+    var openQuickAddOnStart by rememberSaveable { mutableStateOf(false) }
+    var openBarcodeScannerOnStart by rememberSaveable { mutableStateOf(false) }
+    var focusSearchOnStart by rememberSaveable { mutableStateOf(false) }
 
     val dashboardViewModel: DashboardViewModel = viewModel(
         factory = DashboardViewModel.Factory(
+            app.applicationContext,
             app.diaryRepository,
             app.userPreferencesRepository,
             app.dailyActivityRepository
         )
     )
     val searchViewModel: SearchViewModel = viewModel(
-        factory = SearchViewModel.Factory(app.foodRepository, app.diaryRepository)
+        factory = SearchViewModel.Factory(app.applicationContext, app.foodRepository, app.diaryRepository)
     )
     val profileViewModel: ProfileViewModel = viewModel(
         factory = ProfileViewModel.Factory(
+            app.applicationContext,
             app.userPreferencesRepository,
             app.dailyActivityRepository
         )
@@ -89,6 +140,28 @@ fun NozioApp() {
 
     LaunchedEffect(dashboardState.selectedDate) {
         searchViewModel.setSelectedDate(dashboardState.selectedDate)
+    }
+    LaunchedEffect(launchAction) {
+        when (launchAction) {
+            WidgetLaunchAction.NONE -> Unit
+            WidgetLaunchAction.SEARCH_FOCUS -> {
+                currentDestination = AppDestinations.SEARCH
+                showLegalInfo = false
+                focusSearchOnStart = true
+                openQuickAddOnStart = false
+                openBarcodeScannerOnStart = false
+                onLaunchActionHandled()
+            }
+
+            WidgetLaunchAction.BARCODE_SCANNER -> {
+                currentDestination = AppDestinations.SEARCH
+                showLegalInfo = false
+                openBarcodeScannerOnStart = true
+                openQuickAddOnStart = false
+                focusSearchOnStart = false
+                onLaunchActionHandled()
+            }
+        }
     }
 
     val density = LocalDensity.current
@@ -175,6 +248,12 @@ fun NozioApp() {
                     AppDestinations.SEARCH -> SearchScreen(
                         viewModel = searchViewModel,
                         preselectedMealType = preselectedMealType,
+                        openQuickAddOnStart = openQuickAddOnStart,
+                        openBarcodeScannerOnStart = openBarcodeScannerOnStart,
+                        focusSearchOnStart = focusSearchOnStart,
+                        onQuickAddOpened = { openQuickAddOnStart = false },
+                        onBarcodeScannerOpened = { openBarcodeScannerOnStart = false },
+                        onSearchFocused = { focusSearchOnStart = false },
                         modifier = Modifier.padding(innerPadding)
                     )
 
