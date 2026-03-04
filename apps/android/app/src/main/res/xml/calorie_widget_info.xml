@@ -8,5 +8,6 @@
     android:resizeMode="horizontal"
     android:targetCellWidth="4"
     android:targetCellHeight="1"
+    <!-- Android enforces >=30min; this balances battery usage with data freshness. -->
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

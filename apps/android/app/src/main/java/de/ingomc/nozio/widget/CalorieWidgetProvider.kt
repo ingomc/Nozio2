@@ -28,14 +28,12 @@ class CalorieWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        fun updateAll(context: Context) {
+        suspend fun updateAll(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val componentName = ComponentName(context, CalorieWidgetProvider::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
             if (appWidgetIds.isNotEmpty()) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    updateWidgets(context, appWidgetManager, appWidgetIds)
-                }
+                updateWidgets(context, appWidgetManager, appWidgetIds)
             }
         }
 
