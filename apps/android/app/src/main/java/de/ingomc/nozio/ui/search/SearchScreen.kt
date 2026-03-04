@@ -133,14 +133,14 @@ fun SearchScreen(
         }
     }
 
-    LaunchedEffect(openQuickAddOnStart) {
+    LaunchedEffect(Unit) {
         if (openQuickAddOnStart) {
             viewModel.showQuickAddSheet()
             onQuickAddOpened()
         }
     }
 
-    LaunchedEffect(openBarcodeScannerOnStart) {
+    LaunchedEffect(Unit) {
         if (openBarcodeScannerOnStart) {
             launchBarcodeScanner()
             onBarcodeScannerOpened()

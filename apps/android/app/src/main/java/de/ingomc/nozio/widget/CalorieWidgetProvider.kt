@@ -11,14 +11,20 @@ import de.ingomc.nozio.MainActivity
 import de.ingomc.nozio.NozioApplication
 import de.ingomc.nozio.R
 import de.ingomc.nozio.WidgetLaunchAction
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
 class CalorieWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        updateWidgets(context, appWidgetManager, appWidgetIds)
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            updateWidgets(context, appWidgetManager, appWidgetIds)
+            pendingResult.finish()
+        }
     }
 
     companion object {
@@ -27,11 +33,13 @@ class CalorieWidgetProvider : AppWidgetProvider() {
             val componentName = ComponentName(context, CalorieWidgetProvider::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
             if (appWidgetIds.isNotEmpty()) {
-                updateWidgets(context, appWidgetManager, appWidgetIds)
+                CoroutineScope(Dispatchers.IO).launch {
+                    updateWidgets(context, appWidgetManager, appWidgetIds)
+                }
             }
         }
 
-        private fun updateWidgets(
+        private suspend fun updateWidgets(
             context: Context,
             appWidgetManager: AppWidgetManager,
             appWidgetIds: IntArray
@@ -82,7 +90,7 @@ class CalorieWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        private fun loadWidgetData(context: Context): WidgetCalorieData = runBlocking {
+        private suspend fun loadWidgetData(context: Context): WidgetCalorieData {
             val app = context.applicationContext as NozioApplication
             val today = LocalDate.now()
             val summary = app.diaryRepository.getDaySummary(today).first()
