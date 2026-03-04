@@ -12,13 +12,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -26,8 +28,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -43,6 +43,9 @@ import kotlin.math.roundToInt
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
 
+private const val DEFAULT_AMOUNT_UNIT = "g"
+private val AMOUNT_UNITS = listOf(DEFAULT_AMOUNT_UNIT, "ml")
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddFoodBottomSheet(
@@ -55,8 +58,7 @@ fun AddFoodBottomSheet(
     val maxSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.88f
     var amountText by remember { mutableStateOf("100") }
     var amount by remember { mutableDoubleStateOf(100.0) }
-    val amountUnits = listOf("g", "ml")
-    var selectedAmountUnit by remember { mutableStateOf("g") }
+    var selectedAmountUnit by remember { mutableStateOf(DEFAULT_AMOUNT_UNIT) }
     var unitMenuExpanded by remember { mutableStateOf(false) }
     var selectedMealType by remember { mutableStateOf(preselectedMealType ?: MealType.BREAKFAST) }
 
@@ -170,7 +172,7 @@ fun AddFoodBottomSheet(
                         expanded = unitMenuExpanded,
                         onDismissRequest = { unitMenuExpanded = false }
                     ) {
-                        amountUnits.forEach { unit ->
+                        AMOUNT_UNITS.forEach { unit ->
                             DropdownMenuItem(
                                 text = { Text(unit) },
                                 onClick = {
