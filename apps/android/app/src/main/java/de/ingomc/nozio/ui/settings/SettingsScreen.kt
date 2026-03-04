@@ -85,7 +85,7 @@ fun SettingsScreen(
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Waehle zwischen Hell, Dunkel oder automatisch nach Systemeinstellung.",
+                text = "Wähle zwischen Hell, Dunkel oder automatisch nach Systemeinstellung.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
