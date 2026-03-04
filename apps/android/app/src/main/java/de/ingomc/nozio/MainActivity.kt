@@ -41,6 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.dashboard.DashboardScreen
 import de.ingomc.nozio.ui.dashboard.DashboardViewModel
+import de.ingomc.nozio.ui.profile.LegalInfoScreen
 import de.ingomc.nozio.ui.profile.ProfileScreen
 import de.ingomc.nozio.ui.profile.ProfileViewModel
 import de.ingomc.nozio.ui.search.SearchScreen
@@ -66,6 +67,7 @@ fun NozioApp() {
     val app = LocalContext.current.applicationContext as NozioApplication
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var preselectedMealType by rememberSaveable { mutableStateOf<MealType?>(null) }
+    var showLegalInfo by rememberSaveable { mutableStateOf(false) }
 
     val dashboardViewModel: DashboardViewModel = viewModel(
         factory = DashboardViewModel.Factory(
@@ -112,6 +114,7 @@ fun NozioApp() {
                             selected = it == currentDestination,
                             onClick = {
                                 currentDestination = it
+                                showLegalInfo = false
                             },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
@@ -152,27 +155,35 @@ fun NozioApp() {
             },
             label = "bottomNavSharedAxisX"
         ) { destination ->
-            when (destination) {
-                AppDestinations.HOME -> DashboardScreen(
-                    viewModel = dashboardViewModel,
+            if (showLegalInfo) {
+                LegalInfoScreen(
                     modifier = Modifier.padding(innerPadding),
-                    onAddFood = { mealType ->
-                        searchViewModel.setSelectedDate(dashboardState.selectedDate)
-                        preselectedMealType = mealType
-                        currentDestination = AppDestinations.SEARCH
-                    }
+                    onBack = { showLegalInfo = false }
                 )
+            } else {
+                when (destination) {
+                    AppDestinations.HOME -> DashboardScreen(
+                        viewModel = dashboardViewModel,
+                        modifier = Modifier.padding(innerPadding),
+                        onAddFood = { mealType ->
+                            searchViewModel.setSelectedDate(dashboardState.selectedDate)
+                            preselectedMealType = mealType
+                            currentDestination = AppDestinations.SEARCH
+                        }
+                    )
 
-                AppDestinations.SEARCH -> SearchScreen(
-                    viewModel = searchViewModel,
-                    preselectedMealType = preselectedMealType,
-                    modifier = Modifier.padding(innerPadding)
-                )
+                    AppDestinations.SEARCH -> SearchScreen(
+                        viewModel = searchViewModel,
+                        preselectedMealType = preselectedMealType,
+                        modifier = Modifier.padding(innerPadding)
+                    )
 
-                AppDestinations.PROFILE -> ProfileScreen(
-                    viewModel = profileViewModel,
-                    modifier = Modifier.padding(innerPadding)
-                )
+                    AppDestinations.PROFILE -> ProfileScreen(
+                        viewModel = profileViewModel,
+                        modifier = Modifier.padding(innerPadding),
+                        onOpenLegalInfo = { showLegalInfo = true }
+                    )
+                }
             }
         }
     }
