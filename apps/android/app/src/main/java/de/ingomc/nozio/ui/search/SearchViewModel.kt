@@ -7,8 +7,8 @@ import androidx.lifecycle.viewModelScope
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.FoodSource
 import de.ingomc.nozio.data.local.MealType
-import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.CustomFoodInput
+import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.FoodRepository
 import de.ingomc.nozio.widget.CalorieWidgetProvider
 import kotlinx.coroutines.FlowPreview
@@ -21,6 +21,29 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlin.math.roundToInt
+
+enum class AddConfirmationSource {
+    STANDARD,
+    QUICK_ADD
+}
+
+data class AddConfirmationState(
+    val bannerId: Long,
+    val entryId: Long,
+    val title: String,
+    val mealType: MealType,
+    val amountLabel: String?,
+    val calories: Int,
+    val protein: Int,
+    val fat: Int,
+    val carbs: Int,
+    val source: AddConfirmationSource
+)
+
+fun interface WidgetRefreshDelegate {
+    suspend fun refresh()
+}
 
 data class SearchUiState(
     val query: String = "",
@@ -32,16 +55,16 @@ data class SearchUiState(
     val showBottomSheet: Boolean = false,
     val showQuickAddSheet: Boolean = false,
     val showCreateCustomFoodSheet: Boolean = false,
-    val addedSuccessfully: Boolean = false,
+    val activeAddConfirmation: AddConfirmationState? = null,
     val showBarcodeResultsSheet: Boolean = false,
     val isSubmittingCustomFood: Boolean = false
 )
 
 @OptIn(FlowPreview::class)
 class SearchViewModel(
-    private val appContext: Context,
     private val foodRepository: FoodRepository,
-    private val diaryRepository: DiaryRepository
+    private val diaryRepository: DiaryRepository,
+    private val widgetRefreshDelegate: WidgetRefreshDelegate
 ) : ViewModel() {
     private companion object {
         const val MIN_SEARCH_QUERY_LENGTH = 3
@@ -52,6 +75,7 @@ class SearchViewModel(
 
     private val _searchQuery = MutableStateFlow("")
     private val selectedDate = MutableStateFlow(LocalDate.now())
+    private var nextBannerId = 1L
 
     init {
         viewModelScope.launch {
@@ -70,7 +94,6 @@ class SearchViewModel(
         _uiState.value = _uiState.value.copy(
             query = query,
             error = null,
-            addedSuccessfully = false,
             showBarcodeResultsSheet = false
         )
         _searchQuery.value = query
@@ -96,7 +119,6 @@ class SearchViewModel(
         _uiState.value = _uiState.value.copy(
             selectedFood = food,
             showBottomSheet = true,
-            addedSuccessfully = false,
             showBarcodeResultsSheet = false
         )
     }
@@ -108,8 +130,7 @@ class SearchViewModel(
     fun showQuickAddSheet() {
         _uiState.value = _uiState.value.copy(
             showQuickAddSheet = true,
-            showCreateCustomFoodSheet = false,
-            addedSuccessfully = false
+            showCreateCustomFoodSheet = false
         )
     }
 
@@ -120,8 +141,7 @@ class SearchViewModel(
     fun showCreateCustomFoodSheet() {
         _uiState.value = _uiState.value.copy(
             showCreateCustomFoodSheet = true,
-            showQuickAddSheet = false,
-            addedSuccessfully = false
+            showQuickAddSheet = false
         )
     }
 
@@ -137,11 +157,11 @@ class SearchViewModel(
         selectedDate.value = date
     }
 
-    fun addFood(mealType: MealType, amountInGrams: Double) {
+    fun addFood(mealType: MealType, amountInGrams: Double, amountLabel: String) {
         val food = _uiState.value.selectedFood ?: return
         viewModelScope.launch {
             val storedFood = foodRepository.ensureFoodStored(food)
-            diaryRepository.addEntry(
+            val entryId = diaryRepository.addEntry(
                 date = selectedDate.value,
                 mealType = mealType,
                 foodItemId = storedFood.id,
@@ -155,9 +175,16 @@ class SearchViewModel(
                 recentSuggestions = recentSuggestions,
                 showBottomSheet = false,
                 selectedFood = null,
-                addedSuccessfully = true
+                activeAddConfirmation = storedFood.toAddConfirmation(
+                    bannerId = nextBannerId++,
+                    entryId = entryId,
+                    mealType = mealType,
+                    amountInGrams = amountInGrams,
+                    amountLabel = amountLabel,
+                    source = AddConfirmationSource.STANDARD
+                )
             )
-            CalorieWidgetProvider.updateAll(appContext)
+            widgetRefreshDelegate.refresh()
         }
     }
 
@@ -179,7 +206,7 @@ class SearchViewModel(
                 source = FoodSource.CUSTOM
             )
             val storedFood = foodRepository.ensureFoodStored(quickFood)
-            diaryRepository.addEntry(
+            val entryId = diaryRepository.addEntry(
                 date = selectedDate.value,
                 mealType = mealType,
                 foodItemId = storedFood.id,
@@ -192,9 +219,20 @@ class SearchViewModel(
                 results = emptyList(),
                 recentSuggestions = recentSuggestions,
                 showQuickAddSheet = false,
-                addedSuccessfully = true
+                activeAddConfirmation = AddConfirmationState(
+                    bannerId = nextBannerId++,
+                    entryId = entryId,
+                    title = storedFood.name,
+                    mealType = mealType,
+                    amountLabel = null,
+                    calories = calories.roundToInt(),
+                    protein = protein.roundToInt(),
+                    fat = fat.roundToInt(),
+                    carbs = carbs.roundToInt(),
+                    source = AddConfirmationSource.QUICK_ADD
+                )
             )
-            CalorieWidgetProvider.updateAll(appContext)
+            widgetRefreshDelegate.refresh()
         }
     }
 
@@ -202,8 +240,7 @@ class SearchViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isSubmittingCustomFood = true,
-                error = null,
-                addedSuccessfully = false
+                error = null
             )
             try {
                 val createdFood = foodRepository.createCustomFood(input)
@@ -222,9 +259,22 @@ class SearchViewModel(
         }
     }
 
-    fun onAddedMessageShown() {
-        if (_uiState.value.addedSuccessfully) {
-            _uiState.value = _uiState.value.copy(addedSuccessfully = false)
+    fun dismissAddConfirmation() {
+        if (_uiState.value.activeAddConfirmation != null) {
+            _uiState.value = _uiState.value.copy(activeAddConfirmation = null)
+        }
+    }
+
+    fun undoLastAddedFood() {
+        val confirmation = _uiState.value.activeAddConfirmation ?: return
+        viewModelScope.launch {
+            diaryRepository.deleteEntry(confirmation.entryId)
+            val recentSuggestions = diaryRepository.getRecentlyAddedFoods()
+            _uiState.value = _uiState.value.copy(
+                recentSuggestions = recentSuggestions,
+                activeAddConfirmation = null
+            )
+            widgetRefreshDelegate.refresh()
         }
     }
 
@@ -237,7 +287,6 @@ class SearchViewModel(
             query = normalizedBarcode,
             isLoading = true,
             error = null,
-            addedSuccessfully = false,
             showBarcodeResultsSheet = false
         )
 
@@ -267,7 +316,36 @@ class SearchViewModel(
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return SearchViewModel(appContext, foodRepository, diaryRepository) as T
+            return SearchViewModel(
+                foodRepository = foodRepository,
+                diaryRepository = diaryRepository,
+                widgetRefreshDelegate = WidgetRefreshDelegate {
+                    CalorieWidgetProvider.updateAll(appContext)
+                }
+            ) as T
         }
     }
+}
+
+private fun FoodItem.toAddConfirmation(
+    bannerId: Long,
+    entryId: Long,
+    mealType: MealType,
+    amountInGrams: Double,
+    amountLabel: String,
+    source: AddConfirmationSource
+): AddConfirmationState {
+    val multiplier = amountInGrams / 100.0
+    return AddConfirmationState(
+        bannerId = bannerId,
+        entryId = entryId,
+        title = name,
+        mealType = mealType,
+        amountLabel = amountLabel,
+        calories = (caloriesPer100g * multiplier).roundToInt(),
+        protein = (proteinPer100g * multiplier).roundToInt(),
+        fat = (fatPer100g * multiplier).roundToInt(),
+        carbs = (carbsPer100g * multiplier).roundToInt(),
+        source = source
+    )
 }

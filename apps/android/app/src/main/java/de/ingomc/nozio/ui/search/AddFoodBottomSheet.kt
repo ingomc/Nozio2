@@ -75,7 +75,7 @@ fun AddFoodBottomSheet(
     food: FoodItem,
     preselectedMealType: MealType?,
     onDismiss: () -> Unit,
-    onAdd: (MealType, Double) -> Unit
+    onAdd: (MealType, Double, String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val maxSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.88f
@@ -291,7 +291,13 @@ fun AddFoodBottomSheet(
 
             // Add button
             Button(
-                onClick = { onAdd(selectedMealType, normalizedAmount) },
+                onClick = {
+                    onAdd(
+                        selectedMealType,
+                        normalizedAmount,
+                        formatAmountWithUnit(amount, selectedAmountUnit, food)
+                    )
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
@@ -329,6 +335,16 @@ private fun formatQuickAmount(food: FoodItem, option: QuickAmountOption): String
         }
         AmountUnitType.GRAM -> "${rounded}g"
         AmountUnitType.MILLILITER -> "${rounded}ml"
+    }
+}
+
+internal fun formatQuickAmount(food: FoodItem, amount: Double, unit: String): String {
+    val normalizedUnit = unit.lowercase()
+    val packageQuantity = food.packageQuantity
+    return if (packageQuantity != null && kotlin.math.abs(packageQuantity - amount) < 0.01) {
+        "1x Packung (${formatAmountValue(packageQuantity)}$normalizedUnit)"
+    } else {
+        "${formatAmountValue(amount)}$normalizedUnit"
     }
 }
 
