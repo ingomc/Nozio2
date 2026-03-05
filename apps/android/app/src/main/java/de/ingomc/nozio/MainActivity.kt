@@ -146,7 +146,13 @@ fun NozioApp(
         )
     )
     val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModel.Factory(app.userPreferencesRepository) { enabled, hour, minute ->
+        factory = SettingsViewModel.Factory(
+            userPreferencesRepository = app.userPreferencesRepository,
+            appUpdateChecker = app.appUpdateRepository,
+            updateInstaller = app.apkUpdateInstaller,
+            appVersionName = BuildConfig.VERSION_NAME,
+            appVersionCode = BuildConfig.VERSION_CODE
+        ) { enabled, hour, minute ->
             if (enabled) {
                 MealReminderScheduler.scheduleDaily(app, hour, minute)
             } else {

@@ -2,13 +2,16 @@ package de.ingomc.nozio
 
 import android.app.Application
 import de.ingomc.nozio.data.local.NozioDatabase
+import de.ingomc.nozio.data.remote.GitHubRetrofitInstance
 import de.ingomc.nozio.data.remote.RetrofitInstance
+import de.ingomc.nozio.data.repository.AppUpdateRepository
 import de.ingomc.nozio.data.repository.DailyActivityRepository
 import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.FoodRepository
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
 import de.ingomc.nozio.notifications.MealReminderReceiver
 import de.ingomc.nozio.notifications.MealReminderScheduler
+import de.ingomc.nozio.update.ApkUpdateInstaller
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -32,6 +35,12 @@ class NozioApplication : Application() {
     lateinit var dailyActivityRepository: DailyActivityRepository
         private set
 
+    lateinit var appUpdateRepository: AppUpdateRepository
+        private set
+
+    lateinit var apkUpdateInstaller: ApkUpdateInstaller
+        private set
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -41,6 +50,8 @@ class NozioApplication : Application() {
         diaryRepository = DiaryRepository(database.diaryDao())
         userPreferencesRepository = UserPreferencesRepository(this)
         dailyActivityRepository = DailyActivityRepository(database.dailyActivityDao())
+        appUpdateRepository = AppUpdateRepository(GitHubRetrofitInstance.api)
+        apkUpdateInstaller = ApkUpdateInstaller(this)
         MealReminderReceiver.ensureChannel(this)
         applicationScope.launch {
             val prefs = userPreferencesRepository.userPreferences.first()

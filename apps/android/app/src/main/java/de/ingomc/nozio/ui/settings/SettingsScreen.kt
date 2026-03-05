@@ -1,8 +1,16 @@
 package de.ingomc.nozio.ui.settings
 
 import android.Manifest
+import android.app.DownloadManager
+import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +39,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,10 +72,59 @@ fun SettingsScreen(
     ) { granted ->
         viewModel.onMealReminderEnabledChange(granted || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
     }
+    val unknownSourcesSettingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        viewModel.onInstallDownloadedUpdateClicked()
+    }
     val hasNotificationPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     val appBarState = rememberTopAppBarState()
     val appBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(appBarState)
+
+    LaunchedEffect(Unit) {
+        viewModel.onSettingsOpened()
+    }
+
+    LaunchedEffect(viewModel, context) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                is SettingsEffect.OpenUrl -> openUrl(context, effect.url)
+                SettingsEffect.OpenUnknownSourcesSettings -> {
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${context.packageName}")
+                    )
+                    runCatching { unknownSourcesSettingsLauncher.launch(intent) }
+                }
+
+                is SettingsEffect.StartInstall -> {
+                    runCatching { context.startActivity(effect.intent) }
+                }
+            }
+        }
+    }
+
+    DisposableEffect(context, viewModel) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(receiverContext: Context?, intent: Intent?) {
+                if (intent?.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
+                val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+                if (downloadId > 0L) {
+                    viewModel.onDownloadCompleted(downloadId)
+                }
+            }
+        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
 
     if (showTimePicker) {
         val timePickerState = rememberTimePickerState(
@@ -90,6 +149,58 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showTimePicker = false }) {
                     Text("Abbrechen")
+                }
+            }
+        )
+    }
+
+    if (state.showUpdateDialog && state.availableReleaseTitle != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onUpdateDialogDismissed() },
+            title = { Text("Update verfuegbar") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = state.availableReleaseTitle.orEmpty(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = state.availableReleaseNotesPreview.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    if (!state.hasDownloadableUpdate) {
+                        Text(
+                            text = "Dieses Release enthaelt keine passende APK fuer den Direktdownload.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                val label = if (state.hasDownloadableUpdate) "Herunterladen" else "Release-Seite"
+                TextButton(
+                    onClick = {
+                        if (state.hasDownloadableUpdate) {
+                            viewModel.onDownloadUpdateClicked()
+                        } else {
+                            viewModel.onOpenReleasePageClicked()
+                        }
+                        viewModel.onUpdateDialogDismissed()
+                    }
+                ) {
+                    Text(label)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.onOpenReleasePageClicked()
+                        viewModel.onUpdateDialogDismissed()
+                    }
+                ) {
+                    Text("Release-Seite")
                 }
             }
         )
@@ -190,6 +301,70 @@ fun SettingsScreen(
                     Text("Test-Reminder jetzt senden")
                 }
             }
+
+            HorizontalDivider()
+
+            Text(
+                text = "App",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            SettingRow(
+                title = "Version",
+                subtitle = state.appVersionLabel
+            )
+
+            SettingRow(
+                title = "Updates",
+                subtitle = state.updateStatus.label()
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.onCheckForUpdateClicked() },
+                    enabled = state.updateStatus != UpdateStatus.CHECKING
+                ) {
+                    Text(if (state.updateStatus == UpdateStatus.CHECKING) "Pruefung..." else "Jetzt pruefen")
+                }
+            }
+
+            if (state.updateStatus == UpdateStatus.UPDATE_AVAILABLE && state.availableReleaseTitle != null) {
+                Text(
+                    text = "Neuestes Release: ${state.availableReleaseTitle}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (state.downloadInProgress) {
+                    Text(
+                        text = "Update wird heruntergeladen...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Button(
+                        onClick = { viewModel.onDownloadUpdateClicked() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = state.hasDownloadableUpdate
+                    ) {
+                        Text(if (state.hasDownloadableUpdate) "Update herunterladen" else "Kein Direktdownload verfuegbar")
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { viewModel.onOpenReleasePageClicked() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Release-Seite oeffnen")
+                }
+            }
+
+            state.errorMessage?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }
@@ -198,7 +373,7 @@ fun SettingsScreen(
 private fun SettingRow(
     title: String,
     subtitle: String? = null,
-    trailing: @Composable () -> Unit
+    trailing: @Composable (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -226,7 +401,7 @@ private fun SettingRow(
                 )
             }
         }
-        trailing()
+        trailing?.invoke()
     }
 }
 
@@ -238,4 +413,22 @@ private fun AppThemeMode.displayLabel(): String = when (this) {
 
 private fun formatTimeLabel(hour: Int, minute: Int): String {
     return String.format(Locale.getDefault(), "%02d:%02d", hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+}
+
+private fun UpdateStatus.label(): String = when (this) {
+    UpdateStatus.IDLE -> "Noch nicht geprueft"
+    UpdateStatus.CHECKING -> "Pruefung laeuft"
+    UpdateStatus.UP_TO_DATE -> "App ist aktuell"
+    UpdateStatus.UPDATE_AVAILABLE -> "Update verfuegbar"
+    UpdateStatus.ERROR -> "Fehler bei der Update-Pruefung"
+}
+
+private fun openUrl(context: Context, url: String) {
+    runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }.onFailure {
+        if (it is ActivityNotFoundException) return
+    }
 }
