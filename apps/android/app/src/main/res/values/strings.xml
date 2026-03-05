@@ -10,6 +10,7 @@
     <string name="widget_eaten">Gegessen</string>
     <string name="widget_burned">Verbrannt</string>
     <string name="widget_remaining">Übrig</string>
+    <string name="widget_overeaten">Zu viel</string>
     <string name="widget_carbs">Kohlenhydrate</string>
     <string name="widget_protein">Eiweiß</string>
     <string name="widget_fat">Fett</string>

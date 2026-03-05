@@ -164,8 +164,13 @@ fun DashboardScreen(
             item {
                 val consumedCalories = state.totalCalories
                 val burnedCalories = state.activeCalories
-                val remainingCalories = (state.preferences.calorieGoal - consumedCalories + burnedCalories)
-                    .coerceAtLeast(0.0)
+                val calorieDelta = state.preferences.calorieGoal - consumedCalories + burnedCalories
+                val centerValue = if (calorieDelta >= 0.0) {
+                    calorieDelta.toInt().toString()
+                } else {
+                    (-calorieDelta).toInt().toString()
+                }
+                val centerLabel = if (calorieDelta >= 0.0) "Übrig" else "Zu viel gegessen"
 
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -191,8 +196,8 @@ fun DashboardScreen(
                             CalorieRing(
                                 consumed = consumedCalories,
                                 goal = state.preferences.calorieGoal,
-                                centerValue = remainingCalories.toInt().toString(),
-                                centerLabel = "Übrig"
+                                centerValue = centerValue,
+                                centerLabel = centerLabel
                             )
                             TopMetric(
                                 value = burnedCalories.toInt().toString(),
