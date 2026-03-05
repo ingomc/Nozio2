@@ -372,7 +372,7 @@ fun SettingsScreen(
 
             SettingRow(
                 title = "Auto-Backup",
-                subtitle = "Woechentliche Sicherung in Google Drive"
+                subtitle = "Woechentliche Sicherung als lokale Datei"
             ) {
                 Switch(
                     checked = state.autoBackupEnabled,
@@ -384,14 +384,14 @@ fun SettingsScreen(
 
             val accountLabel = state.backupConnectedAccount ?: "Nicht verbunden"
             SettingRow(
-                title = "Google Drive",
+                title = "Backup-Speicher",
                 subtitle = accountLabel
             ) {
                 OutlinedButton(
                     onClick = { viewModel.onDriveSignInClicked() },
                     enabled = !state.backupInProgress && !state.restoreInProgress
                 ) {
-                    Text(if (state.backupConnectedAccount == null) "Verbinden" else "Neu verbinden")
+                    Text("Pruefen")
                 }
             }
 

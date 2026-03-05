@@ -228,7 +228,7 @@ class SettingsViewModel(
             _uiState.update {
                 it.copy(
                     backupStatus = BackupStatus.ERROR,
-                    backupMessage = "Google-Anmeldung wurde abgebrochen."
+                    backupMessage = "Vorgang wurde abgebrochen."
                 )
             }
             return
@@ -269,12 +269,12 @@ class SettingsViewModel(
     private suspend fun handleAuthState(state: DriveAuthState) {
         when (state) {
             is DriveAuthState.Ready -> {
-                val accountLabel = state.accountEmail ?: "Google verbunden"
+                val accountLabel = state.accountEmail ?: "Backup-Speicher bereit"
                 _uiState.update {
                     it.copy(
                         backupConnectedAccount = accountLabel,
                         backupStatus = BackupStatus.SUCCESS,
-                        backupMessage = "Google Drive verbunden."
+                        backupMessage = "Backup-Speicher bereit."
                     )
                 }
                 when (pendingDriveAction) {
@@ -300,7 +300,7 @@ class SettingsViewModel(
                     it.copy(
                         backupConnectedAccount = null,
                         backupStatus = BackupStatus.ERROR,
-                        backupMessage = "Bitte mit Google anmelden."
+                        backupMessage = "Backup-Speicher ist nicht bereit."
                     )
                 }
             }
@@ -378,7 +378,7 @@ class SettingsViewModel(
                     it.copy(
                         restoreInProgress = false,
                         backupStatus = BackupStatus.ERROR,
-                        backupMessage = "Kein Backup in Google Drive gefunden."
+                        backupMessage = "Keine lokale Backup-Datei gefunden."
                     )
                 }
             }

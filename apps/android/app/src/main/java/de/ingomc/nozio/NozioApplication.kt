@@ -5,7 +5,7 @@ import de.ingomc.nozio.data.backup.BackupRepository
 import de.ingomc.nozio.data.backup.BackupRepositoryImpl
 import de.ingomc.nozio.data.backup.BackupScheduler
 import de.ingomc.nozio.data.backup.DriveBackupService
-import de.ingomc.nozio.data.backup.GoogleDriveBackupService
+import de.ingomc.nozio.data.backup.LocalFileBackupService
 import de.ingomc.nozio.data.backup.RoomTrackingDataStore
 import de.ingomc.nozio.data.local.NozioDatabase
 import de.ingomc.nozio.data.remote.GitHubRetrofitInstance
@@ -67,7 +67,7 @@ class NozioApplication : Application() {
         dailyActivityRepository = DailyActivityRepository(database.dailyActivityDao())
         appUpdateRepository = AppUpdateRepository(GitHubRetrofitInstance.api)
         apkUpdateInstaller = ApkUpdateInstaller(this)
-        driveBackupService = GoogleDriveBackupService(this)
+        driveBackupService = LocalFileBackupService(this)
         backupRepository = BackupRepositoryImpl(
             dataStore = RoomTrackingDataStore(database),
             appVersionName = BuildConfig.VERSION_NAME
