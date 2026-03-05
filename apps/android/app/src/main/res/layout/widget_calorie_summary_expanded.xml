@@ -64,6 +64,7 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/widget_remaining_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_below="@id/widget_remaining_value"

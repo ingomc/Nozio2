@@ -100,7 +100,15 @@ abstract class BaseCalorieWidgetProvider(
             val data = loadWidgetData(context)
             appWidgetIds.forEach { appWidgetId ->
                 val views = RemoteViews(context.packageName, variant.layoutResId)
-                views.setTextViewText(R.id.widget_remaining_value, data.remaining.toString())
+                val isOverGoal = data.remaining < 0
+                val remainingDisplayValue = if (isOverGoal) -data.remaining else data.remaining
+                val remainingLabel = if (isOverGoal) {
+                    context.getString(R.string.widget_overeaten)
+                } else {
+                    context.getString(R.string.widget_remaining)
+                }
+                views.setTextViewText(R.id.widget_remaining_value, remainingDisplayValue.toString())
+                views.setTextViewText(R.id.widget_remaining_label, remainingLabel)
                 views.setProgressBar(R.id.widget_carbs_progress, 100, data.carbsProgress, false)
                 views.setProgressBar(R.id.widget_protein_progress, 100, data.proteinProgress, false)
                 views.setProgressBar(R.id.widget_fat_progress, 100, data.fatProgress, false)
