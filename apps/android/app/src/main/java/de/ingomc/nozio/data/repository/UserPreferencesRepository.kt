@@ -34,6 +34,7 @@ data class UserPreferences(
     val currentWeightKg: Double = 80.0,
     val bodyFatPercent: Double = 20.0,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    val autoBackupEnabled: Boolean = true,
     val mealReminderEnabled: Boolean = false,
     val mealReminderHour: Int = 19,
     val mealReminderMinute: Int = 0
@@ -49,6 +50,7 @@ class UserPreferencesRepository(private val context: Context) {
         val CURRENT_WEIGHT_KG = doublePreferencesKey("current_weight_kg")
         val BODY_FAT_PERCENT = doublePreferencesKey("body_fat_percent")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val AUTO_BACKUP_ENABLED = booleanPreferencesKey("auto_backup_enabled")
         val MEAL_REMINDER_ENABLED = booleanPreferencesKey("meal_reminder_enabled")
         val MEAL_REMINDER_HOUR = intPreferencesKey("meal_reminder_hour")
         val MEAL_REMINDER_MINUTE = intPreferencesKey("meal_reminder_minute")
@@ -63,6 +65,7 @@ class UserPreferencesRepository(private val context: Context) {
             currentWeightKg = prefs[Keys.CURRENT_WEIGHT_KG] ?: 80.0,
             bodyFatPercent = prefs[Keys.BODY_FAT_PERCENT] ?: 20.0,
             themeMode = AppThemeMode.fromStorageValue(prefs[Keys.THEME_MODE]),
+            autoBackupEnabled = prefs[Keys.AUTO_BACKUP_ENABLED] ?: true,
             mealReminderEnabled = prefs[Keys.MEAL_REMINDER_ENABLED] ?: false,
             mealReminderHour = prefs[Keys.MEAL_REMINDER_HOUR] ?: 19,
             mealReminderMinute = prefs[Keys.MEAL_REMINDER_MINUTE] ?: 0
@@ -78,6 +81,7 @@ class UserPreferencesRepository(private val context: Context) {
             prefs[Keys.CURRENT_WEIGHT_KG] = preferences.currentWeightKg
             prefs[Keys.BODY_FAT_PERCENT] = preferences.bodyFatPercent
             prefs[Keys.THEME_MODE] = preferences.themeMode.storageValue
+            prefs[Keys.AUTO_BACKUP_ENABLED] = preferences.autoBackupEnabled
             prefs[Keys.MEAL_REMINDER_ENABLED] = preferences.mealReminderEnabled
             prefs[Keys.MEAL_REMINDER_HOUR] = preferences.mealReminderHour.coerceIn(0, 23)
             prefs[Keys.MEAL_REMINDER_MINUTE] = preferences.mealReminderMinute.coerceIn(0, 59)

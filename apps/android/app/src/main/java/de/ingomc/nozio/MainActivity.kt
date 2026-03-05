@@ -150,15 +150,25 @@ fun NozioApp(
             userPreferencesRepository = app.userPreferencesRepository,
             appUpdateChecker = app.appUpdateRepository,
             updateInstaller = app.apkUpdateInstaller,
+            driveBackupService = app.driveBackupService,
+            backupRepository = app.backupRepository,
             appVersionName = BuildConfig.VERSION_NAME,
-            appVersionCode = BuildConfig.VERSION_CODE
-        ) { enabled, hour, minute ->
-            if (enabled) {
-                MealReminderScheduler.scheduleDaily(app, hour, minute)
-            } else {
-                MealReminderScheduler.cancel(app)
+            appVersionCode = BuildConfig.VERSION_CODE,
+            onReminderChanged = { enabled, hour, minute ->
+                if (enabled) {
+                    MealReminderScheduler.scheduleDaily(app, hour, minute)
+                } else {
+                    MealReminderScheduler.cancel(app)
+                }
+            },
+            onAutoBackupChanged = { enabled ->
+                if (enabled) {
+                    app.backupScheduler.scheduleWeeklyBackup()
+                } else {
+                    app.backupScheduler.cancelWeeklyBackup()
+                }
             }
-        }
+        )
     )
     val dashboardState by dashboardViewModel.uiState.collectAsState()
 

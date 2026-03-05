@@ -15,6 +15,8 @@ local.properties
 node_modules
 dist
 .gradle-home
+/.gradle-local
+/.kotlin
 apps/android/.idea
 apps/android/build
 en.openfoodfacts.org.products.csv.gz

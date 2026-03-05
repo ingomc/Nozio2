@@ -55,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.repository.AppThemeMode
 import de.ingomc.nozio.notifications.MealReminderReceiver
+import java.text.DateFormat
+import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,6 +78,11 @@ fun SettingsScreen(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
         viewModel.onInstallDownloadedUpdateClicked()
+    }
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onGoogleSignInResult(result.data)
     }
     val hasNotificationPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -100,6 +107,10 @@ fun SettingsScreen(
 
                 is SettingsEffect.StartInstall -> {
                     runCatching { context.startActivity(effect.intent) }
+                }
+
+                is SettingsEffect.LaunchGoogleSignIn -> {
+                    googleSignInLauncher.launch(effect.intent)
                 }
             }
         }
@@ -206,6 +217,26 @@ fun SettingsScreen(
         )
     }
 
+    if (state.showRestoreConfirmation) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onRestoreDialogDismissed() },
+            title = { Text("Backup wiederherstellen") },
+            text = {
+                Text("Dadurch werden alle lokalen Tracking-Daten ersetzt. Dieser Schritt kann nicht rueckgaengig gemacht werden.")
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.onRestoreConfirmed() }) {
+                    Text("Wiederherstellen")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onRestoreDialogDismissed() }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -300,6 +331,81 @@ fun SettingsScreen(
                 ) {
                     Text("Test-Reminder jetzt senden")
                 }
+            }
+
+            HorizontalDivider()
+
+            Text(
+                text = "Backup & Wiederherstellung",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            SettingRow(
+                title = "Auto-Backup",
+                subtitle = "Woechentliche Sicherung in Google Drive"
+            ) {
+                Switch(
+                    checked = state.autoBackupEnabled,
+                    onCheckedChange = { enabled ->
+                        viewModel.onAutoBackupEnabledChange(enabled)
+                    }
+                )
+            }
+
+            val accountLabel = state.backupConnectedAccount ?: "Nicht verbunden"
+            SettingRow(
+                title = "Google Drive",
+                subtitle = accountLabel
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.onDriveSignInClicked() },
+                    enabled = !state.backupInProgress && !state.restoreInProgress
+                ) {
+                    Text(if (state.backupConnectedAccount == null) "Verbinden" else "Neu verbinden")
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { viewModel.onBackupNowClicked() },
+                    enabled = !state.backupInProgress && !state.restoreInProgress,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (state.backupInProgress) "Sichert..." else "Jetzt sichern")
+                }
+                OutlinedButton(
+                    onClick = { viewModel.onRestoreClicked() },
+                    enabled = !state.backupInProgress && !state.restoreInProgress,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (state.restoreInProgress) "Laeuft..." else "Wiederherstellen")
+                }
+            }
+
+            Text(
+                text = "Wiederherstellen ersetzt deine lokalen Daten vollstaendig.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            state.backupLastSuccessEpochMs?.let { epochMs ->
+                Text(
+                    text = "Letzter erfolgreicher Lauf: ${DateFormat.getDateTimeInstance().format(Date(epochMs))}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            state.backupMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (state.backupStatus == BackupStatus.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             HorizontalDivider()

@@ -21,5 +21,13 @@ interface FoodDao {
 
     @Query("SELECT * FROM food_items WHERE barcode = :barcode LIMIT 1")
     suspend fun getByBarcode(barcode: String): FoodItem?
-}
 
+    @Query("SELECT * FROM food_items ORDER BY id ASC")
+    suspend fun getAll(): List<FoodItem>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllWithIds(foodItems: List<FoodItem>)
+
+    @Query("DELETE FROM food_items")
+    suspend fun deleteAll()
+}

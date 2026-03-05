@@ -46,8 +46,8 @@ android {
         applicationId = "de.ingomc.nozio"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.6.1"
+        versionCode = 9
+        versionName = "0.7.0"
         buildConfigField("String", "FOOD_API_BASE_URL", "\"${localProps.getProperty("FOOD_API_BASE_URL", "http://10.0.2.2:3000/")}\"")
         buildConfigField("String", "FOOD_API_KEY", "\"${localProps.getProperty("FOOD_API_KEY", "dev-change-me")}\"")
 
@@ -75,6 +75,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    packaging {
+        resources {
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/DEPENDENCIES"
+        }
     }
 }
 
@@ -121,9 +127,15 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.barcode.scanning)
     implementation(libs.guava)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.play.services.auth)
+    implementation(libs.google.api.client.android)
+    implementation(libs.google.api.services.drive)
+    implementation(libs.google.http.client.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.androidx.work.testing)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

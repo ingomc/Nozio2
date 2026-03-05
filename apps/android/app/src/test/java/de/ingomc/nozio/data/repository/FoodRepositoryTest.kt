@@ -164,5 +164,15 @@ class FoodRepositoryTest {
         override suspend fun getById(id: Long): FoodItem? = storage.firstOrNull { it.id == id }
 
         override suspend fun getByBarcode(barcode: String): FoodItem? = storage.firstOrNull { it.barcode == barcode }
+
+        override suspend fun getAll(): List<FoodItem> = storage.toList()
+
+        override suspend fun insertAllWithIds(foodItems: List<FoodItem>) {
+            storage += foodItems
+        }
+
+        override suspend fun deleteAll() {
+            storage.clear()
+        }
     }
 }
