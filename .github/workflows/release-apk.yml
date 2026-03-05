@@ -2,15 +2,18 @@ name: Release APK
 
 on:
   release:
-    # GitHub can emit different release actions depending on how a release
-    # was created/published in UI or CLI.
-    types: [published, released, prereleased]
+    # Single release trigger to avoid duplicate runs for the same release.
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
         description: "Release tag to attach APK to (e.g. v0.6.1)"
         required: true
         type: string
+
+concurrency:
+  group: release-apk-${{ github.event.release.id || github.event.release.tag_name || inputs.tag || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: write

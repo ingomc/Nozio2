@@ -50,6 +50,7 @@ android {
         versionName = "0.7.1"
         buildConfigField("String", "FOOD_API_BASE_URL", "\"${localProps.getProperty("FOOD_API_BASE_URL", "http://10.0.2.2:3000/")}\"")
         buildConfigField("String", "FOOD_API_KEY", "\"${localProps.getProperty("FOOD_API_KEY", "dev-change-me")}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${propOrEnv("GOOGLE_WEB_CLIENT_ID") ?: "dev-change-me"}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -63,6 +64,7 @@ android {
             )
             buildConfigField("String", "FOOD_API_BASE_URL", "\"${localProps.getProperty("FOOD_API_BASE_URL", "http://10.0.2.2:3000/")}\"")
             buildConfigField("String", "FOOD_API_KEY", "\"${localProps.getProperty("FOOD_API_KEY", "dev-change-me")}\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${propOrEnv("GOOGLE_WEB_CLIENT_ID") ?: "dev-change-me"}\"")
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -129,6 +131,9 @@ dependencies {
     implementation(libs.guava)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.play.services.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
     implementation(libs.google.api.client.android)
     implementation(libs.google.api.services.drive)
     implementation(libs.google.http.client.android)

@@ -1,14 +1,16 @@
 package de.ingomc.nozio.ui.settings
 
+import android.app.Activity
 import android.content.Intent
+import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import de.ingomc.nozio.data.backup.BackupRepository
 import de.ingomc.nozio.data.backup.DownloadResult
+import de.ingomc.nozio.data.backup.DriveAuthState
 import de.ingomc.nozio.data.backup.DriveBackupService
 import de.ingomc.nozio.data.backup.RestoreResult
-import de.ingomc.nozio.data.backup.SignInResult
 import de.ingomc.nozio.data.backup.UploadResult
 import de.ingomc.nozio.data.repository.AppThemeMode
 import de.ingomc.nozio.data.repository.AppUpdateChecker
@@ -71,7 +73,8 @@ sealed interface SettingsEffect {
     data class OpenUrl(val url: String) : SettingsEffect
     data object OpenUnknownSourcesSettings : SettingsEffect
     data class StartInstall(val intent: Intent) : SettingsEffect
-    data class LaunchGoogleSignIn(val intent: Intent) : SettingsEffect
+    data object LaunchCredentialManagerSignIn : SettingsEffect
+    data class LaunchDriveAuthorization(val intentSender: IntentSender) : SettingsEffect
 }
 
 interface UserPreferencesStore {
@@ -89,7 +92,7 @@ class RepositoryUserPreferencesStore(
     }
 }
 
-private enum class PendingDriveAction {
+    private enum class PendingDriveAction {
     NONE,
     BACKUP,
     RESTORE
@@ -200,91 +203,45 @@ class SettingsViewModel(
     }
 
     fun onDriveSignInClicked() {
-        viewModelScope.launch {
-            when (val signIn = driveBackupService.ensureSignedIn()) {
-                is SignInResult.SignedIn -> {
-                    _uiState.update {
-                        it.copy(
-                            backupConnectedAccount = signIn.accountEmail,
-                            backupMessage = "Google Drive verbunden.",
-                            backupStatus = BackupStatus.SUCCESS
-                        )
-                    }
-                }
+        pendingDriveAction = PendingDriveAction.NONE
+        ensureDriveReadyOrRequestSignIn()
+    }
 
-                is SignInResult.RequiresUserAction -> {
-                    pendingDriveAction = PendingDriveAction.NONE
-                    emitEffect(SettingsEffect.LaunchGoogleSignIn(signIn.intent))
-                }
+    fun onCredentialManagerSignInSuccess(accountEmail: String?) {
+        driveBackupService.setSignedInAccountEmail(accountEmail)
+        ensureDriveReadyOrRequestSignIn()
+    }
 
-                is SignInResult.Error -> {
-                    _uiState.update {
-                        it.copy(
-                            backupStatus = BackupStatus.ERROR,
-                            backupMessage = signIn.message
-                        )
-                    }
-                }
-            }
+    fun onCredentialManagerSignInFailed(message: String) {
+        pendingDriveAction = PendingDriveAction.NONE
+        _uiState.update {
+            it.copy(
+                backupStatus = BackupStatus.ERROR,
+                backupMessage = message
+            )
         }
     }
 
-    fun onGoogleSignInResult(resultData: Intent?) {
-        viewModelScope.launch {
-            when (val signIn = driveBackupService.completeSignIn(resultData)) {
-                is SignInResult.SignedIn -> {
-                    _uiState.update {
-                        it.copy(
-                            backupConnectedAccount = signIn.accountEmail,
-                            backupStatus = BackupStatus.SUCCESS,
-                            backupMessage = "Google Drive verbunden."
-                        )
-                    }
-                    when (pendingDriveAction) {
-                        PendingDriveAction.BACKUP -> runBackupNow()
-                        PendingDriveAction.RESTORE -> runRestoreNow()
-                        PendingDriveAction.NONE -> Unit
-                    }
-                    pendingDriveAction = PendingDriveAction.NONE
-                }
-
-                is SignInResult.RequiresUserAction -> {
-                    emitEffect(SettingsEffect.LaunchGoogleSignIn(signIn.intent))
-                }
-
-                is SignInResult.Error -> {
-                    pendingDriveAction = PendingDriveAction.NONE
-                    _uiState.update {
-                        it.copy(
-                            backupStatus = BackupStatus.ERROR,
-                            backupMessage = signIn.message
-                        )
-                    }
-                }
+    fun onDriveAuthorizationResult(resultCode: Int, resultData: Intent?) {
+        if (resultCode != Activity.RESULT_OK) {
+            pendingDriveAction = PendingDriveAction.NONE
+            _uiState.update {
+                it.copy(
+                    backupStatus = BackupStatus.ERROR,
+                    backupMessage = "Google-Anmeldung wurde abgebrochen."
+                )
             }
+            return
+        }
+        viewModelScope.launch {
+            handleAuthState(driveBackupService.completeAuthorization(resultData))
         }
     }
 
     fun onBackupNowClicked() {
         if (uiState.value.backupInProgress || uiState.value.restoreInProgress) return
-        viewModelScope.launch {
-            when (val signIn = driveBackupService.ensureSignedIn()) {
-                is SignInResult.SignedIn -> runBackupNow()
-                is SignInResult.RequiresUserAction -> {
-                    pendingDriveAction = PendingDriveAction.BACKUP
-                    emitEffect(SettingsEffect.LaunchGoogleSignIn(signIn.intent))
-                }
-
-                is SignInResult.Error -> {
-                    _uiState.update {
-                        it.copy(
-                            backupStatus = BackupStatus.ERROR,
-                            backupMessage = signIn.message
-                        )
-                    }
-                }
-            }
-        }
+        pendingDriveAction = PendingDriveAction.BACKUP
+        ensureDriveReadyOrRequestSignIn()
     }
 
     fun onRestoreClicked() {
@@ -299,21 +256,62 @@ class SettingsViewModel(
     fun onRestoreConfirmed() {
         if (uiState.value.backupInProgress || uiState.value.restoreInProgress) return
         _uiState.update { it.copy(showRestoreConfirmation = false) }
-        viewModelScope.launch {
-            when (val signIn = driveBackupService.ensureSignedIn()) {
-                is SignInResult.SignedIn -> runRestoreNow()
-                is SignInResult.RequiresUserAction -> {
-                    pendingDriveAction = PendingDriveAction.RESTORE
-                    emitEffect(SettingsEffect.LaunchGoogleSignIn(signIn.intent))
-                }
+        pendingDriveAction = PendingDriveAction.RESTORE
+        ensureDriveReadyOrRequestSignIn()
+    }
 
-                is SignInResult.Error -> {
-                    _uiState.update {
-                        it.copy(
-                            backupStatus = BackupStatus.ERROR,
-                            backupMessage = signIn.message
-                        )
-                    }
+    private fun ensureDriveReadyOrRequestSignIn() {
+        viewModelScope.launch {
+            handleAuthState(driveBackupService.ensureAuthorized())
+        }
+    }
+
+    private suspend fun handleAuthState(state: DriveAuthState) {
+        when (state) {
+            is DriveAuthState.Ready -> {
+                val accountLabel = state.accountEmail ?: "Google verbunden"
+                _uiState.update {
+                    it.copy(
+                        backupConnectedAccount = accountLabel,
+                        backupStatus = BackupStatus.SUCCESS,
+                        backupMessage = "Google Drive verbunden."
+                    )
+                }
+                when (pendingDriveAction) {
+                    PendingDriveAction.BACKUP -> runBackupNow()
+                    PendingDriveAction.RESTORE -> runRestoreNow()
+                    PendingDriveAction.NONE -> Unit
+                }
+                pendingDriveAction = PendingDriveAction.NONE
+            }
+
+            is DriveAuthState.NeedsSignIn -> {
+                emitEffect(SettingsEffect.LaunchCredentialManagerSignIn)
+            }
+
+            is DriveAuthState.NeedsDriveAuthorization -> {
+                emitEffect(SettingsEffect.LaunchDriveAuthorization(state.intentSender))
+            }
+
+            is DriveAuthState.SignedOut -> {
+                pendingDriveAction = PendingDriveAction.NONE
+                driveBackupService.clearSignedInAccount()
+                _uiState.update {
+                    it.copy(
+                        backupConnectedAccount = null,
+                        backupStatus = BackupStatus.ERROR,
+                        backupMessage = "Bitte mit Google anmelden."
+                    )
+                }
+            }
+
+            is DriveAuthState.Error -> {
+                pendingDriveAction = PendingDriveAction.NONE
+                _uiState.update {
+                    it.copy(
+                        backupStatus = BackupStatus.ERROR,
+                        backupMessage = state.message
+                    )
                 }
             }
         }

@@ -3,9 +3,9 @@ package de.ingomc.nozio.ui.settings
 import android.content.Intent
 import de.ingomc.nozio.data.backup.BackupRepository
 import de.ingomc.nozio.data.backup.DownloadResult
+import de.ingomc.nozio.data.backup.DriveAuthState
 import de.ingomc.nozio.data.backup.DriveBackupService
 import de.ingomc.nozio.data.backup.RestoreResult
-import de.ingomc.nozio.data.backup.SignInResult
 import de.ingomc.nozio.data.backup.UploadResult
 import de.ingomc.nozio.data.repository.ApkAssetSelection
 import de.ingomc.nozio.data.repository.AppUpdateChecker
@@ -17,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -115,7 +117,7 @@ class SettingsViewModelTest {
     @Test
     fun onBackupNowClicked_setsSuccessState() = runTest(dispatcher) {
         val drive = FakeDriveBackupService(
-            ensureResult = SignInResult.SignedIn("user@example.com"),
+            authState = DriveAuthState.Ready("user@example.com"),
             uploadResult = UploadResult.Success(1710000000000L)
         )
         val backup = FakeBackupRepository(createJson = "{}")
@@ -133,7 +135,7 @@ class SettingsViewModelTest {
     @Test
     fun onRestoreConfirmed_withMissingBackup_setsError() = runTest(dispatcher) {
         val drive = FakeDriveBackupService(
-            ensureResult = SignInResult.SignedIn("user@example.com"),
+            authState = DriveAuthState.Ready("user@example.com"),
             downloadResult = DownloadResult.NotFound
         )
         val viewModel = createViewModel(drive = drive)
@@ -168,7 +170,7 @@ class SettingsViewModelTest {
     @Test
     fun onBackupNowClicked_worksEvenWhenAutoBackupDisabled() = runTest(dispatcher) {
         val drive = FakeDriveBackupService(
-            ensureResult = SignInResult.SignedIn("user@example.com"),
+            authState = DriveAuthState.Ready("user@example.com"),
             uploadResult = UploadResult.Success(1710000000000L)
         )
         val backup = FakeBackupRepository(createJson = "{}")
@@ -186,6 +188,23 @@ class SettingsViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(BackupStatus.SUCCESS, state.backupStatus)
         assertEquals(1710000000000L, state.backupLastSuccessEpochMs)
+    }
+
+    @Test
+    fun onDriveSignInClicked_whenSignedOut_emitsCredentialManagerEffect() = runTest(dispatcher) {
+        val drive = FakeDriveBackupService(authState = DriveAuthState.NeedsSignIn)
+        val viewModel = createViewModel(drive = drive)
+        val effects = mutableListOf<SettingsEffect>()
+
+        val collectJob = backgroundScope.launch {
+            viewModel.effects.collect { effects += it }
+        }
+
+        viewModel.onDriveSignInClicked()
+        advanceUntilIdle()
+
+        assertTrue(effects.firstOrNull() is SettingsEffect.LaunchCredentialManagerSignIn)
+        collectJob.cancel()
     }
 
     private fun createViewModel(
@@ -243,13 +262,17 @@ class SettingsViewModelTest {
     }
 
     private class FakeDriveBackupService(
-        private val ensureResult: SignInResult = SignInResult.SignedIn("user@example.com"),
+        private val authState: DriveAuthState = DriveAuthState.Ready("user@example.com"),
         private val uploadResult: UploadResult = UploadResult.Success(System.currentTimeMillis()),
         private val downloadResult: DownloadResult = DownloadResult.Success("{}")
     ) : DriveBackupService {
-        override suspend fun ensureSignedIn(): SignInResult = ensureResult
+        override suspend fun ensureAuthorized(): DriveAuthState = authState
 
-        override suspend fun completeSignIn(signInResultData: Intent?): SignInResult = ensureResult
+        override suspend fun completeAuthorization(resultData: Intent?): DriveAuthState = authState
+
+        override fun setSignedInAccountEmail(accountEmail: String?) = Unit
+
+        override fun clearSignedInAccount() = Unit
 
         override suspend fun uploadBackup(json: String): UploadResult = uploadResult
 

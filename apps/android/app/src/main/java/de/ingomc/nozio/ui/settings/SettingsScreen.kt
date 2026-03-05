@@ -1,18 +1,28 @@
 package de.ingomc.nozio.ui.settings
 
 import android.Manifest
+import android.app.Activity
 import android.app.DownloadManager
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Base64
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +55,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,11 +64,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import de.ingomc.nozio.BuildConfig
 import de.ingomc.nozio.data.repository.AppThemeMode
 import de.ingomc.nozio.notifications.MealReminderReceiver
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +84,7 @@ fun SettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showThemeMenu by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -79,10 +97,10 @@ fun SettingsScreen(
     ) {
         viewModel.onInstallDownloadedUpdateClicked()
     }
-    val googleSignInLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
+    val driveAuthorizationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        viewModel.onGoogleSignInResult(result.data)
+        viewModel.onDriveAuthorizationResult(result.resultCode, result.data)
     }
     val hasNotificationPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -109,8 +127,19 @@ fun SettingsScreen(
                     runCatching { context.startActivity(effect.intent) }
                 }
 
-                is SettingsEffect.LaunchGoogleSignIn -> {
-                    googleSignInLauncher.launch(effect.intent)
+                SettingsEffect.LaunchCredentialManagerSignIn -> {
+                    scope.launch {
+                        runCredentialManagerSignIn(context, viewModel)
+                    }
+                }
+
+                is SettingsEffect.LaunchDriveAuthorization -> {
+                    runCatching {
+                        val request = IntentSenderRequest.Builder(effect.intentSender).build()
+                        driveAuthorizationLauncher.launch(request)
+                    }.onFailure {
+                        viewModel.onCredentialManagerSignInFailed("Google Drive Autorisierung konnte nicht gestartet werden.")
+                    }
                 }
             }
         }
@@ -473,6 +502,76 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+private suspend fun runCredentialManagerSignIn(context: Context, viewModel: SettingsViewModel) {
+    val activity = context.findActivity()
+    if (activity == null) {
+        viewModel.onCredentialManagerSignInFailed("Google-Anmeldung ist auf diesem Bildschirm nicht verfuegbar.")
+        return
+    }
+
+    val webClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
+    if (webClientId.isBlank() || webClientId == "dev-change-me") {
+        viewModel.onCredentialManagerSignInFailed("Google OAuth Client-ID fehlt. Bitte Build-Konfiguration pruefen.")
+        return
+    }
+
+    val credentialManager = CredentialManager.create(context)
+    val request = GetCredentialRequest.Builder()
+        .addCredentialOption(
+            GetGoogleIdOption.Builder()
+                .setServerClientId(webClientId)
+                .setFilterByAuthorizedAccounts(false)
+                .setAutoSelectEnabled(false)
+                .build()
+        )
+        .build()
+
+    try {
+        val result = credentialManager.getCredential(activity, request)
+        val email = extractEmailFromCredential(result.credential)
+        if (email.isNullOrBlank()) {
+            viewModel.onCredentialManagerSignInFailed("Google-Konto konnte nicht gelesen werden.")
+        } else {
+            viewModel.onCredentialManagerSignInSuccess(email)
+        }
+    } catch (_: GetCredentialCancellationException) {
+        viewModel.onCredentialManagerSignInFailed("Google-Anmeldung wurde abgebrochen.")
+    } catch (_: NoCredentialException) {
+        viewModel.onCredentialManagerSignInFailed("Kein Google-Konto verfuegbar.")
+    } catch (e: GetCredentialException) {
+        viewModel.onCredentialManagerSignInFailed(e.message ?: "Google-Anmeldung fehlgeschlagen.")
+    } catch (_: Throwable) {
+        viewModel.onCredentialManagerSignInFailed("Google-Anmeldung konnte nicht verarbeitet werden.")
+    }
+}
+
+private fun extractEmailFromCredential(credential: androidx.credentials.Credential): String? {
+    if (credential !is CustomCredential) return null
+    if (credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) return null
+    val tokenCredential = try {
+        GoogleIdTokenCredential.createFrom(credential.data)
+    } catch (_: GoogleIdTokenParsingException) {
+        return null
+    }
+    return extractEmailFromIdToken(tokenCredential.idToken)
+}
+
+private fun extractEmailFromIdToken(idToken: String): String? {
+    val parts = idToken.split('.')
+    if (parts.size < 2) return null
+    return runCatching {
+        val payloadBytes = Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        val payloadJson = JSONObject(String(payloadBytes))
+        if (payloadJson.has("email")) payloadJson.getString("email") else null
+    }.getOrNull()
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable
