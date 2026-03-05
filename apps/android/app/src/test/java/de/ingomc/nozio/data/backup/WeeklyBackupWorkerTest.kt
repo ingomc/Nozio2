@@ -43,9 +43,15 @@ class WeeklyBackupWorkerTest {
         private val signedIn: Boolean = true,
         private val uploadResult: UploadResult = UploadResult.Success(0)
     ) : DriveBackupService {
-        override suspend fun ensureSignedIn(): SignInResult = SignInResult.SignedIn("user@example.com")
+        override suspend fun ensureAuthorized(): DriveAuthState =
+            if (signedIn) DriveAuthState.Ready("user@example.com") else DriveAuthState.SignedOut
 
-        override suspend fun completeSignIn(signInResultData: Intent?): SignInResult = SignInResult.SignedIn("user@example.com")
+        override suspend fun completeAuthorization(resultData: Intent?): DriveAuthState =
+            if (signedIn) DriveAuthState.Ready("user@example.com") else DriveAuthState.SignedOut
+
+        override fun setSignedInAccountEmail(accountEmail: String?) = Unit
+
+        override fun clearSignedInAccount() = Unit
 
         override suspend fun uploadBackup(json: String): UploadResult = uploadResult
 
