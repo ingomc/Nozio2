@@ -98,8 +98,19 @@ Fokus: Plattformausbau ohne Kernkonzept zu verwässern.
 - manuelle Eingabe bleibt immer als Fallback
 
 ### 2) Backup / Sync Optionen (P2)
-- Export/Import (JSON/CSV) als erster Schritt
-- optional spaeter Account/Cloud-Sync
+- **Status (05.03.2026): Google Drive Backup/Restore ist als V1 bereits im Produkt**
+  - Google Sign-In + Scope `DriveScopes.DRIVE_APPDATA`
+  - manuelles Backup (Settings) + manuelle Wiederherstellung mit Confirm-Dialog
+  - periodischer Wochen-Backup-Worker (nur bei vorhandenem Sign-In)
+  - serialisiertes Payload-Schema `BackupPayloadV1` inkl. Schema-Version
+- **Fortsetzungplan (V1 hardening -> V2 readiness)**
+  - P1: Settings-Option fuer automatisches Backup (ein/aus) inkl. persistenter User-Preference
+  - P1: Worker-Scheduling an diese Option koppeln (bei `aus` Work canceln)
+  - P1: Backups robuster machen (Netzfehler/Rate-Limits sauber unterscheiden, Retry-Strategie schaerfen)
+  - P1: technische Doku fuer OAuth/Drive-Setup (Debug/Release SHA-1 + Test-Checkliste) in `README`
+  - P2: Backup-Metadaten erweitern (`deviceId`, `backupReason`, `recordCount`) fuer bessere Restore-Transparenz
+  - P2: optional JSON Export/Import lokal als Fallback ohne Google-Konto
+  - P2: Vorbereitung auf `BackupPayloadV2` inkl. Migrationspfad und Regressionstests
 
 ### 3) Erweiterte Zielsystematik (P2)
 - Zielprofile (Cut, Maintenance, Bulk)
@@ -138,4 +149,3 @@ Fokus: Plattformausbau ohne Kernkonzept zu verwässern.
 
 Entscheidungsregel:
 - erst Kernflow stabil + schnell, dann neue Oberflaeche.
-

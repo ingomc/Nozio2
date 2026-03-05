@@ -4,20 +4,26 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import de.ingomc.nozio.data.repository.AppUpdateChecker
+import de.ingomc.nozio.data.backup.BackupRepository
+import de.ingomc.nozio.data.backup.DownloadResult
+import de.ingomc.nozio.data.backup.DriveBackupService
+import de.ingomc.nozio.data.backup.RestoreResult
+import de.ingomc.nozio.data.backup.SignInResult
+import de.ingomc.nozio.data.backup.UploadResult
 import de.ingomc.nozio.data.repository.AppThemeMode
+import de.ingomc.nozio.data.repository.AppUpdateChecker
 import de.ingomc.nozio.data.repository.AvailableRelease
 import de.ingomc.nozio.data.repository.UpdateCheckResult
 import de.ingomc.nozio.data.repository.UserPreferences
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
 import de.ingomc.nozio.update.UpdateInstaller
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
@@ -28,6 +34,13 @@ enum class UpdateStatus {
     CHECKING,
     UP_TO_DATE,
     UPDATE_AVAILABLE,
+    ERROR
+}
+
+enum class BackupStatus {
+    IDLE,
+    RUNNING,
+    SUCCESS,
     ERROR
 }
 
@@ -43,13 +56,22 @@ data class SettingsUiState(
     val downloadInProgress: Boolean = false,
     val hasDownloadableUpdate: Boolean = false,
     val showUpdateDialog: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val autoBackupEnabled: Boolean = true,
+    val backupStatus: BackupStatus = BackupStatus.IDLE,
+    val backupConnectedAccount: String? = null,
+    val backupLastSuccessEpochMs: Long? = null,
+    val backupMessage: String? = null,
+    val backupInProgress: Boolean = false,
+    val restoreInProgress: Boolean = false,
+    val showRestoreConfirmation: Boolean = false
 )
 
 sealed interface SettingsEffect {
     data class OpenUrl(val url: String) : SettingsEffect
     data object OpenUnknownSourcesSettings : SettingsEffect
     data class StartInstall(val intent: Intent) : SettingsEffect
+    data class LaunchGoogleSignIn(val intent: Intent) : SettingsEffect
 }
 
 interface UserPreferencesStore {
@@ -67,17 +89,29 @@ class RepositoryUserPreferencesStore(
     }
 }
 
+private enum class PendingDriveAction {
+    NONE,
+    BACKUP,
+    RESTORE
+}
+
 class SettingsViewModel(
     private val userPreferencesStore: UserPreferencesStore,
     private val onReminderChanged: (enabled: Boolean, hour: Int, minute: Int) -> Unit,
+    private val onAutoBackupChanged: (enabled: Boolean) -> Unit,
     private val appUpdateChecker: AppUpdateChecker,
     private val updateInstaller: UpdateInstaller,
+    private val driveBackupService: DriveBackupService,
+    private val backupRepository: BackupRepository,
     private val appVersionName: String,
     private val appVersionCode: Int
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        SettingsUiState(appVersionLabel = "Version $appVersionName ($appVersionCode)")
+        SettingsUiState(
+            appVersionLabel = "Version $appVersionName ($appVersionCode)",
+            backupConnectedAccount = driveBackupService.currentAccountEmail()
+        )
     )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     private val _effects = MutableSharedFlow<SettingsEffect>(extraBufferCapacity = 4)
@@ -86,6 +120,7 @@ class SettingsViewModel(
     private var hasAutoCheckedForUpdates = false
     private var pendingDownloadId: Long? = null
     private var latestAvailableRelease: AvailableRelease? = null
+    private var pendingDriveAction: PendingDriveAction = PendingDriveAction.NONE
 
     init {
         viewModelScope.launch {
@@ -93,6 +128,7 @@ class SettingsViewModel(
                 _uiState.update { current ->
                     current.copy(
                         themeMode = prefs.themeMode,
+                        autoBackupEnabled = prefs.autoBackupEnabled,
                         mealReminderEnabled = prefs.mealReminderEnabled,
                         mealReminderHour = prefs.mealReminderHour,
                         mealReminderMinute = prefs.mealReminderMinute
@@ -129,6 +165,21 @@ class SettingsViewModel(
         }
     }
 
+    fun onAutoBackupEnabledChange(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentPrefs = userPreferencesStore.userPreferences.firstOrNull() ?: return@launch
+            if (currentPrefs.autoBackupEnabled == enabled) return@launch
+            userPreferencesStore.updatePreferences(currentPrefs.copy(autoBackupEnabled = enabled))
+            onAutoBackupChanged(enabled)
+            if (!enabled) {
+                pendingDriveAction = PendingDriveAction.NONE
+                _uiState.update {
+                    it.copy(showRestoreConfirmation = false)
+                }
+            }
+        }
+    }
+
     fun onMealReminderTimeChange(hour: Int, minute: Int) {
         val safeHour = hour.coerceIn(0, 23)
         val safeMinute = minute.coerceIn(0, 59)
@@ -145,6 +196,230 @@ class SettingsViewModel(
                 )
             )
             onReminderChanged(currentPrefs.mealReminderEnabled, safeHour, safeMinute)
+        }
+    }
+
+    fun onDriveSignInClicked() {
+        viewModelScope.launch {
+            when (val signIn = driveBackupService.ensureSignedIn()) {
+                is SignInResult.SignedIn -> {
+                    _uiState.update {
+                        it.copy(
+                            backupConnectedAccount = signIn.accountEmail,
+                            backupMessage = "Google Drive verbunden.",
+                            backupStatus = BackupStatus.SUCCESS
+                        )
+                    }
+                }
+
+                is SignInResult.RequiresUserAction -> {
+                    pendingDriveAction = PendingDriveAction.NONE
+                    emitEffect(SettingsEffect.LaunchGoogleSignIn(signIn.intent))
+                }
+
+                is SignInResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            backupStatus = BackupStatus.ERROR,
+                            backupMessage = signIn.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun onGoogleSignInResult(resultData: Intent?) {
+        viewModelScope.launch {
+            when (val signIn = driveBackupService.completeSignIn(resultData)) {
+                is SignInResult.SignedIn -> {
+                    _uiState.update {
+                        it.copy(
+                            backupConnectedAccount = signIn.accountEmail,
+                            backupStatus = BackupStatus.SUCCESS,
+                            backupMessage = "Google Drive verbunden."
+                        )
+                    }
+                    when (pendingDriveAction) {
+                        PendingDriveAction.BACKUP -> runBackupNow()
+                        PendingDriveAction.RESTORE -> runRestoreNow()
+                        PendingDriveAction.NONE -> Unit
+                    }
+                    pendingDriveAction = PendingDriveAction.NONE
+                }
+
+                is SignInResult.RequiresUserAction -> {
+                    emitEffect(SettingsEffect.LaunchGoogleSignIn(signIn.intent))
+                }
+
+                is SignInResult.Error -> {
+                    pendingDriveAction = PendingDriveAction.NONE
+                    _uiState.update {
+                        it.copy(
+                            backupStatus = BackupStatus.ERROR,
+                            backupMessage = signIn.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun onBackupNowClicked() {
+        if (uiState.value.backupInProgress || uiState.value.restoreInProgress) return
+        viewModelScope.launch {
+            when (val signIn = driveBackupService.ensureSignedIn()) {
+                is SignInResult.SignedIn -> runBackupNow()
+                is SignInResult.RequiresUserAction -> {
+                    pendingDriveAction = PendingDriveAction.BACKUP
+                    emitEffect(SettingsEffect.LaunchGoogleSignIn(signIn.intent))
+                }
+
+                is SignInResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            backupStatus = BackupStatus.ERROR,
+                            backupMessage = signIn.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun onRestoreClicked() {
+        if (uiState.value.backupInProgress || uiState.value.restoreInProgress) return
+        _uiState.update { it.copy(showRestoreConfirmation = true) }
+    }
+
+    fun onRestoreDialogDismissed() {
+        _uiState.update { it.copy(showRestoreConfirmation = false) }
+    }
+
+    fun onRestoreConfirmed() {
+        if (uiState.value.backupInProgress || uiState.value.restoreInProgress) return
+        _uiState.update { it.copy(showRestoreConfirmation = false) }
+        viewModelScope.launch {
+            when (val signIn = driveBackupService.ensureSignedIn()) {
+                is SignInResult.SignedIn -> runRestoreNow()
+                is SignInResult.RequiresUserAction -> {
+                    pendingDriveAction = PendingDriveAction.RESTORE
+                    emitEffect(SettingsEffect.LaunchGoogleSignIn(signIn.intent))
+                }
+
+                is SignInResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            backupStatus = BackupStatus.ERROR,
+                            backupMessage = signIn.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun runBackupNow() {
+        _uiState.update {
+            it.copy(
+                backupInProgress = true,
+                backupStatus = BackupStatus.RUNNING,
+                backupMessage = "Backup wird erstellt..."
+            )
+        }
+
+        val backupJson = runCatching { backupRepository.createBackupJson() }
+            .getOrElse {
+                _uiState.update {
+                    it.copy(
+                        backupInProgress = false,
+                        backupStatus = BackupStatus.ERROR,
+                        backupMessage = "Backup-Erstellung fehlgeschlagen."
+                    )
+                }
+                return
+            }
+
+        when (val upload = driveBackupService.uploadBackup(backupJson)) {
+            is UploadResult.Success -> {
+                _uiState.update {
+                    it.copy(
+                        backupInProgress = false,
+                        backupStatus = BackupStatus.SUCCESS,
+                        backupLastSuccessEpochMs = upload.modifiedAtEpochMs,
+                        backupConnectedAccount = driveBackupService.currentAccountEmail(),
+                        backupMessage = "Backup erfolgreich gespeichert."
+                    )
+                }
+            }
+
+            is UploadResult.Error -> {
+                _uiState.update {
+                    it.copy(
+                        backupInProgress = false,
+                        backupStatus = BackupStatus.ERROR,
+                        backupMessage = upload.message
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun runRestoreNow() {
+        _uiState.update {
+            it.copy(
+                restoreInProgress = true,
+                backupStatus = BackupStatus.RUNNING,
+                backupMessage = "Backup wird wiederhergestellt..."
+            )
+        }
+
+        when (val download = driveBackupService.downloadLatestBackup()) {
+            is DownloadResult.NotFound -> {
+                _uiState.update {
+                    it.copy(
+                        restoreInProgress = false,
+                        backupStatus = BackupStatus.ERROR,
+                        backupMessage = "Kein Backup in Google Drive gefunden."
+                    )
+                }
+            }
+
+            is DownloadResult.Error -> {
+                _uiState.update {
+                    it.copy(
+                        restoreInProgress = false,
+                        backupStatus = BackupStatus.ERROR,
+                        backupMessage = download.message
+                    )
+                }
+            }
+
+            is DownloadResult.Success -> {
+                when (val restore = backupRepository.restoreFromBackupJson(download.content)) {
+                    is RestoreResult.Success -> {
+                        _uiState.update {
+                            it.copy(
+                                restoreInProgress = false,
+                                backupStatus = BackupStatus.SUCCESS,
+                                backupLastSuccessEpochMs = restore.restoredFromEpochMs,
+                                backupConnectedAccount = driveBackupService.currentAccountEmail(),
+                                backupMessage = "Wiederherstellung erfolgreich (${restore.foodCount} Lebensmittel, ${restore.diaryEntryCount} Eintraege)."
+                            )
+                        }
+                    }
+
+                    is RestoreResult.Error -> {
+                        _uiState.update {
+                            it.copy(
+                                restoreInProgress = false,
+                                backupStatus = BackupStatus.ERROR,
+                                backupMessage = restore.message
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -283,17 +558,23 @@ class SettingsViewModel(
         private val userPreferencesRepository: UserPreferencesRepository,
         private val appUpdateChecker: AppUpdateChecker,
         private val updateInstaller: UpdateInstaller,
+        private val driveBackupService: DriveBackupService,
+        private val backupRepository: BackupRepository,
         private val appVersionName: String,
         private val appVersionCode: Int,
-        private val onReminderChanged: (enabled: Boolean, hour: Int, minute: Int) -> Unit
+        private val onReminderChanged: (enabled: Boolean, hour: Int, minute: Int) -> Unit,
+        private val onAutoBackupChanged: (enabled: Boolean) -> Unit
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return SettingsViewModel(
                 userPreferencesStore = RepositoryUserPreferencesStore(userPreferencesRepository),
                 onReminderChanged = onReminderChanged,
+                onAutoBackupChanged = onAutoBackupChanged,
                 appUpdateChecker = appUpdateChecker,
                 updateInstaller = updateInstaller,
+                driveBackupService = driveBackupService,
+                backupRepository = backupRepository,
                 appVersionName = appVersionName,
                 appVersionCode = appVersionCode
             ) as T

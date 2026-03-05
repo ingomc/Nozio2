@@ -23,4 +23,13 @@ interface DailyActivityDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(activity: DailyActivity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(activities: List<DailyActivity>)
+
+    @Query("SELECT * FROM daily_activity ORDER BY date ASC")
+    suspend fun getAll(): List<DailyActivity>
+
+    @Query("DELETE FROM daily_activity")
+    suspend fun deleteAll()
 }

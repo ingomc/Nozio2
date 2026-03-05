@@ -6,6 +6,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.withTransaction
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
@@ -18,6 +19,22 @@ abstract class NozioDatabase : RoomDatabase() {
     abstract fun foodDao(): FoodDao
     abstract fun diaryDao(): DiaryDao
     abstract fun dailyActivityDao(): DailyActivityDao
+
+    suspend fun replaceTrackingData(
+        foodItems: List<FoodItem>,
+        diaryEntries: List<DiaryEntry>,
+        dailyActivities: List<DailyActivity>
+    ) {
+        withTransaction {
+            diaryDao().deleteAll()
+            dailyActivityDao().deleteAll()
+            foodDao().deleteAll()
+
+            foodDao().insertAllWithIds(foodItems)
+            diaryDao().insertAll(diaryEntries)
+            dailyActivityDao().upsertAll(dailyActivities)
+        }
+    }
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {

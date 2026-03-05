@@ -2,6 +2,7 @@ package de.ingomc.nozio.data.local
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
@@ -59,4 +60,13 @@ interface DiaryDao {
         """
     )
     suspend fun getRecentlyAddedFoods(limit: Int): List<FoodItem>
+
+    @Query("SELECT * FROM diary_entries ORDER BY id ASC")
+    suspend fun getAllRaw(): List<DiaryEntry>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entries: List<DiaryEntry>)
+
+    @Query("DELETE FROM diary_entries")
+    suspend fun deleteAll()
 }

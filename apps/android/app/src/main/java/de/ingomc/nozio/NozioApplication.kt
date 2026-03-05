@@ -1,6 +1,12 @@
 package de.ingomc.nozio
 
 import android.app.Application
+import de.ingomc.nozio.data.backup.BackupRepository
+import de.ingomc.nozio.data.backup.BackupRepositoryImpl
+import de.ingomc.nozio.data.backup.BackupScheduler
+import de.ingomc.nozio.data.backup.DriveBackupService
+import de.ingomc.nozio.data.backup.GoogleDriveBackupService
+import de.ingomc.nozio.data.backup.RoomTrackingDataStore
 import de.ingomc.nozio.data.local.NozioDatabase
 import de.ingomc.nozio.data.remote.GitHubRetrofitInstance
 import de.ingomc.nozio.data.remote.RetrofitInstance
@@ -41,6 +47,15 @@ class NozioApplication : Application() {
     lateinit var apkUpdateInstaller: ApkUpdateInstaller
         private set
 
+    lateinit var driveBackupService: DriveBackupService
+        private set
+
+    lateinit var backupRepository: BackupRepository
+        private set
+
+    lateinit var backupScheduler: BackupScheduler
+        private set
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -52,9 +67,20 @@ class NozioApplication : Application() {
         dailyActivityRepository = DailyActivityRepository(database.dailyActivityDao())
         appUpdateRepository = AppUpdateRepository(GitHubRetrofitInstance.api)
         apkUpdateInstaller = ApkUpdateInstaller(this)
+        driveBackupService = GoogleDriveBackupService(this)
+        backupRepository = BackupRepositoryImpl(
+            dataStore = RoomTrackingDataStore(database),
+            appVersionName = BuildConfig.VERSION_NAME
+        )
+        backupScheduler = BackupScheduler(this)
         MealReminderReceiver.ensureChannel(this)
         applicationScope.launch {
             val prefs = userPreferencesRepository.userPreferences.first()
+            if (prefs.autoBackupEnabled) {
+                backupScheduler.scheduleWeeklyBackup()
+            } else {
+                backupScheduler.cancelWeeklyBackup()
+            }
             if (prefs.mealReminderEnabled) {
                 MealReminderScheduler.scheduleDaily(this@NozioApplication, prefs.mealReminderHour, prefs.mealReminderMinute)
             } else {

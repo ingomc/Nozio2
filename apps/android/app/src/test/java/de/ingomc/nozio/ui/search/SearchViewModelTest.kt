@@ -219,6 +219,19 @@ class SearchViewModelTest {
             return storage.values.firstOrNull { it.barcode == barcode }
         }
 
+        override suspend fun getAll(): List<FoodItem> = storage.values.toList()
+
+        override suspend fun insertAllWithIds(foodItems: List<FoodItem>) {
+            foodItems.forEach { food ->
+                val id = if (food.id > 0) food.id else nextId++
+                storage[id] = food.copy(id = id)
+            }
+        }
+
+        override suspend fun deleteAll() {
+            storage.clear()
+        }
+
         fun getStoredById(id: Long): FoodItem? = storage[id]
     }
 
@@ -261,6 +274,19 @@ class SearchViewModelTest {
                 .mapNotNull { foodLookup(it.foodItemId) }
                 .distinctBy { it.id }
                 .take(limit)
+        }
+
+        override suspend fun getAllRaw(): List<DiaryEntry> = entries.toList()
+
+        override suspend fun insertAll(entries: List<DiaryEntry>) {
+            this.entries += entries
+            nextEntryId = (this.entries.maxOfOrNull { it.id } ?: 0L) + 1L
+            syncDayEntries()
+        }
+
+        override suspend fun deleteAll() {
+            entries.clear()
+            syncDayEntries()
         }
 
         private fun syncDayEntries() {
