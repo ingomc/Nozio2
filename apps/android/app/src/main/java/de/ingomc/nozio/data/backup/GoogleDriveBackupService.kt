@@ -3,7 +3,6 @@ package de.ingomc.nozio.data.backup
 import android.content.Context
 import android.content.Intent
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
@@ -39,23 +38,32 @@ class GoogleDriveBackupService(
     override suspend fun ensureSignedIn(): SignInResult = withContext(Dispatchers.IO) {
         val account = GoogleSignIn.getLastSignedInAccount(appContext)
         if (account != null && GoogleSignIn.hasPermissions(account, driveScope)) {
-            credential.selectedAccount = account.account
+            val androidAccount = account.account
+                ?: return@withContext SignInResult.Error("Google-Konto konnte nicht gelesen werden.")
+            credential.selectedAccount = androidAccount
             return@withContext SignInResult.SignedIn(account.email)
         }
         SignInResult.RequiresUserAction(signInClient.signInIntent)
     }
 
     override suspend fun completeSignIn(signInResultData: Intent?): SignInResult = withContext(Dispatchers.IO) {
+        if (signInResultData == null) {
+            return@withContext SignInResult.Error("Google-Anmeldung wurde abgebrochen.")
+        }
         return@withContext try {
             val account = GoogleSignIn.getSignedInAccountFromIntent(signInResultData).result
             if (account == null || !GoogleSignIn.hasPermissions(account, driveScope)) {
                 SignInResult.Error("Google Drive Berechtigung wurde nicht erteilt.")
             } else {
-                credential.selectedAccount = account.account
+                val androidAccount = account.account
+                    ?: return@withContext SignInResult.Error("Google-Konto konnte nicht gelesen werden.")
+                credential.selectedAccount = androidAccount
                 SignInResult.SignedIn(account.email)
             }
         } catch (_: ApiException) {
             SignInResult.Error("Google-Anmeldung fehlgeschlagen.")
+        } catch (_: Throwable) {
+            SignInResult.Error("Google-Anmeldung konnte nicht verarbeitet werden.")
         }
     }
 
@@ -135,7 +143,8 @@ class GoogleDriveBackupService(
     private fun createDriveClient(): Drive? {
         val account = GoogleSignIn.getLastSignedInAccount(appContext) ?: return null
         if (!GoogleSignIn.hasPermissions(account, driveScope)) return null
-        credential.selectedAccount = account.account
+        val androidAccount = account.account ?: return null
+        credential.selectedAccount = androidAccount
         return Drive.Builder(
             AndroidHttp.newCompatibleTransport(),
             GsonFactory.getDefaultInstance(),
