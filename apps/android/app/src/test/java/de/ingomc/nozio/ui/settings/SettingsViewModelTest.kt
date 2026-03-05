@@ -2,6 +2,7 @@ package de.ingomc.nozio.ui.settings
 
 import android.content.Intent
 import de.ingomc.nozio.data.backup.BackupRepository
+import de.ingomc.nozio.data.backup.BackupDocumentService
 import de.ingomc.nozio.data.backup.DownloadResult
 import de.ingomc.nozio.data.backup.DriveAuthState
 import de.ingomc.nozio.data.backup.DriveBackupService
@@ -13,6 +14,7 @@ import de.ingomc.nozio.data.repository.AvailableRelease
 import de.ingomc.nozio.data.repository.UpdateCheckResult
 import de.ingomc.nozio.data.repository.UserPreferences
 import de.ingomc.nozio.update.UpdateInstaller
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -145,7 +147,7 @@ class SettingsViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(BackupStatus.ERROR, state.backupStatus)
-        assertEquals("Kein Backup in Google Drive gefunden.", state.backupMessage)
+        assertEquals("Keine lokale Backup-Datei gefunden.", state.backupMessage)
     }
 
     @Test
@@ -211,6 +213,7 @@ class SettingsViewModelTest {
         checker: AppUpdateChecker = FakeAppUpdateChecker(UpdateCheckResult.UpToDate),
         drive: DriveBackupService = FakeDriveBackupService(),
         backupRepository: BackupRepository = FakeBackupRepository(),
+        backupDocumentService: BackupDocumentService = FakeBackupDocumentService(),
         userPreferencesStore: UserPreferencesStore = FakeUserPreferencesStore(),
         onAutoBackupChanged: (Boolean) -> Unit = {}
     ): SettingsViewModel {
@@ -222,6 +225,7 @@ class SettingsViewModelTest {
             updateInstaller = FakeUpdateInstaller(),
             driveBackupService = drive,
             backupRepository = backupRepository,
+            backupDocumentService = backupDocumentService,
             appVersionName = "0.5.1",
             appVersionCode = 6
         )
@@ -290,5 +294,11 @@ class SettingsViewModelTest {
         override suspend fun createBackupJson(): String = createJson
 
         override suspend fun restoreFromBackupJson(json: String): RestoreResult = restoreResult
+    }
+
+    private class FakeBackupDocumentService : BackupDocumentService {
+        override suspend fun exportToUri(uri: Uri, backupJson: String): Result<Unit> = Result.success(Unit)
+
+        override suspend fun importFromUri(uri: Uri): Result<String> = Result.success("{}")
     }
 }

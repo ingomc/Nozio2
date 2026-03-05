@@ -152,6 +152,7 @@ fun NozioApp(
             updateInstaller = app.apkUpdateInstaller,
             driveBackupService = app.driveBackupService,
             backupRepository = app.backupRepository,
+            backupDocumentService = app.backupDocumentService,
             appVersionName = BuildConfig.VERSION_NAME,
             appVersionCode = BuildConfig.VERSION_CODE,
             onReminderChanged = { enabled, hour, minute ->

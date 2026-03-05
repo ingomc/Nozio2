@@ -4,6 +4,8 @@ import android.app.Application
 import de.ingomc.nozio.data.backup.BackupRepository
 import de.ingomc.nozio.data.backup.BackupRepositoryImpl
 import de.ingomc.nozio.data.backup.BackupScheduler
+import de.ingomc.nozio.data.backup.AndroidBackupDocumentService
+import de.ingomc.nozio.data.backup.BackupDocumentService
 import de.ingomc.nozio.data.backup.DriveBackupService
 import de.ingomc.nozio.data.backup.LocalFileBackupService
 import de.ingomc.nozio.data.backup.RoomTrackingDataStore
@@ -53,6 +55,9 @@ class NozioApplication : Application() {
     lateinit var backupRepository: BackupRepository
         private set
 
+    lateinit var backupDocumentService: BackupDocumentService
+        private set
+
     lateinit var backupScheduler: BackupScheduler
         private set
 
@@ -72,6 +77,7 @@ class NozioApplication : Application() {
             dataStore = RoomTrackingDataStore(database),
             appVersionName = BuildConfig.VERSION_NAME
         )
+        backupDocumentService = AndroidBackupDocumentService(this)
         backupScheduler = BackupScheduler(this)
         MealReminderReceiver.ensureChannel(this)
         applicationScope.launch {

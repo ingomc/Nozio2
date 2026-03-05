@@ -3,10 +3,12 @@ package de.ingomc.nozio.ui.settings
 import android.app.Activity
 import android.content.Intent
 import android.content.IntentSender
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import de.ingomc.nozio.data.backup.BackupRepository
+import de.ingomc.nozio.data.backup.BackupDocumentService
 import de.ingomc.nozio.data.backup.DownloadResult
 import de.ingomc.nozio.data.backup.DriveAuthState
 import de.ingomc.nozio.data.backup.DriveBackupService
@@ -75,6 +77,8 @@ sealed interface SettingsEffect {
     data class StartInstall(val intent: Intent) : SettingsEffect
     data object LaunchCredentialManagerSignIn : SettingsEffect
     data class LaunchDriveAuthorization(val intentSender: IntentSender) : SettingsEffect
+    data class LaunchBackupExport(val suggestedFileName: String) : SettingsEffect
+    data object LaunchBackupImport : SettingsEffect
 }
 
 interface UserPreferencesStore {
@@ -106,6 +110,7 @@ class SettingsViewModel(
     private val updateInstaller: UpdateInstaller,
     private val driveBackupService: DriveBackupService,
     private val backupRepository: BackupRepository,
+    private val backupDocumentService: BackupDocumentService,
     private val appVersionName: String,
     private val appVersionCode: Int
 ) : ViewModel() {
@@ -124,6 +129,7 @@ class SettingsViewModel(
     private var pendingDownloadId: Long? = null
     private var latestAvailableRelease: AvailableRelease? = null
     private var pendingDriveAction: PendingDriveAction = PendingDriveAction.NONE
+    private var pendingExportJson: String? = null
 
     init {
         viewModelScope.launch {
@@ -258,6 +264,141 @@ class SettingsViewModel(
         _uiState.update { it.copy(showRestoreConfirmation = false) }
         pendingDriveAction = PendingDriveAction.RESTORE
         ensureDriveReadyOrRequestSignIn()
+    }
+
+    fun onExportBackupClicked() {
+        if (uiState.value.backupInProgress || uiState.value.restoreInProgress) return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    backupInProgress = true,
+                    backupStatus = BackupStatus.RUNNING,
+                    backupMessage = "Backup-Datei wird vorbereitet..."
+                )
+            }
+            val json = runCatching { backupRepository.createBackupJson() }
+                .getOrElse {
+                    pendingExportJson = null
+                    _uiState.update {
+                        it.copy(
+                            backupInProgress = false,
+                            backupStatus = BackupStatus.ERROR,
+                            backupMessage = "Backup-Export fehlgeschlagen."
+                        )
+                    }
+                    return@launch
+                }
+            pendingExportJson = json
+            emitEffect(SettingsEffect.LaunchBackupExport("nozio-backup-v1.json.gz"))
+        }
+    }
+
+    fun onBackupExportDestinationSelected(uri: Uri?) {
+        if (uri == null) {
+            pendingExportJson = null
+            _uiState.update {
+                it.copy(
+                    backupInProgress = false,
+                    backupStatus = BackupStatus.ERROR,
+                    backupMessage = "Backup-Export wurde abgebrochen."
+                )
+            }
+            return
+        }
+        val exportJson = pendingExportJson
+        if (exportJson == null) {
+            _uiState.update {
+                it.copy(
+                    backupInProgress = false,
+                    backupStatus = BackupStatus.ERROR,
+                    backupMessage = "Keine Backup-Daten zum Export vorhanden."
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            val result = backupDocumentService.exportToUri(uri, exportJson)
+            pendingExportJson = null
+            result.fold(
+                onSuccess = {
+                    _uiState.update {
+                        it.copy(
+                            backupInProgress = false,
+                            backupStatus = BackupStatus.SUCCESS,
+                            backupLastSuccessEpochMs = System.currentTimeMillis(),
+                            backupMessage = "Backup-Datei exportiert."
+                        )
+                    }
+                },
+                onFailure = {
+                    _uiState.update {
+                        it.copy(
+                            backupInProgress = false,
+                            backupStatus = BackupStatus.ERROR,
+                            backupMessage = "Backup-Datei konnte nicht exportiert werden."
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    fun onImportBackupClicked() {
+        if (uiState.value.backupInProgress || uiState.value.restoreInProgress) return
+        emitEffect(SettingsEffect.LaunchBackupImport)
+    }
+
+    fun onBackupImportSourceSelected(uri: Uri?) {
+        if (uri == null) {
+            _uiState.update {
+                it.copy(
+                    backupStatus = BackupStatus.ERROR,
+                    backupMessage = "Backup-Import wurde abgebrochen."
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    restoreInProgress = true,
+                    backupStatus = BackupStatus.RUNNING,
+                    backupMessage = "Backup-Datei wird importiert..."
+                )
+            }
+            val content = backupDocumentService.importFromUri(uri).getOrElse {
+                _uiState.update {
+                    it.copy(
+                        restoreInProgress = false,
+                        backupStatus = BackupStatus.ERROR,
+                        backupMessage = "Backup-Datei konnte nicht gelesen werden."
+                    )
+                }
+                return@launch
+            }
+            when (val restore = backupRepository.restoreFromBackupJson(content)) {
+                is RestoreResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            restoreInProgress = false,
+                            backupStatus = BackupStatus.SUCCESS,
+                            backupLastSuccessEpochMs = restore.restoredFromEpochMs,
+                            backupMessage = "Import erfolgreich (${restore.foodCount} Lebensmittel, ${restore.diaryEntryCount} Eintraege)."
+                        )
+                    }
+                }
+
+                is RestoreResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            restoreInProgress = false,
+                            backupStatus = BackupStatus.ERROR,
+                            backupMessage = restore.message
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private fun ensureDriveReadyOrRequestSignIn() {
@@ -558,6 +699,7 @@ class SettingsViewModel(
         private val updateInstaller: UpdateInstaller,
         private val driveBackupService: DriveBackupService,
         private val backupRepository: BackupRepository,
+        private val backupDocumentService: BackupDocumentService,
         private val appVersionName: String,
         private val appVersionCode: Int,
         private val onReminderChanged: (enabled: Boolean, hour: Int, minute: Int) -> Unit,
@@ -573,6 +715,7 @@ class SettingsViewModel(
                 updateInstaller = updateInstaller,
                 driveBackupService = driveBackupService,
                 backupRepository = backupRepository,
+                backupDocumentService = backupDocumentService,
                 appVersionName = appVersionName,
                 appVersionCode = appVersionCode
             ) as T

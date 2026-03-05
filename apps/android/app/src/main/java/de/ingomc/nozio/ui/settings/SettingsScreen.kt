@@ -102,6 +102,16 @@ fun SettingsScreen(
     ) { result ->
         viewModel.onDriveAuthorizationResult(result.resultCode, result.data)
     }
+    val backupExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/gzip")
+    ) { uri ->
+        viewModel.onBackupExportDestinationSelected(uri)
+    }
+    val backupImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        viewModel.onBackupImportSourceSelected(uri)
+    }
     val hasNotificationPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     val appBarState = rememberTopAppBarState()
@@ -140,6 +150,14 @@ fun SettingsScreen(
                     }.onFailure {
                         viewModel.onCredentialManagerSignInFailed("Google Drive Autorisierung konnte nicht gestartet werden.")
                     }
+                }
+
+                is SettingsEffect.LaunchBackupExport -> {
+                    backupExportLauncher.launch(effect.suggestedFileName)
+                }
+
+                SettingsEffect.LaunchBackupImport -> {
+                    backupImportLauncher.launch(arrayOf("application/gzip", "application/json", "application/octet-stream"))
                 }
             }
         }
@@ -399,24 +417,24 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
-                    onClick = { viewModel.onBackupNowClicked() },
+                OutlinedButton(
+                    onClick = { viewModel.onExportBackupClicked() },
                     enabled = !state.backupInProgress && !state.restoreInProgress,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(if (state.backupInProgress) "Sichert..." else "Jetzt sichern")
+                    Text("Exportieren")
                 }
                 OutlinedButton(
-                    onClick = { viewModel.onRestoreClicked() },
+                    onClick = { viewModel.onImportBackupClicked() },
                     enabled = !state.backupInProgress && !state.restoreInProgress,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(if (state.restoreInProgress) "Laeuft..." else "Wiederherstellen")
+                    Text("Importieren")
                 }
             }
 
             Text(
-                text = "Wiederherstellen ersetzt deine lokalen Daten vollstaendig.",
+                text = "Importieren ersetzt deine lokalen Daten vollstaendig.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
