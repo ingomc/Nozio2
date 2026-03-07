@@ -207,6 +207,7 @@ cd apps/android
 - [RELEASE_NOTES_0.8.1.md](/Users/ap4716/AndroidStudioProjects/Nozio2/RELEASE_NOTES_0.8.1.md)
 - [RELEASE_NOTES_0.8.2.md](/Users/ap4716/AndroidStudioProjects/Nozio2/RELEASE_NOTES_0.8.2.md)
 - [RELEASE_NOTES_0.9.0.md](/Users/ap4716/AndroidStudioProjects/Nozio2/RELEASE_NOTES_0.9.0.md)
+- [RELEASE_NOTES_0.10.0.md](/Users/andre/Documents/dev/Nozio2/RELEASE_NOTES_0.10.0.md)
 - [RELEASE_NOTES_NEXT.md](/Users/ap4716/AndroidStudioProjects/Nozio2/RELEASE_NOTES_NEXT.md)
 
 ## Docker Start
