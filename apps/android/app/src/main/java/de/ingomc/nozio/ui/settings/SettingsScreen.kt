@@ -23,13 +23,6 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,7 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import de.ingomc.nozio.BuildConfig
 import de.ingomc.nozio.data.repository.AppThemeMode
@@ -93,6 +86,10 @@ import org.json.JSONObject
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    section: SettingsSection = SettingsSection.MAIN,
+    onNavigateToReminder: () -> Unit = {},
+    onNavigateToBackup: () -> Unit = {},
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -100,7 +97,6 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var showThemeMenu by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
-    var currentSection by remember { mutableStateOf(SettingsSection.MAIN) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -306,10 +302,10 @@ fun SettingsScreen(
         TopAppBar(
             scrollBehavior = appBarScrollBehavior,
             navigationIcon = {
-                if (currentSection != SettingsSection.MAIN) {
-                    IconButton(onClick = { currentSection = SettingsSection.MAIN }) {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Zurueck"
                         )
                     }
@@ -317,7 +313,7 @@ fun SettingsScreen(
             },
             title = {
                 Text(
-                    text = currentSection.title,
+                    text = section.title,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -331,284 +327,257 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            AnimatedContent(
-                targetState = currentSection,
-                transitionSpec = {
-                    val forward = targetState.ordinal > initialState.ordinal
-                    val distanceFraction = 0.12f
-                    ContentTransform(
-                        targetContentEnter = slideInHorizontally(
-                            animationSpec = tween(280),
-                            initialOffsetX = { fullWidth ->
-                                val distance = (fullWidth * distanceFraction).toInt()
-                                if (forward) distance else -distance
+            Text(
+                text = "Aenderungen werden sofort angewendet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            when (section) {
+                SettingsSection.MAIN -> {
+                    SettingRow(
+                        title = "Aussehen",
+                        subtitle = "System, Hell oder Dunkel"
+                    ) {
+                        Box {
+                            OutlinedButton(onClick = { showThemeMenu = true }) {
+                                Text(state.themeMode.displayLabel())
                             }
-                        ) + fadeIn(animationSpec = tween(280)),
-                        initialContentExit = slideOutHorizontally(
-                            animationSpec = tween(220),
-                            targetOffsetX = { fullWidth ->
-                                val distance = (fullWidth * distanceFraction).toInt()
-                                if (forward) -distance else distance
-                            }
-                        ) + fadeOut(animationSpec = tween(220))
-                    )
-                },
-                label = "settingsSectionSharedAxisX"
-            ) { section ->
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "Aenderungen werden sofort angewendet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    when (section) {
-                        SettingsSection.MAIN -> {
-                            SettingRow(
-                                title = "Aussehen",
-                                subtitle = "System, Hell oder Dunkel"
+                            DropdownMenu(
+                                expanded = showThemeMenu,
+                                onDismissRequest = { showThemeMenu = false }
                             ) {
-                                Box {
-                                    OutlinedButton(onClick = { showThemeMenu = true }) {
-                                        Text(state.themeMode.displayLabel())
-                                    }
-                                    DropdownMenu(
-                                        expanded = showThemeMenu,
-                                        onDismissRequest = { showThemeMenu = false }
-                                    ) {
-                                        AppThemeMode.entries.forEach { mode ->
-                                            DropdownMenuItem(
-                                                text = { Text(mode.displayLabel()) },
-                                                onClick = {
-                                                    showThemeMenu = false
-                                                    viewModel.onThemeModeChange(mode)
-                                                }
-                                            )
+                                AppThemeMode.entries.forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = { Text(mode.displayLabel()) },
+                                        onClick = {
+                                            showThemeMenu = false
+                                            viewModel.onThemeModeChange(mode)
                                         }
-                                    }
-                                }
-                            }
-
-                            HorizontalDivider()
-
-                            SettingRow(
-                                title = "Erinnerung",
-                                subtitle = "Taegliche Tracking-Benachrichtigung",
-                                onClick = { currentSection = SettingsSection.REMINDER }
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = formatReminderSummary(
-                                            enabled = state.mealReminderEnabled,
-                                            hour = state.mealReminderHour,
-                                            minute = state.mealReminderMinute
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Icon(
-                                        imageVector = Icons.Default.ChevronRight,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider()
-
-                            SettingRow(
-                                title = "Backup & Wiederherstellung",
-                                subtitle = "Sicherung, Import und Export",
-                                onClick = { currentSection = SettingsSection.BACKUP }
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = formatBackupSummary(state),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.ChevronRight,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider()
-
-                            Text(
-                                text = "App",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-
-                            SettingRow(
-                                title = "Version",
-                                subtitle = state.appVersionLabel
-                            )
-
-                            SettingRow(
-                                title = "Updates",
-                                subtitle = state.updateStatus.label()
-                            ) {
-                                OutlinedButton(
-                                    onClick = { viewModel.onCheckForUpdateClicked() },
-                                    enabled = state.updateStatus != UpdateStatus.CHECKING
-                                ) {
-                                    Text(if (state.updateStatus == UpdateStatus.CHECKING) "Pruefung..." else "Jetzt pruefen")
-                                }
-                            }
-
-                            if (state.updateStatus == UpdateStatus.UPDATE_AVAILABLE && state.availableReleaseTitle != null) {
-                                Text(
-                                    text = "Neuestes Release: ${state.availableReleaseTitle}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-
-                                if (state.downloadInProgress) {
-                                    Text(
-                                        text = "Update wird heruntergeladen...",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                } else {
-                                    Button(
-                                        onClick = { viewModel.onDownloadUpdateClicked() },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        enabled = state.hasDownloadableUpdate
-                                    ) {
-                                        Text(if (state.hasDownloadableUpdate) "Update herunterladen" else "Kein Direktdownload verfuegbar")
-                                    }
-                                }
-
-                                OutlinedButton(
-                                    onClick = { viewModel.onOpenReleasePageClicked() },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Release-Seite oeffnen")
-                                }
-                            }
-
-                            state.errorMessage?.let { error ->
-                                Text(
-                                    text = error,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-
-                        SettingsSection.REMINDER -> {
-                            SettingRow(
-                                title = "Erinnerung aktivieren",
-                                subtitle = "Taegliche Tracking-Benachrichtigung"
-                            ) {
-                                Switch(
-                                    checked = state.mealReminderEnabled,
-                                    onCheckedChange = { enabled ->
-                                        if (enabled && !hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                        } else {
-                                            viewModel.onMealReminderEnabledChange(enabled)
-                                        }
-                                    }
-                                )
-                            }
-
-                            if (state.mealReminderEnabled) {
-                                SettingRow(
-                                    title = "Uhrzeit",
-                                    subtitle = "Wann soll erinnert werden?"
-                                ) {
-                                    OutlinedButton(onClick = { showTimePicker = true }) {
-                                        Text(formatTimeLabel(state.mealReminderHour, state.mealReminderMinute))
-                                    }
-                                }
-
-                                Button(
-                                    onClick = {
-                                        if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                        } else {
-                                            MealReminderReceiver.showNotification(context)
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Test-Reminder jetzt senden")
                                 }
                             }
                         }
+                    }
 
-                        SettingsSection.BACKUP -> {
-                            SettingRow(
-                                title = "Auto-Backup",
-                                subtitle = "Woechentliche Sicherung als lokale Datei"
-                            ) {
-                                Switch(
-                                    checked = state.autoBackupEnabled,
-                                    onCheckedChange = { enabled ->
-                                        viewModel.onAutoBackupEnabledChange(enabled)
-                                    }
-                                )
-                            }
+                    HorizontalDivider()
 
-                            val accountLabel = state.backupConnectedAccount ?: "Nicht verbunden"
-                            SettingRow(
-                                title = "Backup-Speicher",
-                                subtitle = accountLabel
-                            ) {
-                                OutlinedButton(
-                                    onClick = { viewModel.onDriveSignInClicked() },
-                                    enabled = !state.backupInProgress && !state.restoreInProgress
-                                ) {
-                                    Text("Pruefen")
-                                }
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = { viewModel.onExportBackupClicked() },
-                                    enabled = !state.backupInProgress && !state.restoreInProgress,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Exportieren")
-                                }
-                                OutlinedButton(
-                                    onClick = { viewModel.onImportBackupClicked() },
-                                    enabled = !state.backupInProgress && !state.restoreInProgress,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("Importieren")
-                                }
-                            }
-
+                    SettingRow(
+                        title = "Erinnerung",
+                        subtitle = "Taegliche Tracking-Benachrichtigung",
+                        onClick = onNavigateToReminder
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Importieren ersetzt deine lokalen Daten vollstaendig.",
+                                text = formatReminderSummary(
+                                    enabled = state.mealReminderEnabled,
+                                    hour = state.mealReminderHour,
+                                    minute = state.mealReminderMinute
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
 
-                            state.backupLastSuccessEpochMs?.let { epochMs ->
-                                Text(
-                                    text = "Letzter erfolgreicher Lauf: ${DateFormat.getDateTimeInstance().format(Date(epochMs))}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                    HorizontalDivider()
 
-                            state.backupMessage?.let { message ->
-                                Text(
-                                    text = message,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (state.backupStatus == BackupStatus.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                    SettingRow(
+                        title = "Backup & Wiederherstellung",
+                        subtitle = "Sicherung, Import und Export",
+                        onClick = onNavigateToBackup
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = formatBackupSummary(state),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    Text(
+                        text = "App",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    SettingRow(
+                        title = "Version",
+                        subtitle = state.appVersionLabel
+                    )
+
+                    SettingRow(
+                        title = "Updates",
+                        subtitle = state.updateStatus.label()
+                    ) {
+                        OutlinedButton(
+                            onClick = { viewModel.onCheckForUpdateClicked() },
+                            enabled = state.updateStatus != UpdateStatus.CHECKING
+                        ) {
+                            Text(if (state.updateStatus == UpdateStatus.CHECKING) "Pruefung..." else "Jetzt pruefen")
+                        }
+                    }
+
+                    if (state.updateStatus == UpdateStatus.UPDATE_AVAILABLE && state.availableReleaseTitle != null) {
+                        Text(
+                            text = "Neuestes Release: ${state.availableReleaseTitle}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        if (state.downloadInProgress) {
+                            Text(
+                                text = "Update wird heruntergeladen...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            Button(
+                                onClick = { viewModel.onDownloadUpdateClicked() },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = state.hasDownloadableUpdate
+                            ) {
+                                Text(if (state.hasDownloadableUpdate) "Update herunterladen" else "Kein Direktdownload verfuegbar")
                             }
                         }
+
+                        OutlinedButton(
+                            onClick = { viewModel.onOpenReleasePageClicked() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Release-Seite oeffnen")
+                        }
+                    }
+
+                    state.errorMessage?.let { error ->
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+
+                SettingsSection.REMINDER -> {
+                    SettingRow(
+                        title = "Erinnerung aktivieren",
+                        subtitle = "Taegliche Tracking-Benachrichtigung"
+                    ) {
+                        Switch(
+                            checked = state.mealReminderEnabled,
+                            onCheckedChange = { enabled ->
+                                if (enabled && !hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    viewModel.onMealReminderEnabledChange(enabled)
+                                }
+                            }
+                        )
+                    }
+
+                    if (state.mealReminderEnabled) {
+                        SettingRow(
+                            title = "Uhrzeit",
+                            subtitle = "Wann soll erinnert werden?"
+                        ) {
+                            OutlinedButton(onClick = { showTimePicker = true }) {
+                                Text(formatTimeLabel(state.mealReminderHour, state.mealReminderMinute))
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    MealReminderReceiver.showNotification(context)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Test-Reminder jetzt senden")
+                        }
+                    }
+                }
+
+                SettingsSection.BACKUP -> {
+                    SettingRow(
+                        title = "Auto-Backup",
+                        subtitle = "Woechentliche Sicherung als lokale Datei"
+                    ) {
+                        Switch(
+                            checked = state.autoBackupEnabled,
+                            onCheckedChange = { enabled ->
+                                viewModel.onAutoBackupEnabledChange(enabled)
+                            }
+                        )
+                    }
+
+                    val accountLabel = state.backupConnectedAccount ?: "Nicht verbunden"
+                    SettingRow(
+                        title = "Backup-Speicher",
+                        subtitle = accountLabel
+                    ) {
+                        OutlinedButton(
+                            onClick = { viewModel.onDriveSignInClicked() },
+                            enabled = !state.backupInProgress && !state.restoreInProgress
+                        ) {
+                            Text("Pruefen")
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { viewModel.onExportBackupClicked() },
+                            enabled = !state.backupInProgress && !state.restoreInProgress,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Exportieren")
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.onImportBackupClicked() },
+                            enabled = !state.backupInProgress && !state.restoreInProgress,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Importieren")
+                        }
+                    }
+
+                    Text(
+                        text = "Importieren ersetzt deine lokalen Daten vollstaendig.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    state.backupLastSuccessEpochMs?.let { epochMs ->
+                        Text(
+                            text = "Letzter erfolgreicher Lauf: ${DateFormat.getDateTimeInstance().format(Date(epochMs))}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    state.backupMessage?.let { message ->
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (state.backupStatus == BackupStatus.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -737,7 +706,7 @@ private fun AppThemeMode.displayLabel(): String = when (this) {
     AppThemeMode.DARK -> "Dunkel"
 }
 
-private enum class SettingsSection(val title: String) {
+enum class SettingsSection(val title: String) {
     MAIN("Einstellungen"),
     REMINDER("Erinnerung"),
     BACKUP("Backup & Wiederherstellung")

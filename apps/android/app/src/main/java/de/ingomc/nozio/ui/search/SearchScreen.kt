@@ -2,6 +2,7 @@ package de.ingomc.nozio.ui.search
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -136,6 +137,22 @@ fun SearchScreen(
             showScannerSheet = true
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    BackHandler(
+        enabled = showScannerSheet ||
+            state.showBarcodeResultsSheet ||
+            state.showBottomSheet ||
+            state.showQuickAddSheet ||
+            state.showCreateCustomFoodSheet
+    ) {
+        when {
+            showScannerSheet -> showScannerSheet = false
+            state.showBarcodeResultsSheet -> viewModel.dismissBarcodeResultsSheet()
+            state.showBottomSheet -> viewModel.dismissBottomSheet()
+            state.showQuickAddSheet -> viewModel.dismissQuickAddSheet()
+            state.showCreateCustomFoodSheet -> viewModel.dismissCreateCustomFoodSheet()
         }
     }
 

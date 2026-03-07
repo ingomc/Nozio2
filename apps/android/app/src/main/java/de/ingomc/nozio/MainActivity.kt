@@ -6,10 +6,9 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,6 +23,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -31,12 +31,14 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -48,6 +50,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navOptions
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.repository.AppThemeMode
 import de.ingomc.nozio.notifications.MealReminderScheduler
@@ -59,6 +68,7 @@ import de.ingomc.nozio.ui.profile.ProfileViewModel
 import de.ingomc.nozio.ui.search.SearchScreen
 import de.ingomc.nozio.ui.search.SearchViewModel
 import de.ingomc.nozio.ui.settings.SettingsScreen
+import de.ingomc.nozio.ui.settings.SettingsSection
 import de.ingomc.nozio.ui.settings.SettingsViewModel
 import de.ingomc.nozio.ui.theme.NozioTheme
 import de.ingomc.nozio.ui.theme.nozioColors
@@ -113,18 +123,29 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private object AppRoute {
+    const val HOME = "home"
+    const val SEARCH = "search"
+    const val PROFILE = "profile"
+    const val PROFILE_LEGAL = "profile/legal"
+    const val SETTINGS_MAIN = "settings/main"
+    const val SETTINGS_REMINDER = "settings/reminder"
+    const val SETTINGS_BACKUP = "settings/backup"
+}
+
 @Composable
 fun NozioApp(
     launchAction: WidgetLaunchAction = WidgetLaunchAction.NONE,
     onLaunchActionHandled: () -> Unit = {}
 ) {
     val app = LocalContext.current.applicationContext as NozioApplication
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    val navController = rememberNavController()
     var preselectedMealType by rememberSaveable { mutableStateOf<MealType?>(null) }
-    var showLegalInfo by rememberSaveable { mutableStateOf(false) }
     var openQuickAddOnStart by rememberSaveable { mutableStateOf(false) }
     var openBarcodeScannerOnStart by rememberSaveable { mutableStateOf(false) }
     var focusSearchOnStart by rememberSaveable { mutableStateOf(false) }
+    var showExitDialog by remember { mutableStateOf(false) }
+
     val userPreferences by app.userPreferencesRepository.userPreferences.collectAsState(initial = null)
 
     val dashboardViewModel: DashboardViewModel = viewModel(
@@ -182,27 +203,34 @@ fun NozioApp(
     LaunchedEffect(dashboardState.selectedDate) {
         searchViewModel.setSelectedDate(dashboardState.selectedDate)
     }
-    LaunchedEffect(launchAction) {
+
+    LaunchedEffect(launchAction, navController) {
         when (launchAction) {
             WidgetLaunchAction.NONE -> Unit
             WidgetLaunchAction.SEARCH_FOCUS -> {
-                currentDestination = AppDestinations.SEARCH
-                showLegalInfo = false
                 focusSearchOnStart = true
                 openQuickAddOnStart = false
                 openBarcodeScannerOnStart = false
+                navController.navigateToBottomDestination(AppRoute.SEARCH)
                 onLaunchActionHandled()
             }
 
             WidgetLaunchAction.BARCODE_SCANNER -> {
-                currentDestination = AppDestinations.SEARCH
-                showLegalInfo = false
                 openBarcodeScannerOnStart = true
                 openQuickAddOnStart = false
                 focusSearchOnStart = false
+                navController.navigateToBottomDestination(AppRoute.SEARCH)
                 onLaunchActionHandled()
             }
         }
+    }
+
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val isOnHome = currentRoute == AppRoute.HOME
+
+    BackHandler(enabled = isOnHome && !showExitDialog) {
+        showExitDialog = true
     }
 
     val density = LocalDensity.current
@@ -220,19 +248,18 @@ fun NozioApp(
                         containerColor = MaterialTheme.nozioColors.baseBgElevated,
                         tonalElevation = 0.dp
                     ) {
-                        AppDestinations.entries.forEach {
+                        AppDestination.entries.forEach { destination ->
                             NavigationBarItem(
                                 icon = {
                                     Icon(
-                                        it.icon,
-                                        contentDescription = it.label
+                                        destination.icon,
+                                        contentDescription = destination.label
                                     )
                                 },
-                                label = { Text(it.label) },
-                                selected = it == currentDestination,
+                                label = { Text(destination.label) },
+                                selected = destination.matches(currentRoute),
                                 onClick = {
-                                    currentDestination = it
-                                    showLegalInfo = false
+                                    navController.navigateToBottomDestination(destination.route)
                                 },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = MaterialTheme.colorScheme.primary,
@@ -247,76 +274,161 @@ fun NozioApp(
                 }
             }
         ) { innerPadding ->
-            AnimatedContent(
-                targetState = currentDestination,
-                transitionSpec = {
-                    val forward = targetState.ordinal > initialState.ordinal
-                    val distanceFraction = 0.12f
-                    ContentTransform(
-                        targetContentEnter =
-                            slideInHorizontally(
-                                animationSpec = tween(280),
-                                initialOffsetX = { fullWidth ->
-                                    val distance = (fullWidth * distanceFraction).toInt()
-                                    if (forward) distance else -distance
-                                }
-                            ) + fadeIn(animationSpec = tween(280)),
-                        initialContentExit =
-                            slideOutHorizontally(
-                                animationSpec = tween(280),
-                                targetOffsetX = { fullWidth ->
-                                    val distance = (fullWidth * distanceFraction).toInt()
-                                    if (forward) -distance else distance
-                                }
-                            ) + fadeOut(animationSpec = tween(220))
-                    )
+            NavHost(
+                navController = navController,
+                startDestination = AppRoute.HOME,
+                modifier = Modifier.padding(innerPadding),
+                enterTransition = {
+                    val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
+                    sharedAxisEnter(forward)
                 },
-                label = "bottomNavSharedAxisX"
-            ) { destination ->
-                if (showLegalInfo) {
-                    LegalInfoScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        onBack = { showLegalInfo = false }
+                exitTransition = {
+                    val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
+                    sharedAxisExit(forward)
+                },
+                popEnterTransition = {
+                    val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
+                    sharedAxisEnter(!forward)
+                },
+                popExitTransition = {
+                    val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
+                    sharedAxisExit(!forward)
+                }
+            ) {
+                composable(AppRoute.HOME) {
+                    DashboardScreen(
+                        viewModel = dashboardViewModel,
+                        onAddFood = { mealType ->
+                            searchViewModel.setSelectedDate(dashboardState.selectedDate)
+                            preselectedMealType = mealType
+                            navController.navigateToBottomDestination(AppRoute.SEARCH)
+                        }
                     )
-                } else {
-                    when (destination) {
-                        AppDestinations.HOME -> DashboardScreen(
-                            viewModel = dashboardViewModel,
-                            modifier = Modifier.padding(innerPadding),
-                            onAddFood = { mealType ->
-                                searchViewModel.setSelectedDate(dashboardState.selectedDate)
-                                preselectedMealType = mealType
-                                currentDestination = AppDestinations.SEARCH
-                            }
-                        )
+                }
 
-                        AppDestinations.SEARCH -> SearchScreen(
-                            viewModel = searchViewModel,
-                            preselectedMealType = preselectedMealType,
-                            openQuickAddOnStart = openQuickAddOnStart,
-                            openBarcodeScannerOnStart = openBarcodeScannerOnStart,
-                            focusSearchOnStart = focusSearchOnStart,
-                            onQuickAddOpened = { openQuickAddOnStart = false },
-                            onBarcodeScannerOpened = { openBarcodeScannerOnStart = false },
-                            onSearchFocused = { focusSearchOnStart = false },
-                            modifier = Modifier.padding(innerPadding)
-                        )
+                composable(AppRoute.SEARCH) {
+                    SearchScreen(
+                        viewModel = searchViewModel,
+                        preselectedMealType = preselectedMealType,
+                        openQuickAddOnStart = openQuickAddOnStart,
+                        openBarcodeScannerOnStart = openBarcodeScannerOnStart,
+                        focusSearchOnStart = focusSearchOnStart,
+                        onQuickAddOpened = { openQuickAddOnStart = false },
+                        onBarcodeScannerOpened = { openBarcodeScannerOnStart = false },
+                        onSearchFocused = { focusSearchOnStart = false }
+                    )
+                }
 
-                        AppDestinations.PROFILE -> ProfileScreen(
-                            viewModel = profileViewModel,
-                            modifier = Modifier.padding(innerPadding),
-                            onOpenLegalInfo = { showLegalInfo = true }
-                        )
+                composable(AppRoute.PROFILE) {
+                    ProfileScreen(
+                        viewModel = profileViewModel,
+                        onOpenLegalInfo = { navController.navigate(AppRoute.PROFILE_LEGAL) }
+                    )
+                }
 
-                        AppDestinations.SETTINGS -> SettingsScreen(
-                            viewModel = settingsViewModel,
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                    }
+                composable(AppRoute.PROFILE_LEGAL) {
+                    LegalInfoScreen(onBack = { navController.navigateUp() })
+                }
+
+                composable(AppRoute.SETTINGS_MAIN) {
+                    SettingsScreen(
+                        viewModel = settingsViewModel,
+                        section = SettingsSection.MAIN,
+                        onNavigateToReminder = { navController.navigate(AppRoute.SETTINGS_REMINDER) },
+                        onNavigateToBackup = { navController.navigate(AppRoute.SETTINGS_BACKUP) }
+                    )
+                }
+
+                composable(AppRoute.SETTINGS_REMINDER) {
+                    SettingsScreen(
+                        viewModel = settingsViewModel,
+                        section = SettingsSection.REMINDER,
+                        onBack = { navController.navigateUp() }
+                    )
+                }
+
+                composable(AppRoute.SETTINGS_BACKUP) {
+                    SettingsScreen(
+                        viewModel = settingsViewModel,
+                        section = SettingsSection.BACKUP,
+                        onBack = { navController.navigateUp() }
+                    )
                 }
             }
         }
+
+        if (showExitDialog) {
+            val activity = LocalContext.current.findActivity()
+            AlertDialog(
+                onDismissRequest = { showExitDialog = false },
+                title = { Text("App verlassen?") },
+                text = { Text("Moechtest du Nozio wirklich schliessen?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showExitDialog = false
+                            activity?.finish()
+                        }
+                    ) {
+                        Text("Ja")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExitDialog = false }) {
+                        Text("Nein")
+                    }
+                }
+            )
+        }
     }
+}
+
+private fun transitionDirection(targetRoute: String?, initialRoute: String?): Int {
+    return routeRank(targetRoute) - routeRank(initialRoute)
+}
+
+private fun routeRank(route: String?): Int {
+    return when (route) {
+        AppRoute.HOME -> 0
+        AppRoute.SEARCH -> 1
+        AppRoute.PROFILE,
+        AppRoute.PROFILE_LEGAL -> 2
+
+        AppRoute.SETTINGS_MAIN,
+        AppRoute.SETTINGS_REMINDER,
+        AppRoute.SETTINGS_BACKUP -> 3
+
+        else -> 0
+    }
+}
+
+private fun sharedAxisEnter(forward: Boolean) = slideInHorizontally(
+    animationSpec = tween(280),
+    initialOffsetX = { fullWidth ->
+        val distance = (fullWidth * 0.12f).toInt()
+        if (forward) distance else -distance
+    }
+) + fadeIn(animationSpec = tween(280))
+
+private fun sharedAxisExit(forward: Boolean) = slideOutHorizontally(
+    animationSpec = tween(280),
+    targetOffsetX = { fullWidth ->
+        val distance = (fullWidth * 0.12f).toInt()
+        if (forward) -distance else distance
+    }
+) + fadeOut(animationSpec = tween(220))
+
+private fun NavHostController.navigateToBottomDestination(route: String) {
+    navigate(
+        route,
+        navOptions {
+            launchSingleTop = true
+            restoreState = true
+            popUpTo(graph.findStartDestination().id) {
+                saveState = true
+            }
+        }
+    )
 }
 
 @Composable
@@ -338,12 +450,22 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
-enum class AppDestinations(
+enum class AppDestination(
+    val route: String,
     val label: String,
     val icon: ImageVector,
 ) {
-    HOME("Home", Icons.Default.Home),
-    SEARCH("Suche", Icons.Default.Search),
-    PROFILE("Profil", Icons.Default.Person),
-    SETTINGS("Einstellungen", Icons.Default.Settings),
+    HOME(AppRoute.HOME, "Home", Icons.Default.Home),
+    SEARCH(AppRoute.SEARCH, "Suche", Icons.Default.Search),
+    PROFILE(AppRoute.PROFILE, "Profil", Icons.Default.Person),
+    SETTINGS(AppRoute.SETTINGS_MAIN, "Einstellungen", Icons.Default.Settings);
+
+    fun matches(currentRoute: String?): Boolean {
+        return when (this) {
+            HOME -> currentRoute == AppRoute.HOME
+            SEARCH -> currentRoute == AppRoute.SEARCH
+            PROFILE -> currentRoute == AppRoute.PROFILE || currentRoute == AppRoute.PROFILE_LEGAL
+            SETTINGS -> currentRoute?.startsWith("settings/") == true
+        }
+    }
 }
