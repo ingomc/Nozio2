@@ -100,11 +100,13 @@ private fun FoodItem.toDto(): FoodItemBackupDto = FoodItemBackupDto(
     proteinPer100g = proteinPer100g,
     fatPer100g = fatPer100g,
     carbsPer100g = carbsPer100g,
+    imageUrl = imageUrl,
     barcode = barcode,
     servingSize = servingSize,
     servingQuantity = servingQuantity,
     packageSize = packageSize,
     packageQuantity = packageQuantity,
+    isFavorite = isFavorite,
     source = source.name
 )
 
@@ -115,11 +117,13 @@ private fun FoodItemBackupDto.toEntity(): FoodItem = FoodItem(
     proteinPer100g = proteinPer100g,
     fatPer100g = fatPer100g,
     carbsPer100g = carbsPer100g,
+    imageUrl = imageUrl,
     barcode = barcode,
     servingSize = servingSize,
     servingQuantity = servingQuantity,
     packageSize = packageSize,
     packageQuantity = packageQuantity,
+    isFavorite = isFavorite,
     source = FoodSource.valueOf(source)
 )
 

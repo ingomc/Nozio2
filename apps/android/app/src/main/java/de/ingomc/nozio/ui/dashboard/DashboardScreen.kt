@@ -138,7 +138,7 @@ fun DashboardScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = state.selectedDate.format(dateFormatter),
+                        text = formatDashboardDateLabel(state.selectedDate, dateFormatter),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -280,6 +280,18 @@ fun DashboardScreen(
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
         }
+    }
+}
+
+private fun formatDashboardDateLabel(
+    date: LocalDate,
+    formatter: DateTimeFormatter
+): String {
+    val today = LocalDate.now()
+    return when (date) {
+        today -> "Heute"
+        today.minusDays(1) -> "Gestern"
+        else -> date.format(formatter)
     }
 }
 

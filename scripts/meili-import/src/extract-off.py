@@ -123,6 +123,7 @@ def main() -> int:
                 "barcode": barcode,
                 "name": name,
                 "brand": normalize_text(row.get("brands")) or None,
+                "imageUrl": image_url or None,
                 "caloriesPer100g": calories,
                 "proteinPer100g": 0.0 if protein is None else protein,
                 "fatPer100g": 0.0 if fat is None else fat,

@@ -42,6 +42,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -61,6 +63,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -116,7 +120,9 @@ fun SearchScreen(
     val density = LocalDensity.current
     val listBottomPadding = with(density) { searchContainerHeightPx.toDp() + 8.dp }
     val showingSuggestions = state.query.length < 3
-    val foodsToShow = if (showingSuggestions) state.recentSuggestions else state.results
+    val hasAnySuggestions = state.recentSuggestions.isNotEmpty() ||
+        state.frequentSuggestions.isNotEmpty() ||
+        state.favoriteSuggestions.isNotEmpty()
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -269,7 +275,7 @@ fun SearchScreen(
                 }
 
                 // Hint when no query
-                if (state.query.length < 3 && state.recentSuggestions.isEmpty()) {
+                if (state.query.length < 3 && !hasAnySuggestions) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -297,38 +303,34 @@ fun SearchScreen(
                     }
                 }
 
-                // Results
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentPadding = PaddingValues(bottom = listBottomPadding)
-                ) {
-                    if (state.query.length < 3) {
-                        item {
-                            QuickActionsCard(
-                                onQuickAddClick = viewModel::showQuickAddSheet,
-                                onCreateFoodClick = viewModel::showCreateCustomFoodSheet
+                if (showingSuggestions) {
+                    SuggestionsSection(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        recentSuggestions = state.recentSuggestions,
+                        frequentSuggestions = state.frequentSuggestions,
+                        favoriteSuggestions = state.favoriteSuggestions,
+                        hasAnySuggestions = hasAnySuggestions,
+                        listBottomPadding = listBottomPadding,
+                        onQuickAddClick = viewModel::showQuickAddSheet,
+                        onCreateFoodClick = viewModel::showCreateCustomFoodSheet,
+                        onFoodClick = viewModel::selectFood
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(bottom = listBottomPadding)
+                    ) {
+                        items(state.results) { food ->
+                            FoodSearchItem(
+                                food = food,
+                                onClick = { viewModel.selectFood(food) }
                             )
                             HorizontalDivider()
                         }
-                    }
-                    if (showingSuggestions && foodsToShow.isNotEmpty()) {
-                        item {
-                            Text(
-                                text = "Zuletzt hinzugefügt",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                            )
-                        }
-                    }
-                    items(foodsToShow) { food ->
-                        FoodSearchItem(
-                            food = food,
-                            onClick = { viewModel.selectFood(food) }
-                        )
-                        HorizontalDivider()
                     }
                 }
             }
@@ -497,7 +499,8 @@ fun SearchScreen(
             onDismiss = viewModel::dismissBottomSheet,
             onAdd = { mealType, amount, amountLabel ->
                 viewModel.addFood(mealType, amount, amountLabel)
-            }
+            },
+            onToggleFavorite = viewModel::toggleSelectedFoodFavorite
         )
     }
 
@@ -515,6 +518,104 @@ fun SearchScreen(
             onDismiss = viewModel::dismissCreateCustomFoodSheet,
             onSave = viewModel::createCustomFood
         )
+    }
+}
+
+private enum class SuggestionTab(val label: String) {
+    RECENT("Zuletzt"),
+    FREQUENT("Häufig"),
+    FAVORITES("Favoriten")
+}
+
+@Composable
+private fun SuggestionsSection(
+    modifier: Modifier = Modifier,
+    recentSuggestions: List<FoodItem>,
+    frequentSuggestions: List<FoodItem>,
+    favoriteSuggestions: List<FoodItem>,
+    hasAnySuggestions: Boolean,
+    listBottomPadding: androidx.compose.ui.unit.Dp,
+    onQuickAddClick: () -> Unit,
+    onCreateFoodClick: () -> Unit,
+    onFoodClick: (FoodItem) -> Unit
+) {
+    val tabs = remember { SuggestionTab.entries }
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val coroutineScope = rememberCoroutineScope()
+
+    Column(
+        modifier = modifier
+    ) {
+        QuickActionsCard(
+            onQuickAddClick = onQuickAddClick,
+            onCreateFoodClick = onCreateFoodClick
+        )
+        HorizontalDivider()
+
+        if (!hasAnySuggestions) {
+            return@Column
+        }
+
+        TabRow(selectedTabIndex = pagerState.currentPage) {
+            tabs.forEachIndexed { index, tab ->
+                Tab(
+                    selected = pagerState.currentPage == index,
+                    onClick = {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(index)
+                        }
+                    },
+                    modifier = Modifier.height(52.dp),
+                    text = {
+                        Text(
+                            text = tab.label,
+                            maxLines = 1,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                )
+            }
+        }
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) { page ->
+            val foods = when (tabs[page]) {
+                SuggestionTab.RECENT -> recentSuggestions
+                SuggestionTab.FREQUENT -> frequentSuggestions
+                SuggestionTab.FAVORITES -> favoriteSuggestions
+            }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = listBottomPadding)
+            ) {
+                if (foods.isEmpty()) {
+                    item {
+                        Text(
+                            text = when (tabs[page]) {
+                                SuggestionTab.RECENT -> "Noch keine zuletzt hinzugefügten Produkte."
+                                SuggestionTab.FREQUENT -> "Noch keine häufig hinzugefügten Produkte."
+                                SuggestionTab.FAVORITES -> "Noch keine Favoriten."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+                        )
+                    }
+                } else {
+                    items(foods) { food ->
+                        FoodSearchItem(
+                            food = food,
+                            onClick = { onFoodClick(food) }
+                        )
+                        HorizontalDivider()
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -586,7 +687,7 @@ private fun FoodSearchItem(
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(

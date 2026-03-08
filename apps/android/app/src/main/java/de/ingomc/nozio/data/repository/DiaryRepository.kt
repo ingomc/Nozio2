@@ -60,4 +60,8 @@ class DiaryRepository(private val diaryDao: DiaryDao) {
     suspend fun getRecentlyAddedFoods(limit: Int = 8): List<FoodItem> {
         return diaryDao.getRecentlyAddedFoods(limit)
     }
+
+    suspend fun getFrequentlyAddedFoods(limit: Int = 8): List<FoodItem> {
+        return diaryDao.getFrequentlyAddedFoods(limit)
+    }
 }

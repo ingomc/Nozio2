@@ -41,6 +41,7 @@ data class FoodSearchItemDto(
     val name: String,
     val brand: String? = null,
     val displayName: String,
+    val imageUrl: String? = null,
     val barcode: String? = null,
     val caloriesPer100g: Double,
     val proteinPer100g: Double,

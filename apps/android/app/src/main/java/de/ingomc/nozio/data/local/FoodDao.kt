@@ -25,6 +25,12 @@ interface FoodDao {
     @Query("SELECT * FROM food_items ORDER BY id ASC")
     suspend fun getAll(): List<FoodItem>
 
+    @Query("SELECT * FROM food_items WHERE isFavorite = 1 ORDER BY name COLLATE NOCASE ASC LIMIT :limit")
+    suspend fun getFavorites(limit: Int): List<FoodItem>
+
+    @Query("UPDATE food_items SET isFavorite = :isFavorite WHERE id = :foodId")
+    suspend fun setFavorite(foodId: Long, isFavorite: Boolean)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAllWithIds(foodItems: List<FoodItem>)
 

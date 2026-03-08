@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [FoodItem::class, DiaryEntry::class, DailyActivity::class],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -68,6 +68,16 @@ abstract class NozioDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE food_items ADD COLUMN packageQuantity REAL")
             }
         }
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE food_items ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE food_items ADD COLUMN imageUrl TEXT")
+            }
+        }
 
         @Volatile
         private var INSTANCE: NozioDatabase? = null
@@ -78,7 +88,7 @@ abstract class NozioDatabase : RoomDatabase() {
                     context.applicationContext,
                     NozioDatabase::class.java,
                     "nozio_database"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
                 INSTANCE = instance
                 instance
             }

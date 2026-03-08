@@ -61,6 +61,18 @@ interface DiaryDao {
     )
     suspend fun getRecentlyAddedFoods(limit: Int): List<FoodItem>
 
+    @Query(
+        """
+        SELECT f.*
+        FROM diary_entries d
+        INNER JOIN food_items f ON d.foodItemId = f.id
+        GROUP BY d.foodItemId
+        ORDER BY COUNT(*) DESC, MAX(d.id) DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun getFrequentlyAddedFoods(limit: Int): List<FoodItem>
+
     @Query("SELECT * FROM diary_entries ORDER BY id ASC")
     suspend fun getAllRaw(): List<DiaryEntry>
 

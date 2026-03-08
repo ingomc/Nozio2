@@ -221,6 +221,15 @@ class SearchViewModelTest {
 
         override suspend fun getAll(): List<FoodItem> = storage.values.toList()
 
+        override suspend fun getFavorites(limit: Int): List<FoodItem> {
+            return storage.values.filter { it.isFavorite }.take(limit)
+        }
+
+        override suspend fun setFavorite(foodId: Long, isFavorite: Boolean) {
+            val existing = storage[foodId] ?: return
+            storage[foodId] = existing.copy(isFavorite = isFavorite)
+        }
+
         override suspend fun insertAllWithIds(foodItems: List<FoodItem>) {
             foodItems.forEach { food ->
                 val id = if (food.id > 0) food.id else nextId++
@@ -273,6 +282,16 @@ class SearchViewModelTest {
                 .asReversed()
                 .mapNotNull { foodLookup(it.foodItemId) }
                 .distinctBy { it.id }
+                .take(limit)
+        }
+
+        override suspend fun getFrequentlyAddedFoods(limit: Int): List<FoodItem> {
+            return entries
+                .groupingBy { it.foodItemId }
+                .eachCount()
+                .entries
+                .sortedByDescending { it.value }
+                .mapNotNull { (foodId, _) -> foodLookup(foodId) }
                 .take(limit)
         }
 
