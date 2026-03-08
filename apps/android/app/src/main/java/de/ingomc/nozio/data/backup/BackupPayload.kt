@@ -47,5 +47,6 @@ data class DiaryEntryBackupDto(
 data class DailyActivityBackupDto(
     val dateIso: String,
     val steps: Long,
-    val weightKg: Double? = null
+    val weightKg: Double? = null,
+    val bodyFatPercent: Double? = null
 )

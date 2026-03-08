@@ -32,6 +32,8 @@ data class UserPreferences(
     val fatGoal: Double = 65.0,
     val carbsGoal: Double = 250.0,
     val currentWeightKg: Double = 80.0,
+    val goalStartWeightKg: Double = 80.0,
+    val goalTargetWeightKg: Double = 78.0,
     val bodyFatPercent: Double = 20.0,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val autoBackupEnabled: Boolean = true,
@@ -48,6 +50,8 @@ class UserPreferencesRepository(private val context: Context) {
         val FAT_GOAL = doublePreferencesKey("fat_goal")
         val CARBS_GOAL = doublePreferencesKey("carbs_goal")
         val CURRENT_WEIGHT_KG = doublePreferencesKey("current_weight_kg")
+        val GOAL_START_WEIGHT_KG = doublePreferencesKey("goal_start_weight_kg")
+        val GOAL_TARGET_WEIGHT_KG = doublePreferencesKey("goal_target_weight_kg")
         val BODY_FAT_PERCENT = doublePreferencesKey("body_fat_percent")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val AUTO_BACKUP_ENABLED = booleanPreferencesKey("auto_backup_enabled")
@@ -63,6 +67,8 @@ class UserPreferencesRepository(private val context: Context) {
             fatGoal = prefs[Keys.FAT_GOAL] ?: 65.0,
             carbsGoal = prefs[Keys.CARBS_GOAL] ?: 250.0,
             currentWeightKg = prefs[Keys.CURRENT_WEIGHT_KG] ?: 80.0,
+            goalStartWeightKg = prefs[Keys.GOAL_START_WEIGHT_KG] ?: 80.0,
+            goalTargetWeightKg = prefs[Keys.GOAL_TARGET_WEIGHT_KG] ?: 78.0,
             bodyFatPercent = prefs[Keys.BODY_FAT_PERCENT] ?: 20.0,
             themeMode = AppThemeMode.fromStorageValue(prefs[Keys.THEME_MODE]),
             autoBackupEnabled = prefs[Keys.AUTO_BACKUP_ENABLED] ?: true,
@@ -79,6 +85,8 @@ class UserPreferencesRepository(private val context: Context) {
             prefs[Keys.FAT_GOAL] = preferences.fatGoal
             prefs[Keys.CARBS_GOAL] = preferences.carbsGoal
             prefs[Keys.CURRENT_WEIGHT_KG] = preferences.currentWeightKg
+            prefs[Keys.GOAL_START_WEIGHT_KG] = preferences.goalStartWeightKg
+            prefs[Keys.GOAL_TARGET_WEIGHT_KG] = preferences.goalTargetWeightKg
             prefs[Keys.BODY_FAT_PERCENT] = preferences.bodyFatPercent
             prefs[Keys.THEME_MODE] = preferences.themeMode.storageValue
             prefs[Keys.AUTO_BACKUP_ENABLED] = preferences.autoBackupEnabled

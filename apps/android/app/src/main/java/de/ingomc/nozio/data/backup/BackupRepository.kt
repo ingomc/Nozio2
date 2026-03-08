@@ -146,11 +146,13 @@ private fun DiaryEntryBackupDto.toEntity(): DiaryEntry = DiaryEntry(
 private fun DailyActivity.toDto(): DailyActivityBackupDto = DailyActivityBackupDto(
     dateIso = date.toString(),
     steps = steps,
-    weightKg = weightKg
+    weightKg = weightKg,
+    bodyFatPercent = bodyFatPercent
 )
 
 private fun DailyActivityBackupDto.toEntity(): DailyActivity = DailyActivity(
     date = LocalDate.parse(dateIso),
     steps = steps,
-    weightKg = weightKg
+    weightKg = weightKg,
+    bodyFatPercent = bodyFatPercent
 )

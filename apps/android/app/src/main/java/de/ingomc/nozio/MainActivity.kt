@@ -63,6 +63,7 @@ import de.ingomc.nozio.notifications.MealReminderScheduler
 import de.ingomc.nozio.ui.dashboard.DashboardScreen
 import de.ingomc.nozio.ui.dashboard.DashboardViewModel
 import de.ingomc.nozio.ui.profile.LegalInfoScreen
+import de.ingomc.nozio.ui.profile.ProfileEditGoalsScreen
 import de.ingomc.nozio.ui.profile.ProfileScreen
 import de.ingomc.nozio.ui.profile.ProfileViewModel
 import de.ingomc.nozio.ui.search.SearchScreen
@@ -127,6 +128,7 @@ private object AppRoute {
     const val HOME = "home"
     const val SEARCH = "search"
     const val PROFILE = "profile"
+    const val PROFILE_EDIT = "profile/edit"
     const val PROFILE_LEGAL = "profile/legal"
     const val SETTINGS_MAIN = "settings/main"
     const val SETTINGS_REMINDER = "settings/reminder"
@@ -322,7 +324,15 @@ fun NozioApp(
                 composable(AppRoute.PROFILE) {
                     ProfileScreen(
                         viewModel = profileViewModel,
+                        onEditGoals = { navController.navigate(AppRoute.PROFILE_EDIT) },
                         onOpenLegalInfo = { navController.navigate(AppRoute.PROFILE_LEGAL) }
+                    )
+                }
+
+                composable(AppRoute.PROFILE_EDIT) {
+                    ProfileEditGoalsScreen(
+                        viewModel = profileViewModel,
+                        onBack = { navController.navigateUp() }
                     )
                 }
 
@@ -392,6 +402,7 @@ private fun routeRank(route: String?): Int {
         AppRoute.HOME -> 0
         AppRoute.SEARCH -> 1
         AppRoute.PROFILE,
+        AppRoute.PROFILE_EDIT,
         AppRoute.PROFILE_LEGAL -> 2
 
         AppRoute.SETTINGS_MAIN,
@@ -464,7 +475,9 @@ enum class AppDestination(
         return when (this) {
             HOME -> currentRoute == AppRoute.HOME
             SEARCH -> currentRoute == AppRoute.SEARCH
-            PROFILE -> currentRoute == AppRoute.PROFILE || currentRoute == AppRoute.PROFILE_LEGAL
+            PROFILE -> currentRoute == AppRoute.PROFILE ||
+                currentRoute == AppRoute.PROFILE_EDIT ||
+                currentRoute == AppRoute.PROFILE_LEGAL
             SETTINGS -> currentRoute?.startsWith("settings/") == true
         }
     }

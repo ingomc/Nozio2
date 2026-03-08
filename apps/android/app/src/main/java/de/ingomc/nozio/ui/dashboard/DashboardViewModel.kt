@@ -9,6 +9,7 @@ import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.repository.DailyActivityRepository
 import de.ingomc.nozio.data.repository.DaySummary
 import de.ingomc.nozio.data.repository.DiaryRepository
+import de.ingomc.nozio.data.repository.LatestBodyFatEntry
 import de.ingomc.nozio.data.repository.LatestWeightEntry
 import de.ingomc.nozio.data.repository.UserPreferences
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
@@ -34,8 +35,20 @@ data class DashboardUiState(
     val activeCalories: Double = 0.0,
     val stepsSaved: Boolean = false,
     val weightForDate: Double? = null,
-    val latestWeightEntry: LatestWeightEntry? = null,
+    val bodyFatForDate: Double? = null,
+    val displayWeightKg: Double? = null,
+    val displayWeightDate: LocalDate? = null,
+    val isWeightFallback: Boolean = false,
+    val displayBodyFatPercent: Double? = null,
+    val displayBodyFatDate: LocalDate? = null,
+    val isBodyFatFallback: Boolean = false,
     val weightSaved: Boolean = false
+)
+
+internal data class ResolvedMetric(
+    val value: Double?,
+    val date: LocalDate?,
+    val isFallback: Boolean
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -51,7 +64,9 @@ class DashboardViewModel(
         val prefs: UserPreferences,
         val stepsForDate: Long,
         val weightForDate: Double?,
-        val latestWeightEntry: LatestWeightEntry?
+        val bodyFatForDate: Double?,
+        val latestWeightUpToDate: LatestWeightEntry?,
+        val latestBodyFatUpToDate: LatestBodyFatEntry?
     )
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -69,7 +84,15 @@ class DashboardViewModel(
             val weightForDateFlow = selectedDateState.flatMapLatest { date ->
                 dailyActivityRepository.getWeightForDate(date)
             }
-            val latestWeightEntryFlow = dailyActivityRepository.getLatestWeightEntry()
+            val bodyFatForDateFlow = selectedDateState.flatMapLatest { date ->
+                dailyActivityRepository.getBodyFatForDate(date)
+            }
+            val latestWeightUpToDateFlow = selectedDateState.flatMapLatest { date ->
+                dailyActivityRepository.getLatestWeightEntryUpTo(date)
+            }
+            val latestBodyFatUpToDateFlow = selectedDateState.flatMapLatest { date ->
+                dailyActivityRepository.getLatestBodyFatEntryUpTo(date)
+            }
 
             val dayAndPrefsFlow = combine(
                 selectedDateState,
@@ -78,51 +101,74 @@ class DashboardViewModel(
             ) { selectedDate, summary, prefs ->
                 Triple(selectedDate, summary, prefs)
             }
-            val activityAndWeightFlow = combine(
+            val activityForDateFlow = combine(
                 stepsForDateFlow,
                 weightForDateFlow,
-                latestWeightEntryFlow
-            ) { stepsForDate, weightForDate, latestWeightEntry ->
-                Triple(stepsForDate, weightForDate, latestWeightEntry)
+                bodyFatForDateFlow
+            ) { stepsForDate, weightForDate, bodyFatForDate ->
+                Triple(stepsForDate, weightForDate, bodyFatForDate)
             }
-            val baseFlow = combine(dayAndPrefsFlow, activityAndWeightFlow) { dayAndPrefs, activityAndWeight ->
+            val latestUpToDateFlow = combine(
+                latestWeightUpToDateFlow,
+                latestBodyFatUpToDateFlow
+            ) { latestWeightUpToDate, latestBodyFatUpToDate ->
+                latestWeightUpToDate to latestBodyFatUpToDate
+            }
+
+            combine(dayAndPrefsFlow, activityForDateFlow, latestUpToDateFlow) { dayAndPrefs, activityForDate, latestUpToDate ->
                 val (selectedDate, summary, prefs) = dayAndPrefs
-                val (stepsForDate, weightForDate, latestWeightEntry) = activityAndWeight
+                val (stepsForDate, weightForDate, bodyFatForDate) = activityForDate
+                val (latestWeightUpToDate, latestBodyFatUpToDate) = latestUpToDate
                 DashboardBaseData(
                     selectedDate = selectedDate,
                     summary = summary,
                     prefs = prefs,
                     stepsForDate = stepsForDate,
                     weightForDate = weightForDate,
-                    latestWeightEntry = latestWeightEntry
+                    bodyFatForDate = bodyFatForDate,
+                    latestWeightUpToDate = latestWeightUpToDate,
+                    latestBodyFatUpToDate = latestBodyFatUpToDate
                 )
-            }
+            }.collect { base ->
+                val resolvedWeight = resolveMetric(
+                    selectedDate = base.selectedDate,
+                    valueForDate = base.weightForDate,
+                    fallbackEntry = base.latestWeightUpToDate?.let { it.weightKg to it.date }
+                )
+                val resolvedBodyFat = resolveMetric(
+                    selectedDate = base.selectedDate,
+                    valueForDate = base.bodyFatForDate,
+                    fallbackEntry = base.latestBodyFatUpToDate?.let { it.bodyFatPercent to it.date }
+                )
 
-            baseFlow.collect { base ->
-                val selectedDate = base.selectedDate
-                val summary = base.summary
-                val prefs = base.prefs
-                val stepsForDate = base.stepsForDate
-                val weightForDate = base.weightForDate
-                val latestWeightEntry = base.latestWeightEntry
+                val effectiveWeightKg = resolvedWeight.value ?: base.prefs.currentWeightKg
+                val effectiveBodyFatPercent = resolvedBodyFat.value ?: base.prefs.bodyFatPercent
+
                 val estimatedActiveCalories = estimateActiveCalories(
-                    steps = stepsForDate,
-                    weightKg = prefs.currentWeightKg,
-                    bodyFatPercent = prefs.bodyFatPercent
+                    steps = base.stepsForDate,
+                    weightKg = effectiveWeightKg,
+                    bodyFatPercent = effectiveBodyFatPercent
                 )
+
                 _uiState.value = DashboardUiState(
-                    selectedDate = selectedDate,
-                    totalCalories = summary.totalCalories,
-                    totalProtein = summary.totalProtein,
-                    totalFat = summary.totalFat,
-                    totalCarbs = summary.totalCarbs,
-                    entriesByMeal = summary.entriesByMeal,
-                    preferences = prefs,
-                    totalSteps = stepsForDate,
+                    selectedDate = base.selectedDate,
+                    totalCalories = base.summary.totalCalories,
+                    totalProtein = base.summary.totalProtein,
+                    totalFat = base.summary.totalFat,
+                    totalCarbs = base.summary.totalCarbs,
+                    entriesByMeal = base.summary.entriesByMeal,
+                    preferences = base.prefs,
+                    totalSteps = base.stepsForDate,
                     activeCalories = estimatedActiveCalories,
                     stepsSaved = _uiState.value.stepsSaved,
-                    weightForDate = weightForDate,
-                    latestWeightEntry = latestWeightEntry,
+                    weightForDate = base.weightForDate,
+                    bodyFatForDate = base.bodyFatForDate,
+                    displayWeightKg = resolvedWeight.value,
+                    displayWeightDate = resolvedWeight.date,
+                    isWeightFallback = resolvedWeight.isFallback,
+                    displayBodyFatPercent = resolvedBodyFat.value,
+                    displayBodyFatDate = resolvedBodyFat.date,
+                    isBodyFatFallback = resolvedBodyFat.isFallback,
                     weightSaved = _uiState.value.weightSaved
                 )
             }
@@ -143,9 +189,13 @@ class DashboardViewModel(
         }
     }
 
-    fun saveWeightForSelectedDate(weightKg: Double) {
+    fun saveWeightAndBodyFatForSelectedDate(weightKg: Double, bodyFatPercent: Double?) {
         viewModelScope.launch {
-            dailyActivityRepository.saveWeightForDate(selectedDateState.value, weightKg)
+            dailyActivityRepository.saveWeightAndBodyFatForDate(
+                date = selectedDateState.value,
+                weightKg = weightKg,
+                bodyFatPercent = bodyFatPercent
+            )
             CalorieWidgetProvider.updateAll(appContext)
             _uiState.value = _uiState.value.copy(weightSaved = true)
         }
@@ -189,4 +239,28 @@ class DashboardViewModel(
             ) as T
         }
     }
+}
+
+internal fun resolveMetric(
+    selectedDate: LocalDate,
+    valueForDate: Double?,
+    fallbackEntry: Pair<Double, LocalDate>?
+): ResolvedMetric {
+    if (valueForDate != null) {
+        return ResolvedMetric(
+            value = valueForDate,
+            date = selectedDate,
+            isFallback = false
+        )
+    }
+    val fallbackValue = fallbackEntry?.first
+    val fallbackDate = fallbackEntry?.second
+    if (fallbackValue != null && fallbackDate != null) {
+        return ResolvedMetric(
+            value = fallbackValue,
+            date = fallbackDate,
+            isFallback = fallbackDate != selectedDate
+        )
+    }
+    return ResolvedMetric(value = null, date = null, isFallback = false)
 }
