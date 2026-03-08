@@ -62,6 +62,7 @@ fun DashboardScreen(
     var pendingSteps by rememberSaveable { mutableStateOf(0L) }
     var showWeightSheet by rememberSaveable { mutableStateOf(false) }
     var pendingWeight by remember { mutableDoubleStateOf(0.0) }
+    var pendingBodyFat by remember { mutableDoubleStateOf(20.0) }
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN)
     val appBarState = rememberTopAppBarState()
     val appBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(appBarState)
@@ -95,11 +96,14 @@ fun DashboardScreen(
     if (showWeightSheet) {
         WeightInputBottomSheet(
             initialWeightKg = pendingWeight,
-            latestEntryDate = state.latestWeightEntry?.date,
-            latestEntryWeightKg = state.latestWeightEntry?.weightKg,
+            initialBodyFatPercent = pendingBodyFat,
+            latestWeightEntryDate = state.displayWeightDate,
+            latestWeightEntryWeightKg = state.displayWeightKg,
+            latestBodyFatEntryDate = state.displayBodyFatDate,
+            latestBodyFatEntryPercent = state.displayBodyFatPercent,
             onDismiss = { showWeightSheet = false },
-            onSave = { selectedWeight ->
-                viewModel.saveWeightForSelectedDate(selectedWeight)
+            onSave = { selectedWeight, selectedBodyFat ->
+                viewModel.saveWeightAndBodyFatForSelectedDate(selectedWeight, selectedBodyFat)
                 showWeightSheet = false
             }
         )
@@ -268,11 +272,17 @@ fun DashboardScreen(
 
             item {
                 WeightCard(
-                    currentWeightKg = state.weightForDate,
+                    weightKg = state.displayWeightKg,
+                    weightDate = state.displayWeightDate,
+                    isWeightFallback = state.isWeightFallback,
+                    bodyFatPercent = state.displayBodyFatPercent,
+                    bodyFatDate = state.displayBodyFatDate,
+                    isBodyFatFallback = state.isBodyFatFallback,
                     onClick = {
-                        pendingWeight = state.weightForDate
-                            ?: state.latestWeightEntry?.weightKg
+                        pendingWeight = state.displayWeightKg
                             ?: state.preferences.currentWeightKg
+                        pendingBodyFat = state.displayBodyFatPercent
+                            ?: state.preferences.bodyFatPercent
                         showWeightSheet = true
                     }
                 )

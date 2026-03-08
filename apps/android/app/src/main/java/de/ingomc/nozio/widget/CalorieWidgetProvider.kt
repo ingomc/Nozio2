@@ -174,7 +174,13 @@ abstract class BaseCalorieWidgetProvider(
             val summary = app.diaryRepository.getDaySummary(today).first()
             val preferences = app.userPreferencesRepository.userPreferences.first()
             val totalSteps = app.dailyActivityRepository.getStepsForDate(today).first()
-            val burned = estimateActiveCalories(totalSteps, preferences.currentWeightKg, preferences.bodyFatPercent)
+            val effectiveWeightKg = app.dailyActivityRepository.getWeightForDate(today).first()
+                ?: app.dailyActivityRepository.getLatestWeightEntryUpTo(today).first()?.weightKg
+                ?: preferences.currentWeightKg
+            val effectiveBodyFatPercent = app.dailyActivityRepository.getBodyFatForDate(today).first()
+                ?: app.dailyActivityRepository.getLatestBodyFatEntryUpTo(today).first()?.bodyFatPercent
+                ?: preferences.bodyFatPercent
+            val burned = estimateActiveCalories(totalSteps, effectiveWeightKg, effectiveBodyFatPercent)
             val goal = preferences.calorieGoal.roundToInt()
             val eaten = summary.totalCalories.roundToInt()
             val burnedRounded = burned.roundToInt()

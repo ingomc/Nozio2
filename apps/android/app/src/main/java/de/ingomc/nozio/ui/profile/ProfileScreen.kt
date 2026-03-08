@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -28,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -126,8 +128,8 @@ fun ProfileScreen(
 
             item {
                 ProfileSummaryCard(
-                    currentWeightKg = state.latestWeightKg ?: state.currentWeightKg.toDoubleOrNull(),
-                    bodyFatPercent = state.bodyFatPercent.toDoubleOrNull(),
+                    currentWeightKg = state.latestWeightKg,
+                    bodyFatPercent = state.latestBodyFatPercent,
                     calorieGoal = state.calorieGoal.toDoubleOrNull()?.toInt(),
                     todaySteps = state.todaySteps
                 )
@@ -136,16 +138,17 @@ fun ProfileScreen(
             item {
                 SectionHeader(
                     title = "Mein Fortschritt",
-                    actionLabel = "Auswertung",
-                    onActionClick = {}
+                    actionLabel = null,
+                    onActionClick = null
                 )
             }
 
             item {
                 WeightProgressCard(
                     points = filteredWeightHistory,
+                    startWeightKg = state.goalStartWeightKg.toDoubleOrNull(),
                     latestWeightKg = state.latestWeightKg,
-                    targetWeightKg = state.currentWeightKg.toDoubleOrNull(),
+                    targetWeightKg = state.goalTargetWeightKg.toDoubleOrNull(),
                     trendDeltaKg = state.weightTrendDeltaKg,
                     weeksEstimate = state.weightTrendWeeksEstimate
                 )
@@ -269,8 +272,11 @@ fun ProfileEditGoalsScreen(
                 )
             },
             navigationIcon = {
-                TextButton(onClick = onBack) {
-                    Text("Zurück")
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Zurück"
+                    )
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -286,8 +292,8 @@ fun ProfileEditGoalsScreen(
             onProteinGoalChange = viewModel::onProteinGoalChange,
             onFatGoalChange = viewModel::onFatGoalChange,
             onCarbsGoalChange = viewModel::onCarbsGoalChange,
-            onCurrentWeightKgChange = viewModel::onCurrentWeightKgChange,
-            onBodyFatPercentChange = viewModel::onBodyFatPercentChange,
+            onGoalStartWeightKgChange = viewModel::onGoalStartWeightKgChange,
+            onGoalTargetWeightKgChange = viewModel::onGoalTargetWeightKgChange,
             onSave = viewModel::save
         )
     }
@@ -392,8 +398,8 @@ private fun SummaryMetric(
 @Composable
 private fun SectionHeader(
     title: String,
-    actionLabel: String,
-    onActionClick: () -> Unit
+    actionLabel: String?,
+    onActionClick: (() -> Unit)?
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -405,8 +411,10 @@ private fun SectionHeader(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
-        TextButton(onClick = onActionClick) {
-            Text(actionLabel.uppercase(Locale.GERMAN))
+        if (actionLabel != null && onActionClick != null) {
+            TextButton(onClick = onActionClick) {
+                Text(actionLabel.uppercase(Locale.GERMAN))
+            }
         }
     }
 }
@@ -414,6 +422,7 @@ private fun SectionHeader(
 @Composable
 private fun WeightProgressCard(
     points: List<WeightHistoryPoint>,
+    startWeightKg: Double?,
     latestWeightKg: Double?,
     targetWeightKg: Double?,
     trendDeltaKg: Double?,
@@ -435,7 +444,7 @@ private fun WeightProgressCard(
                 return@Column
             }
 
-            val startWeight = points.first().weightKg
+            val startWeight = startWeightKg ?: points.first().weightKg
             val currentWeight = latestWeightKg ?: points.last().weightKg
             val targetWeight = targetWeightKg ?: currentWeight
             val denominator = (targetWeight - startWeight)
@@ -451,7 +460,7 @@ private fun WeightProgressCard(
 
             Text(
                 text = headline,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
 
@@ -522,8 +531,8 @@ private fun EditableGoalsSection(
     onProteinGoalChange: (String) -> Unit,
     onFatGoalChange: (String) -> Unit,
     onCarbsGoalChange: (String) -> Unit,
-    onCurrentWeightKgChange: (String) -> Unit,
-    onBodyFatPercentChange: (String) -> Unit,
+    onGoalStartWeightKgChange: (String) -> Unit,
+    onGoalTargetWeightKgChange: (String) -> Unit,
     onSave: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -578,23 +587,27 @@ private fun EditableGoalsSection(
             )
         }
 
-        OutlinedTextField(
-            value = state.currentWeightKg,
-            onValueChange = onCurrentWeightKgChange,
-            label = { Text("Zielgewicht (kg)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = state.bodyFatPercent,
-            onValueChange = onBodyFatPercentChange,
-            label = { Text("KFA geschätzt (%)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = state.goalStartWeightKg,
+                onValueChange = onGoalStartWeightKgChange,
+                label = { Text("Startgewicht (kg)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = state.goalTargetWeightKg,
+                onValueChange = onGoalTargetWeightKgChange,
+                label = { Text("Zielgewicht (kg)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
         Button(
             onClick = onSave,

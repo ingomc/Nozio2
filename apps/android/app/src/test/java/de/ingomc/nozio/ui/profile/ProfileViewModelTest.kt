@@ -45,13 +45,12 @@ class ProfileViewModelTest {
             proteinGoal = 180.0,
             fatGoal = 70.0,
             carbsGoal = 210.0,
-            currentWeightKg = 79.0,
-            bodyFatPercent = 18.5
+            currentWeightKg = 79.0
         )
 
         val items = buildGoalSummaryItems(preferences, todaySteps = 8123)
 
-        assertEquals(5, items.size)
+        assertEquals(4, items.size)
         assertEquals("Kalorien: 2354 kcal", items[0])
         assertEquals("Heute Schritte: 8123", items.last())
     }

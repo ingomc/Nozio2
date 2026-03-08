@@ -41,10 +41,16 @@ import java.util.Locale
 
 @Composable
 fun WeightCard(
-    currentWeightKg: Double?,
+    weightKg: Double?,
+    weightDate: LocalDate?,
+    isWeightFallback: Boolean,
+    bodyFatPercent: Double?,
+    bodyFatDate: LocalDate?,
+    isBodyFatFallback: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMAN) }
     ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
@@ -72,21 +78,74 @@ fun WeightCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = "Gewicht",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = currentWeightKg?.let { "${formatWeight(it)} kg" } ?: "--,- kg",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold
-                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    MetricValue(
+                        label = "Gewicht",
+                        value = weightKg?.let { "${formatWeight(it)} kg" } ?: "--,- kg",
+                        standDate = if (isWeightFallback) weightDate else null,
+                        subdued = isWeightFallback,
+                        dateFormatter = dateFormatter,
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricValue(
+                        label = "KFA",
+                        value = bodyFatPercent?.let { "${formatWeight(it)} %" } ?: "--,- %",
+                        standDate = if (isBodyFatFallback) bodyFatDate else null,
+                        subdued = isBodyFatFallback,
+                        dateFormatter = dateFormatter,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun MetricValue(
+    label: String,
+    value: String,
+    standDate: LocalDate?,
+    subdued: Boolean,
+    dateFormatter: DateTimeFormatter,
+    modifier: Modifier = Modifier
+) {
+    val valueColor = if (subdued) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = if (subdued) FontWeight.SemiBold else FontWeight.Bold,
+            color = valueColor
+        )
+        if (standDate != null) {
+            Text(
+                text = "Stand: ${standDate.format(dateFormatter)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -95,13 +154,17 @@ fun WeightCard(
 @Composable
 fun WeightInputBottomSheet(
     initialWeightKg: Double,
-    latestEntryDate: LocalDate?,
-    latestEntryWeightKg: Double?,
+    initialBodyFatPercent: Double,
+    latestWeightEntryDate: LocalDate?,
+    latestWeightEntryWeightKg: Double?,
+    latestBodyFatEntryDate: LocalDate?,
+    latestBodyFatEntryPercent: Double?,
     onDismiss: () -> Unit,
-    onSave: (Double) -> Unit
+    onSave: (Double, Double) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedWeight by remember { mutableDoubleStateOf(initialWeightKg.coerceIn(20.0, 400.0)) }
+    var selectedBodyFat by remember { mutableDoubleStateOf(initialBodyFatPercent.coerceIn(3.0, 60.0)) }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMAN) }
 
     ModalBottomSheet(
@@ -115,7 +178,7 @@ fun WeightInputBottomSheet(
                 .padding(bottom = 28.dp)
         ) {
             Text(
-                text = "Gewicht eintragen",
+                text = "Gewicht & KFA eintragen",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -123,10 +186,19 @@ fun WeightInputBottomSheet(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = if (latestEntryDate != null && latestEntryWeightKg != null) {
-                    "Letzte Eingabe am ${latestEntryDate.format(dateFormatter)}: ${formatWeight(latestEntryWeightKg)} kg"
+                text = if (latestWeightEntryDate != null && latestWeightEntryWeightKg != null) {
+                    "Letztes Gewicht am ${latestWeightEntryDate.format(dateFormatter)}: ${formatWeight(latestWeightEntryWeightKg)} kg"
                 } else {
-                    "Noch keine frühere Gewichtseingabe"
+                    "Noch kein früheres Gewicht"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = if (latestBodyFatEntryDate != null && latestBodyFatEntryPercent != null) {
+                    "Letzter KFA am ${latestBodyFatEntryDate.format(dateFormatter)}: ${formatWeight(latestBodyFatEntryPercent)} %"
+                } else {
+                    "Noch kein früherer KFA"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -136,35 +208,71 @@ fun WeightInputBottomSheet(
             HorizontalDivider()
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = CircleShape, tonalElevation = 0.dp, shadowElevation = 0.dp) {
-                    IconButton(onClick = { selectedWeight = (selectedWeight - 0.1).coerceIn(20.0, 400.0) }) {
-                        Icon(Icons.Default.Remove, contentDescription = "0,1 kg weniger")
-                    }
-                }
-                Text(
-                    text = "${formatWeight(selectedWeight)} kg",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Surface(shape = CircleShape, tonalElevation = 0.dp, shadowElevation = 0.dp) {
-                    IconButton(onClick = { selectedWeight = (selectedWeight + 0.1).coerceIn(20.0, 400.0) }) {
-                        Icon(Icons.Default.Add, contentDescription = "0,1 kg mehr")
-                    }
-                }
-            }
+            AdjustableMetricRow(
+                title = "Gewicht",
+                value = "${formatWeight(selectedWeight)} kg",
+                onDecrease = { selectedWeight = (selectedWeight - 0.1).coerceIn(20.0, 400.0) },
+                onIncrease = { selectedWeight = (selectedWeight + 0.1).coerceIn(20.0, 400.0) },
+                decreaseDescription = "0,1 kg weniger",
+                increaseDescription = "0,1 kg mehr"
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            AdjustableMetricRow(
+                title = "KFA",
+                value = "${formatWeight(selectedBodyFat)} %",
+                onDecrease = { selectedBodyFat = (selectedBodyFat - 0.1).coerceIn(3.0, 60.0) },
+                onIncrease = { selectedBodyFat = (selectedBodyFat + 0.1).coerceIn(3.0, 60.0) },
+                decreaseDescription = "0,1 % weniger",
+                increaseDescription = "0,1 % mehr"
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
-                onClick = { onSave(selectedWeight) },
+                onClick = { onSave(selectedWeight, selectedBodyFat) },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Gewicht speichern")
+                Text("Werte speichern")
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdjustableMetricRow(
+    title: String,
+    value: String,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    decreaseDescription: String,
+    increaseDescription: String
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceAround,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(shape = CircleShape, tonalElevation = 0.dp, shadowElevation = 0.dp) {
+            IconButton(onClick = onDecrease) {
+                Icon(Icons.Default.Remove, contentDescription = decreaseDescription)
+            }
+        }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Surface(shape = CircleShape, tonalElevation = 0.dp, shadowElevation = 0.dp) {
+            IconButton(onClick = onIncrease) {
+                Icon(Icons.Default.Add, contentDescription = increaseDescription)
             }
         }
     }
