@@ -422,18 +422,6 @@ fun SettingsScreen(
 
                     HorizontalDivider()
 
-                    SettingRow(
-                        title = "Aktivitätskalorien anrechnen",
-                        subtitle = "Schritte als Bonus zum Tagesbudget zählen"
-                    ) {
-                        Switch(
-                            checked = state.includeActivityCaloriesInBudget,
-                            onCheckedChange = viewModel::onIncludeActivityCaloriesInBudgetChange
-                        )
-                    }
-
-                    HorizontalDivider()
-
                     Text(
                         text = "App",
                         style = MaterialTheme.typography.titleSmall,

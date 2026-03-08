@@ -11,6 +11,9 @@ import de.ingomc.nozio.data.repository.DaySummary
 import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.LatestBodyFatEntry
 import de.ingomc.nozio.data.repository.LatestWeightEntry
+import de.ingomc.nozio.data.repository.SupplementPlanItem
+import de.ingomc.nozio.data.repository.SupplementRepository
+import de.ingomc.nozio.data.repository.SupplementTimelineItem
 import de.ingomc.nozio.data.repository.UserPreferences
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
 import de.ingomc.nozio.widget.CalorieWidgetProvider
@@ -19,10 +22,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalTime
+import kotlin.math.abs
 
 private const val ACTIVE_CALORIE_FACTOR = 0.8
 
@@ -36,6 +41,7 @@ data class DashboardUiState(
     val preferences: UserPreferences = UserPreferences(),
     val totalSteps: Long = 0L,
     val activeCalories: Double = 0.0,
+    val supplementTimelineItems: List<SupplementTimelineItem> = emptyList(),
     val stepsSaved: Boolean = false,
     val weightForDate: Double? = null,
     val bodyFatForDate: Double? = null,
@@ -59,7 +65,8 @@ class DashboardViewModel(
     private val appContext: Context,
     private val diaryRepository: DiaryRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val dailyActivityRepository: DailyActivityRepository
+    private val dailyActivityRepository: DailyActivityRepository,
+    private val supplementRepository: SupplementRepository
 ) : ViewModel() {
     private data class DashboardBaseData(
         val selectedDate: LocalDate,
@@ -69,7 +76,9 @@ class DashboardViewModel(
         val weightForDate: Double?,
         val bodyFatForDate: Double?,
         val latestWeightUpToDate: LatestWeightEntry?,
-        val latestBodyFatUpToDate: LatestBodyFatEntry?
+        val latestBodyFatUpToDate: LatestBodyFatEntry?,
+        val supplementPlanItems: List<SupplementPlanItem>,
+        val takenSupplementIds: Set<Long>
     )
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -96,6 +105,10 @@ class DashboardViewModel(
             val latestBodyFatUpToDateFlow = selectedDateState.flatMapLatest { date ->
                 dailyActivityRepository.getLatestBodyFatEntryUpTo(date)
             }
+            val takenSupplementIdsFlow = selectedDateState.flatMapLatest { date ->
+                supplementRepository.observeTakenSupplementIds(date)
+            }
+            val supplementPlanFlow = supplementRepository.observePlanItems()
 
             val dayAndPrefsFlow = combine(
                 selectedDateState,
@@ -117,11 +130,18 @@ class DashboardViewModel(
             ) { latestWeightUpToDate, latestBodyFatUpToDate ->
                 latestWeightUpToDate to latestBodyFatUpToDate
             }
+            val supplementFlow = combine(
+                supplementPlanFlow,
+                takenSupplementIdsFlow
+            ) { planItems, takenIds ->
+                planItems to takenIds
+            }
 
-            combine(dayAndPrefsFlow, activityForDateFlow, latestUpToDateFlow) { dayAndPrefs, activityForDate, latestUpToDate ->
+            combine(dayAndPrefsFlow, activityForDateFlow, latestUpToDateFlow, supplementFlow) { dayAndPrefs, activityForDate, latestUpToDate, supplements ->
                 val (selectedDate, summary, prefs) = dayAndPrefs
                 val (stepsForDate, weightForDate, bodyFatForDate) = activityForDate
                 val (latestWeightUpToDate, latestBodyFatUpToDate) = latestUpToDate
+                val (supplementPlanItems, takenSupplementIds) = supplements
                 DashboardBaseData(
                     selectedDate = selectedDate,
                     summary = summary,
@@ -130,7 +150,9 @@ class DashboardViewModel(
                     weightForDate = weightForDate,
                     bodyFatForDate = bodyFatForDate,
                     latestWeightUpToDate = latestWeightUpToDate,
-                    latestBodyFatUpToDate = latestBodyFatUpToDate
+                    latestBodyFatUpToDate = latestBodyFatUpToDate,
+                    supplementPlanItems = supplementPlanItems,
+                    takenSupplementIds = takenSupplementIds
                 )
             }.collect { base ->
                 val resolvedWeight = resolveMetric(
@@ -163,6 +185,10 @@ class DashboardViewModel(
                     preferences = base.prefs,
                     totalSteps = base.stepsForDate,
                     activeCalories = estimatedActiveCalories,
+                    supplementTimelineItems = buildSupplementTimelineItems(
+                        planItems = base.supplementPlanItems,
+                        takenIds = base.takenSupplementIds
+                    ),
                     stepsSaved = _uiState.value.stepsSaved,
                     weightForDate = base.weightForDate,
                     bodyFatForDate = base.bodyFatForDate,
@@ -231,6 +257,12 @@ class DashboardViewModel(
         }
     }
 
+    fun toggleSupplementTaken(supplementId: Long, taken: Boolean) {
+        viewModelScope.launch {
+            supplementRepository.setTaken(selectedDateState.value, supplementId, taken)
+        }
+    }
+
     private fun estimateActiveCalories(steps: Long, weightKg: Double, bodyFatPercent: Double): Double {
         val safeWeightKg = weightKg.coerceIn(35.0, 250.0)
         val safeBodyFat = bodyFatPercent.coerceIn(3.0, 60.0)
@@ -257,7 +289,8 @@ class DashboardViewModel(
         private val appContext: Context,
         private val diaryRepository: DiaryRepository,
         private val userPreferencesRepository: UserPreferencesRepository,
-        private val dailyActivityRepository: DailyActivityRepository
+        private val dailyActivityRepository: DailyActivityRepository,
+        private val supplementRepository: SupplementRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -265,7 +298,8 @@ class DashboardViewModel(
                 appContext,
                 diaryRepository,
                 userPreferencesRepository,
-                dailyActivityRepository
+                dailyActivityRepository,
+                supplementRepository
             ) as T
         }
     }
@@ -293,4 +327,38 @@ internal fun resolveMetric(
         )
     }
     return ResolvedMetric(value = null, date = null, isFallback = false)
+}
+
+internal fun buildSupplementTimelineItems(
+    planItems: List<SupplementPlanItem>,
+    takenIds: Set<Long>
+): List<SupplementTimelineItem> {
+    return planItems.sortedWith(
+        compareBy<SupplementPlanItem> { it.scheduledMinutesOfDay }
+            .thenBy { it.dayPart.sortOrder }
+            .thenBy { it.id }
+    ).map { item ->
+        SupplementTimelineItem(
+            id = item.id,
+            name = item.name,
+            dayPart = item.dayPart,
+            scheduledMinutesOfDay = item.scheduledMinutesOfDay,
+            amountValue = item.amountValue,
+            amountUnit = item.amountUnit,
+            isTaken = takenIds.contains(item.id)
+        )
+    }
+}
+
+internal fun resolveSupplementTimelineInitialIndex(
+    selectedDate: LocalDate,
+    items: List<SupplementTimelineItem>,
+    now: LocalTime = LocalTime.now()
+): Int {
+    if (items.isEmpty()) return 0
+    if (selectedDate != LocalDate.now()) return 0
+    val nowMinutes = (now.hour * 60) + now.minute
+    return items.indices.minByOrNull { index ->
+        abs(items[index].scheduledMinutesOfDay - nowMinutes)
+    } ?: 0
 }

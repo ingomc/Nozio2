@@ -54,6 +54,7 @@ import java.util.Locale
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onAddFood: (MealType) -> Unit,
+    onEditSupplements: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -240,6 +241,17 @@ fun DashboardScreen(
                         }
                     }
                 }
+            }
+
+            item { Spacer(modifier = Modifier.height(4.dp)) }
+
+            item {
+                SupplementsTimelineCard(
+                    selectedDate = state.selectedDate,
+                    items = state.supplementTimelineItems,
+                    onEditClick = onEditSupplements,
+                    onToggleTaken = viewModel::toggleSupplementTaken
+                )
             }
 
             item { Spacer(modifier = Modifier.height(4.dp)) }

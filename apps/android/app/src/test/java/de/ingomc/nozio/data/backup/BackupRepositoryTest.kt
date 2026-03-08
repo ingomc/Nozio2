@@ -5,6 +5,10 @@ import de.ingomc.nozio.data.local.DiaryEntry
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.FoodSource
 import de.ingomc.nozio.data.local.MealType
+import de.ingomc.nozio.data.local.SupplementAmountUnit
+import de.ingomc.nozio.data.local.SupplementDayPart
+import de.ingomc.nozio.data.local.SupplementIntakeEntity
+import de.ingomc.nozio.data.local.SupplementPlanItemEntity
 import java.time.LocalDate
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -38,20 +42,39 @@ class BackupRepositoryTest {
             ),
             dailyActivities = mutableListOf(
                 DailyActivity(date = LocalDate.parse("2026-03-05"), steps = 7000, weightKg = 79.4)
+            ),
+            supplementPlanItems = mutableListOf(
+                SupplementPlanItemEntity(
+                    id = 1,
+                    name = "Magnesium",
+                    dayPart = SupplementDayPart.EVENING,
+                    scheduledMinutesOfDay = 21 * 60,
+                    amountValue = 1.0,
+                    amountUnit = SupplementAmountUnit.TABLET
+                )
+            ),
+            supplementIntakes = mutableListOf(
+                SupplementIntakeEntity(
+                    date = LocalDate.parse("2026-03-05"),
+                    supplementId = 1,
+                    takenAtEpochMs = 1710000000000
+                )
             )
         )
         val repository = BackupRepositoryImpl(store, appVersionName = "0.6.0")
 
         val json = repository.createBackupJson()
 
-        assertTrue(json.contains("\"schemaVersion\":1"))
+        assertTrue(json.contains("\"schemaVersion\":2"))
         assertTrue(json.contains("\"foodItems\""))
         assertTrue(json.contains("\"diaryEntries\""))
         assertTrue(json.contains("\"dailyActivities\""))
+        assertTrue(json.contains("\"supplementPlanItems\""))
+        assertTrue(json.contains("\"supplementIntakes\""))
     }
 
     @Test
-    fun restoreFromBackupJson_replacesExistingData() = runTest {
+    fun restoreFromBackupJson_v2_replacesExistingDataIncludingSupplements() = runTest {
         val store = FakeTrackingDataStore(
             foods = mutableListOf(
                 FoodItem(
@@ -74,13 +97,30 @@ class BackupRepositoryTest {
             ),
             dailyActivities = mutableListOf(
                 DailyActivity(date = LocalDate.parse("2026-01-01"), steps = 1, weightKg = null)
+            ),
+            supplementPlanItems = mutableListOf(
+                SupplementPlanItemEntity(
+                    id = 10,
+                    name = "Alt",
+                    dayPart = SupplementDayPart.PRE_BREAKFAST,
+                    scheduledMinutesOfDay = 7 * 60,
+                    amountValue = 1.0,
+                    amountUnit = SupplementAmountUnit.CAPSULE
+                )
+            ),
+            supplementIntakes = mutableListOf(
+                SupplementIntakeEntity(
+                    date = LocalDate.parse("2026-01-01"),
+                    supplementId = 10,
+                    takenAtEpochMs = 1700000000000
+                )
             )
         )
         val repository = BackupRepositoryImpl(store, appVersionName = "0.6.0")
 
         val restoreJson = """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "createdAtEpochMs": 1710000000000,
               "appVersionName": "0.6.0",
               "foodItems": [
@@ -109,6 +149,23 @@ class BackupRepositoryTest {
                   "steps": 9000,
                   "weightKg": 78.8
                 }
+              ],
+              "supplementPlanItems": [
+                {
+                  "id": 501,
+                  "name": "Omega 3",
+                  "dayPart": "MIDDAY",
+                  "scheduledMinutesOfDay": 780,
+                  "amountValue": 2.0,
+                  "amountUnit": "CAPSULE"
+                }
+              ],
+              "supplementIntakes": [
+                {
+                  "dateIso": "2026-03-05",
+                  "supplementId": 501,
+                  "takenAtEpochMs": 1710000001000
+                }
               ]
             }
         """.trimIndent()
@@ -122,6 +179,53 @@ class BackupRepositoryTest {
         assertEquals(44, store.diaryEntries.first().foodItemId)
         assertEquals(1, store.dailyActivities.size)
         assertEquals(9000, store.dailyActivities.first().steps)
+        assertEquals(1, store.supplementPlanItems.size)
+        assertEquals("Omega 3", store.supplementPlanItems.first().name)
+        assertEquals(1, store.supplementIntakes.size)
+        assertEquals(501, store.supplementIntakes.first().supplementId)
+    }
+
+    @Test
+    fun restoreFromBackupJson_v1_stillWorksAndClearsSupplements() = runTest {
+        val store = FakeTrackingDataStore(
+            foods = mutableListOf(),
+            diaryEntries = mutableListOf(),
+            dailyActivities = mutableListOf(),
+            supplementPlanItems = mutableListOf(
+                SupplementPlanItemEntity(
+                    id = 9,
+                    name = "Alt",
+                    dayPart = SupplementDayPart.LATE,
+                    scheduledMinutesOfDay = 23 * 60,
+                    amountValue = 1.0,
+                    amountUnit = SupplementAmountUnit.TABLET
+                )
+            ),
+            supplementIntakes = mutableListOf(
+                SupplementIntakeEntity(
+                    date = LocalDate.parse("2026-01-01"),
+                    supplementId = 9,
+                    takenAtEpochMs = 1710000000000
+                )
+            )
+        )
+        val repository = BackupRepositoryImpl(store, appVersionName = "0.6.0")
+        val restoreJson = """
+            {
+              "schemaVersion": 1,
+              "createdAtEpochMs": 1710000000000,
+              "appVersionName": "0.6.0",
+              "foodItems": [],
+              "diaryEntries": [],
+              "dailyActivities": []
+            }
+        """.trimIndent()
+
+        val result = repository.restoreFromBackupJson(restoreJson)
+
+        assertTrue(result is RestoreResult.Success)
+        assertTrue(store.supplementPlanItems.isEmpty())
+        assertTrue(store.supplementIntakes.isEmpty())
     }
 
     @Test
@@ -138,12 +242,14 @@ class BackupRepositoryTest {
                 )
             ),
             diaryEntries = mutableListOf(),
-            dailyActivities = mutableListOf()
+            dailyActivities = mutableListOf(),
+            supplementPlanItems = mutableListOf(),
+            supplementIntakes = mutableListOf()
         )
         val repository = BackupRepositoryImpl(store, appVersionName = "0.6.0")
         val invalidSchemaJson = """
             {
-              "schemaVersion": 2,
+              "schemaVersion": 99,
               "createdAtEpochMs": 1710000000000,
               "appVersionName": "0.6.0",
               "foodItems": [],
@@ -162,16 +268,22 @@ class BackupRepositoryTest {
     private class FakeTrackingDataStore(
         val foods: MutableList<FoodItem>,
         val diaryEntries: MutableList<DiaryEntry>,
-        val dailyActivities: MutableList<DailyActivity>
+        val dailyActivities: MutableList<DailyActivity>,
+        val supplementPlanItems: MutableList<SupplementPlanItemEntity>,
+        val supplementIntakes: MutableList<SupplementIntakeEntity>
     ) : TrackingDataStore {
         override suspend fun getAllFoods(): List<FoodItem> = foods.toList()
         override suspend fun getAllDiaryEntries(): List<DiaryEntry> = diaryEntries.toList()
         override suspend fun getAllDailyActivities(): List<DailyActivity> = dailyActivities.toList()
+        override suspend fun getAllSupplementPlanItems(): List<SupplementPlanItemEntity> = supplementPlanItems.toList()
+        override suspend fun getAllSupplementIntakes(): List<SupplementIntakeEntity> = supplementIntakes.toList()
 
         override suspend fun replaceTrackingData(
             foodItems: List<FoodItem>,
             diaryEntries: List<DiaryEntry>,
-            dailyActivities: List<DailyActivity>
+            dailyActivities: List<DailyActivity>,
+            supplementPlanItems: List<SupplementPlanItemEntity>,
+            supplementIntakes: List<SupplementIntakeEntity>
         ) {
             foods.clear()
             foods.addAll(foodItems)
@@ -179,6 +291,10 @@ class BackupRepositoryTest {
             this.diaryEntries.addAll(diaryEntries)
             this.dailyActivities.clear()
             this.dailyActivities.addAll(dailyActivities)
+            this.supplementPlanItems.clear()
+            this.supplementPlanItems.addAll(supplementPlanItems)
+            this.supplementIntakes.clear()
+            this.supplementIntakes.addAll(supplementIntakes)
         }
     }
 }

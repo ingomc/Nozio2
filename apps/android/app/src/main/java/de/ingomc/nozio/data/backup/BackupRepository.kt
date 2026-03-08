@@ -5,16 +5,24 @@ import de.ingomc.nozio.data.local.DiaryEntry
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.FoodSource
 import de.ingomc.nozio.data.local.MealType
+import de.ingomc.nozio.data.local.SupplementAmountUnit
+import de.ingomc.nozio.data.local.SupplementDayPart
+import de.ingomc.nozio.data.local.SupplementIntakeEntity
+import de.ingomc.nozio.data.local.SupplementPlanItemEntity
 import java.time.LocalDate
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 sealed interface RestoreResult {
     data class Success(
         val foodCount: Int,
         val diaryEntryCount: Int,
         val dailyActivityCount: Int,
-        val restoredFromEpochMs: Long
+        val restoredFromEpochMs: Long,
+        val supplementPlanCount: Int = 0,
+        val supplementIntakeCount: Int = 0
     ) : RestoreResult
 
     data class Error(val message: String) : RestoreResult
@@ -36,27 +44,25 @@ class BackupRepositoryImpl(
     }
 ) : BackupRepository {
     override suspend fun createBackupJson(): String {
-        val payload = BackupPayloadV1(
+        val payload = BackupPayloadV2(
             createdAtEpochMs = System.currentTimeMillis(),
             appVersionName = appVersionName,
             foodItems = dataStore.getAllFoods().map { it.toDto() },
             diaryEntries = dataStore.getAllDiaryEntries().map { it.toDto() },
-            dailyActivities = dataStore.getAllDailyActivities().map { it.toDto() }
+            dailyActivities = dataStore.getAllDailyActivities().map { it.toDto() },
+            supplementPlanItems = dataStore.getAllSupplementPlanItems().map { it.toDto() },
+            supplementIntakes = dataStore.getAllSupplementIntakes().map { it.toDto() }
         )
-        return json.encodeToString(BackupPayloadV1.serializer(), payload)
+        return json.encodeToString(BackupPayloadV2.serializer(), payload)
     }
 
     override suspend fun restoreFromBackupJson(json: String): RestoreResult {
-        val payload = try {
-            this.json.decodeFromString(BackupPayloadV1.serializer(), json)
-        } catch (_: SerializationException) {
-            return RestoreResult.Error("Backup-Datei ist ungueltig.")
-        } catch (_: IllegalArgumentException) {
-            return RestoreResult.Error("Backup-Datei ist ungueltig.")
-        }
+        val schemaVersion = parseSchemaVersion(json) ?: return RestoreResult.Error("Backup-Datei ist ungueltig.")
 
-        if (payload.schemaVersion != BackupPayloadV1.SCHEMA_VERSION) {
-            return RestoreResult.Error("Backup-Version wird nicht unterstuetzt.")
+        val payload = when (schemaVersion) {
+            SchemaVersions.V1 -> decodePayloadV1(json) ?: return RestoreResult.Error("Backup-Datei ist ungueltig.")
+            SchemaVersions.V2 -> decodePayloadV2(json) ?: return RestoreResult.Error("Backup-Datei ist ungueltig.")
+            else -> return RestoreResult.Error("Backup-Version wird nicht unterstuetzt.")
         }
 
         val foodItems = try {
@@ -74,24 +80,84 @@ class BackupRepositoryImpl(
         } catch (_: IllegalArgumentException) {
             return RestoreResult.Error("Backup-Datei enthaelt ungueltige Aktivitaets-Daten.")
         }
+        val supplementPlanItems = try {
+            payload.supplementPlanItems.map { it.toEntity() }
+        } catch (_: IllegalArgumentException) {
+            return RestoreResult.Error("Backup-Datei enthaelt ungueltige Supplement-Plan-Daten.")
+        }
+        val supplementIntakes = try {
+            payload.supplementIntakes.map { it.toEntity() }
+        } catch (_: IllegalArgumentException) {
+            return RestoreResult.Error("Backup-Datei enthaelt ungueltige Supplement-Intake-Daten.")
+        }
 
         return runCatching {
             dataStore.replaceTrackingData(
                 foodItems = foodItems,
                 diaryEntries = diaryEntries,
-                dailyActivities = dailyActivities
+                dailyActivities = dailyActivities,
+                supplementPlanItems = supplementPlanItems,
+                supplementIntakes = supplementIntakes
             )
             RestoreResult.Success(
                 foodCount = foodItems.size,
                 diaryEntryCount = diaryEntries.size,
                 dailyActivityCount = dailyActivities.size,
-                restoredFromEpochMs = payload.createdAtEpochMs
+                restoredFromEpochMs = payload.createdAtEpochMs,
+                supplementPlanCount = supplementPlanItems.size,
+                supplementIntakeCount = supplementIntakes.size
             )
         }.getOrElse {
             RestoreResult.Error("Wiederherstellung fehlgeschlagen.")
         }
     }
+
+    private fun parseSchemaVersion(rawJson: String): Int? {
+        return runCatching {
+            json.parseToJsonElement(rawJson)
+                .jsonObject["schemaVersion"]
+                ?.jsonPrimitive
+                ?.intOrNull
+        }.getOrNull()
+    }
+
+    private fun decodePayloadV1(rawJson: String): NormalizedBackupPayload? {
+        return runCatching {
+            val payload = json.decodeFromString(BackupPayloadV1.serializer(), rawJson)
+            NormalizedBackupPayload(
+                createdAtEpochMs = payload.createdAtEpochMs,
+                foodItems = payload.foodItems,
+                diaryEntries = payload.diaryEntries,
+                dailyActivities = payload.dailyActivities,
+                supplementPlanItems = emptyList(),
+                supplementIntakes = emptyList()
+            )
+        }.getOrNull()
+    }
+
+    private fun decodePayloadV2(rawJson: String): NormalizedBackupPayload? {
+        return runCatching {
+            val payload = json.decodeFromString(BackupPayloadV2.serializer(), rawJson)
+            NormalizedBackupPayload(
+                createdAtEpochMs = payload.createdAtEpochMs,
+                foodItems = payload.foodItems,
+                diaryEntries = payload.diaryEntries,
+                dailyActivities = payload.dailyActivities,
+                supplementPlanItems = payload.supplementPlanItems,
+                supplementIntakes = payload.supplementIntakes
+            )
+        }.getOrNull()
+    }
 }
+
+private data class NormalizedBackupPayload(
+    val createdAtEpochMs: Long,
+    val foodItems: List<FoodItemBackupDto>,
+    val diaryEntries: List<DiaryEntryBackupDto>,
+    val dailyActivities: List<DailyActivityBackupDto>,
+    val supplementPlanItems: List<SupplementPlanItemBackupDto>,
+    val supplementIntakes: List<SupplementIntakeBackupDto>
+)
 
 private fun FoodItem.toDto(): FoodItemBackupDto = FoodItemBackupDto(
     id = id,
@@ -155,4 +221,39 @@ private fun DailyActivityBackupDto.toEntity(): DailyActivity = DailyActivity(
     steps = steps,
     weightKg = weightKg,
     bodyFatPercent = bodyFatPercent
+)
+
+private fun SupplementPlanItemEntity.toDto(): SupplementPlanItemBackupDto = SupplementPlanItemBackupDto(
+    id = id,
+    name = name,
+    dayPart = dayPart.name,
+    scheduledMinutesOfDay = scheduledMinutesOfDay,
+    amountValue = amountValue,
+    amountUnit = amountUnit.name
+)
+
+private fun SupplementPlanItemBackupDto.toEntity(): SupplementPlanItemEntity {
+    require(scheduledMinutesOfDay in 0..1439) { "Invalid supplement time" }
+    require(name.isNotBlank()) { "Supplement name cannot be blank" }
+    require(amountValue > 0.0) { "Supplement amount must be > 0" }
+    return SupplementPlanItemEntity(
+        id = id,
+        name = name.trim(),
+        dayPart = SupplementDayPart.valueOf(dayPart),
+        scheduledMinutesOfDay = scheduledMinutesOfDay,
+        amountValue = amountValue,
+        amountUnit = SupplementAmountUnit.valueOf(amountUnit)
+    )
+}
+
+private fun SupplementIntakeEntity.toDto(): SupplementIntakeBackupDto = SupplementIntakeBackupDto(
+    dateIso = date.toString(),
+    supplementId = supplementId,
+    takenAtEpochMs = takenAtEpochMs
+)
+
+private fun SupplementIntakeBackupDto.toEntity(): SupplementIntakeEntity = SupplementIntakeEntity(
+    date = LocalDate.parse(dateIso),
+    supplementId = supplementId,
+    takenAtEpochMs = takenAtEpochMs
 )
