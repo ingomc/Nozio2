@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +28,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,6 +41,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -65,16 +68,19 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.ingomc.nozio.ui.theme.nozioColors
+import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToInt
 
-private enum class WeightRange(val label: String, val days: Long?) {
-    WEEK("7T", 7),
-    MONTH("30T", 30),
-    QUARTER("90T", 90),
-    ALL("Alle", null)
+internal enum class WeightRange(val label: String, val days: Long?) {
+    DAYS_14("14T", 14),
+    DAYS_60("60T", 60),
+    DAYS_180("180T", 180),
+    YEAR_1("1J", 365)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,10 +93,18 @@ fun ProfileScreen(
     val state by viewModel.uiState.collectAsState()
     val appBarState = rememberTopAppBarState()
     val appBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(appBarState)
-    var selectedWeightRange by remember { mutableStateOf(WeightRange.MONTH) }
+    var selectedWeightRange by remember { mutableStateOf(WeightRange.DAYS_60) }
 
-    val filteredWeightHistory = remember(state.weightHistory, selectedWeightRange) {
-        filterWeightHistory(state.weightHistory, selectedWeightRange)
+    val filteredBodyMetricHistory = remember(state.bodyMetricHistory, selectedWeightRange) {
+        filterBodyMetricHistory(state.bodyMetricHistory, selectedWeightRange)
+    }
+    val chartBodyMetricHistory = remember(state.bodyMetricHistory, selectedWeightRange) {
+        filterBodyMetricHistory(state.bodyMetricHistory, selectedWeightRange, spanMultiplier = 3)
+    }
+    val filteredWeightHistory = remember(filteredBodyMetricHistory) {
+        filteredBodyMetricHistory.mapNotNull { point ->
+            point.weightKg?.let { WeightHistoryPoint(date = point.date, weightKg = it) }
+        }
     }
 
     Column(
@@ -181,48 +195,78 @@ fun ProfileScreen(
                         FilterChip(
                             selected = selectedWeightRange == range,
                             onClick = { selectedWeightRange = range },
-                            label = { Text(range.label) }
+                            label = { Text(range.label) },
+                            colors = solidSelectionChipColors()
                         )
                     }
                 }
             }
 
-            if (filteredWeightHistory.isEmpty()) {
+            if (filteredBodyMetricHistory.isEmpty()) {
                 item {
                     Text(
-                        text = "Noch keine Gewichts-Einträge vorhanden.",
+                        text = "Noch keine Gewichts- oder KFA-Einträge vorhanden.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
                 item {
-                    WeightChart(
-                        points = filteredWeightHistory,
+                    BodyMetricsChart(
+                        points = chartBodyMetricHistory,
+                        selectedRange = selectedWeightRange,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
                 item {
-                    val latest = filteredWeightHistory.last().weightKg
-                    val min = filteredWeightHistory.minOf { it.weightKg }
-                    val max = filteredWeightHistory.maxOf { it.weightKg }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Letzter: ${formatWeight(latest)} kg",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "Min: ${formatWeight(min)} kg",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "Max: ${formatWeight(max)} kg",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                    val weightValues = filteredBodyMetricHistory.mapNotNull { it.weightKg }
+                    val bodyFatValues = filteredBodyMetricHistory.mapNotNull { it.bodyFatPercent }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (weightValues.isNotEmpty()) {
+                            val latest = weightValues.last()
+                            val min = weightValues.minOrNull() ?: latest
+                            val max = weightValues.maxOrNull() ?: latest
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Gewicht letzter: ${formatWeight(latest)} kg",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = "Min: ${formatWeight(min)} kg",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = "Max: ${formatWeight(max)} kg",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                        if (bodyFatValues.isNotEmpty()) {
+                            val latest = bodyFatValues.last()
+                            val min = bodyFatValues.minOrNull() ?: latest
+                            val max = bodyFatValues.maxOrNull() ?: latest
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "KFA letzter: ${formatWeight(latest)} %",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = "Min: ${formatWeight(min)} %",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = "Max: ${formatWeight(max)} %",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -609,33 +653,54 @@ private fun EditableGoalsSection(
 }
 
 @Composable
-private fun WeightChart(
-    points: List<WeightHistoryPoint>,
+private fun BodyMetricsChart(
+    points: List<BodyMetricHistoryPoint>,
+    selectedRange: WeightRange,
     modifier: Modifier = Modifier
 ) {
-    val lineColor = MaterialTheme.colorScheme.primary
-    val pointColor = MaterialTheme.colorScheme.primary
+    val weightLineColor = MaterialTheme.colorScheme.primary
+    val weightPointColor = MaterialTheme.colorScheme.primary
+    val bodyFatLineColor = MaterialTheme.colorScheme.tertiary
+    val bodyFatPointColor = MaterialTheme.colorScheme.tertiary
     val selectedPointColor = MaterialTheme.colorScheme.secondary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val tooltipBgColor = MaterialTheme.colorScheme.surfaceVariant
     val tooltipTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val axisTextColorArgb = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.", Locale.GERMAN) }
     val tooltipDateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yy", Locale.GERMAN) }
     val density = LocalDensity.current
-    val tooltipDateTextSizePx = with(density) { 11.sp.toPx() }
-    val tooltipWeightTextSizePx = with(density) { 13.sp.toPx() }
-    val chartWidth = max(320, points.size * 56).dp
-    val firstDay = points.first().date.toEpochDay()
-    val lastDay = points.last().date.toEpochDay()
-    val dayRange = (lastDay - firstDay).coerceAtLeast(1L)
-    val minWeight = points.minOf { it.weightKg }
-    val maxWeight = points.maxOf { it.weightKg }
-    val paddedMinWeight = minWeight - 1.0
-    val paddedMaxWeight = maxWeight + 1.0
-    val weightRange = (paddedMaxWeight - paddedMinWeight).takeIf { it > 0.0 } ?: 2.0
-    val midWeight = paddedMinWeight + (weightRange / 2.0)
-    var chartSize by remember(points) { mutableStateOf(IntSize.Zero) }
-    var selectedPointIndex by remember(points) { mutableIntStateOf(-1) }
+    val tooltipDateTextSizePx = with(density) { 10.sp.toPx() }
+    val tooltipValueTextSizePx = with(density) { 12.sp.toPx() }
+    val visibleDaysInRange = selectedRange.days ?: 365L
+    val totalDaysInWindow = visibleDaysInRange * 3L
+    val latestDate = points.last().date
+    val windowStartDate = latestDate.minusDays(totalDaysInWindow - 1)
+    val chartPoints = remember(points, selectedRange, windowStartDate, latestDate) {
+        aggregateChartPointsForRange(points, selectedRange, windowStartDate, latestDate)
+    }
+    val firstDay = windowStartDate.toEpochDay()
+    val dayRange = (totalDaysInWindow - 1).coerceAtLeast(1L)
+    val weightValues = chartPoints.mapNotNull { it.weightKg }
+    val bodyFatValues = chartPoints.mapNotNull { it.bodyFatPercent }
+    val weightAxis = computeAxisRange(weightValues, pad = 1.0)
+    val bodyFatAxis = computeAxisRange(bodyFatValues, pad = 1.0)
+    val xAxisTicks = remember(points, selectedRange) {
+        buildXAxisTicks(
+            start = windowStartDate,
+            end = latestDate,
+            range = selectedRange
+        )
+    }
+    val chartScrollState = rememberScrollState()
+    var chartSize by remember(chartPoints) { mutableStateOf(IntSize.Zero) }
+    var selectedPointIndex by remember(chartPoints) { mutableIntStateOf(-1) }
+
+    LaunchedEffect(selectedRange, chartScrollState.maxValue) {
+        if (chartScrollState.maxValue > 0) {
+            chartScrollState.scrollTo(chartScrollState.maxValue)
+        }
+    }
 
     Card(modifier = modifier) {
         Row(
@@ -644,44 +709,30 @@ private fun WeightChart(
                 .padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Top
         ) {
-            Column(
-                modifier = Modifier
-                    .height(220.dp)
-                    .padding(start = 4.dp, end = 8.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.End
-            ) {
-                Text(
-                    text = formatWeight(paddedMaxWeight),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatWeight(midWeight),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatWeight(paddedMinWeight),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            if (weightAxis != null) {
+                AxisLabelsColumn(
+                    top = formatWeight(weightAxis.max),
+                    mid = formatWeight(weightAxis.mid),
+                    bottom = formatWeight(weightAxis.min),
+                    modifier = Modifier
+                        .height(220.dp)
+                        .padding(start = 4.dp, end = 8.dp),
+                    horizontalAlignment = Alignment.End
                 )
             }
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(rememberScrollState())
-            ) {
-                Column(modifier = Modifier.width(chartWidth)) {
+            BoxWithConstraints(modifier = Modifier.weight(1f)) {
+                val chartWidth = maxWidth * 3
+                Box(modifier = Modifier.horizontalScroll(chartScrollState)) {
+                    Column(modifier = Modifier.width(chartWidth)) {
                     Canvas(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(220.dp)
                             .onSizeChanged { chartSize = it }
-                            .pointerInput(points, paddedMinWeight, weightRange, chartSize) {
+                            .pointerInput(chartPoints, chartSize, weightAxis, bodyFatAxis) {
                                 detectTapGestures { tapOffset ->
-                                    if (points.isEmpty() || chartSize.width <= 0 || chartSize.height <= 0) return@detectTapGestures
+                                    if (chartPoints.isEmpty() || chartSize.width <= 0 || chartSize.height <= 0) return@detectTapGestures
                                     val left = with(density) { 16.dp.toPx() }
                                     val right = chartSize.width.toFloat() - with(density) { 16.dp.toPx() }
                                     val top = with(density) { 16.dp.toPx() }
@@ -691,17 +742,28 @@ private fun WeightChart(
 
                                     var closestIndex = 0
                                     var closestDistance = Float.MAX_VALUE
-                                    points.forEachIndexed { index, point ->
+                                    chartPoints.forEachIndexed { index, point ->
                                         val dayOffset = (point.date.toEpochDay() - firstDay).toFloat()
                                         val x = left + (dayOffset / dayRange.toFloat()) * plotWidth
-                                        val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
-                                        val y = bottom - (normalized * plotHeight)
-                                        val dx = tapOffset.x - x
-                                        val dy = tapOffset.y - y
-                                        val distance = (dx * dx) + (dy * dy)
-                                        if (distance < closestDistance) {
-                                            closestDistance = distance
-                                            closestIndex = index
+                                        point.weightKg?.let { weightValue ->
+                                            val y = yForValue(weightValue, weightAxis, bottom, plotHeight)
+                                            val dx = tapOffset.x - x
+                                            val dy = tapOffset.y - y
+                                            val distance = (dx * dx) + (dy * dy)
+                                            if (distance < closestDistance) {
+                                                closestDistance = distance
+                                                closestIndex = index
+                                            }
+                                        }
+                                        point.bodyFatPercent?.let { bodyFatValue ->
+                                            val y = yForValue(bodyFatValue, bodyFatAxis, bottom, plotHeight)
+                                            val dx = tapOffset.x - x
+                                            val dy = tapOffset.y - y
+                                            val distance = (dx * dx) + (dy * dy)
+                                            if (distance < closestDistance) {
+                                                closestDistance = distance
+                                                closestIndex = index
+                                            }
                                         }
                                     }
                                     selectedPointIndex = closestIndex
@@ -725,68 +787,109 @@ private fun WeightChart(
                             )
                         }
 
-                        val path = Path()
-                        points.forEachIndexed { index, point ->
-                            val dayOffset = (point.date.toEpochDay() - firstDay).toFloat()
-                            val x = left + (dayOffset / dayRange.toFloat()) * plotWidth
-                            val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
-                            val y = plotBottom - (normalized * plotHeight)
-                            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                        }
-
-                        drawPath(
-                            path = path,
-                            color = lineColor,
-                            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                        drawMetricLine(
+                            points = chartPoints,
+                            firstDay = firstDay,
+                            dayRange = dayRange,
+                            left = left,
+                            plotWidth = plotWidth,
+                            plotBottom = plotBottom,
+                            plotHeight = plotHeight,
+                            axis = weightAxis,
+                            valueSelector = { it.weightKg },
+                            color = weightLineColor
+                        )
+                        drawMetricLine(
+                            points = chartPoints,
+                            firstDay = firstDay,
+                            dayRange = dayRange,
+                            left = left,
+                            plotWidth = plotWidth,
+                            plotBottom = plotBottom,
+                            plotHeight = plotHeight,
+                            axis = bodyFatAxis,
+                            valueSelector = { it.bodyFatPercent },
+                            color = bodyFatLineColor
                         )
 
-                        points.forEachIndexed { index, point ->
-                            val dayOffset = (point.date.toEpochDay() - firstDay).toFloat()
-                            val x = left + (dayOffset / dayRange.toFloat()) * plotWidth
-                            val normalized = ((point.weightKg - paddedMinWeight) / weightRange).toFloat()
-                            val y = plotBottom - (normalized * plotHeight)
-                            drawCircle(
-                                color = if (index == selectedPointIndex) selectedPointColor else pointColor,
-                                radius = if (index == selectedPointIndex) 6.dp.toPx() else 4.dp.toPx(),
-                                center = Offset(x, y)
-                            )
-                        }
+                        drawMetricPoints(
+                            points = chartPoints,
+                            selectedPointIndex = selectedPointIndex,
+                            firstDay = firstDay,
+                            dayRange = dayRange,
+                            left = left,
+                            plotWidth = plotWidth,
+                            plotBottom = plotBottom,
+                            plotHeight = plotHeight,
+                            axis = weightAxis,
+                            valueSelector = { it.weightKg },
+                            defaultColor = weightPointColor,
+                            selectedColor = selectedPointColor
+                        )
+                        drawMetricPoints(
+                            points = chartPoints,
+                            selectedPointIndex = selectedPointIndex,
+                            firstDay = firstDay,
+                            dayRange = dayRange,
+                            left = left,
+                            plotWidth = plotWidth,
+                            plotBottom = plotBottom,
+                            plotHeight = plotHeight,
+                            axis = bodyFatAxis,
+                            valueSelector = { it.bodyFatPercent },
+                            defaultColor = bodyFatPointColor,
+                            selectedColor = selectedPointColor
+                        )
 
-                        if (selectedPointIndex in points.indices) {
-                            val selectedPoint = points[selectedPointIndex]
-                            val tooltipDate = selectedPoint.date.format(tooltipDateFormatter)
-                            val tooltipWeight = "${formatWeight(selectedPoint.weightKg)} kg"
+                        if (selectedPointIndex in chartPoints.indices) {
+                            val selectedPoint = chartPoints[selectedPointIndex]
                             val selectedDayOffset = (selectedPoint.date.toEpochDay() - firstDay).toFloat()
                             val x = left + (selectedDayOffset / dayRange.toFloat()) * plotWidth
-                            val normalized = ((selectedPoint.weightKg - paddedMinWeight) / weightRange).toFloat()
-                            val y = plotBottom - (normalized * plotHeight)
+                            val y = selectedPoint.weightKg?.let {
+                                yForValue(it, weightAxis, plotBottom, plotHeight)
+                            } ?: selectedPoint.bodyFatPercent?.let {
+                                yForValue(it, bodyFatAxis, plotBottom, plotHeight)
+                            } ?: plotTop
 
                             drawIntoCanvas { canvas ->
-                                val datePaint = android.graphics.Paint().apply {
+                                val labelPaint = android.graphics.Paint().apply {
                                     isAntiAlias = true
                                     color = tooltipTextColor.toArgb()
                                     textSize = tooltipDateTextSizePx
                                 }
-                                val weightPaint = android.graphics.Paint().apply {
+                                val valuePaint = android.graphics.Paint().apply {
                                     isAntiAlias = true
                                     color = tooltipTextColor.toArgb()
-                                    textSize = tooltipWeightTextSizePx
+                                    textSize = tooltipValueTextSizePx
                                     typeface = android.graphics.Typeface.create(
                                         android.graphics.Typeface.DEFAULT,
                                         android.graphics.Typeface.BOLD
                                     )
                                 }
-
-                                val dateWidth = datePaint.measureText(tooltipDate)
-                                val weightWidth = weightPaint.measureText(tooltipWeight)
-                                val bubbleTextWidth = maxOf(dateWidth, weightWidth)
-                                val dateHeight = datePaint.fontMetrics.run { this.bottom - this.top }
-                                val weightHeight = weightPaint.fontMetrics.run { this.bottom - this.top }
-                                val lineSpacing = 2.dp.toPx()
+                                val tooltipLines = buildList {
+                                    add(selectedPoint.date.format(tooltipDateFormatter))
+                                    selectedPoint.weightKg?.let { add("Gewicht: ${formatWeight(it)} kg") }
+                                    selectedPoint.bodyFatPercent?.let { add("KFA: ${formatWeight(it)} %") }
+                                }
+                                val bubbleTextWidth = tooltipLines.maxOfOrNull { text ->
+                                    if (text.startsWith("Gewicht:") || text.startsWith("KFA:")) {
+                                        valuePaint.measureText(text)
+                                    } else {
+                                        labelPaint.measureText(text)
+                                    }
+                                } ?: 0f
+                                val lineHeight = max(
+                                    labelPaint.fontMetrics.run { bottom - top },
+                                    valuePaint.fontMetrics.run { bottom - top }
+                                )
+                                val lineSpacing = 3.dp.toPx()
                                 val paddingH = 8.dp.toPx()
                                 val paddingV = 6.dp.toPx()
                                 val bubbleWidth = bubbleTextWidth + (paddingH * 2f)
-                                val bubbleHeight = dateHeight + lineSpacing + weightHeight + (paddingV * 2f)
+                                val bubbleHeight =
+                                    (lineHeight * tooltipLines.size) +
+                                        (lineSpacing * (tooltipLines.size - 1)) +
+                                        (paddingV * 2f)
                                 val bubbleX = (x - bubbleWidth / 2f).coerceIn(left, right - bubbleWidth)
                                 val bubbleY = (y - bubbleHeight - 10.dp.toPx()).coerceAtLeast(plotTop)
 
@@ -797,58 +900,316 @@ private fun WeightChart(
                                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx(), 10.dp.toPx())
                                 )
 
-                                val dateBaselineY = bubbleY + paddingV - datePaint.fontMetrics.top
-                                canvas.nativeCanvas.drawText(
-                                    tooltipDate,
-                                    bubbleX + paddingH,
-                                    dateBaselineY,
-                                    datePaint
-                                )
-                                canvas.nativeCanvas.drawText(
-                                    tooltipWeight,
-                                    bubbleX + paddingH,
-                                    dateBaselineY + lineSpacing + weightHeight,
-                                    weightPaint
-                                )
+                                var baselineY = bubbleY + paddingV - labelPaint.fontMetrics.top
+                                tooltipLines.forEach { line ->
+                                    val isValueLine = line.startsWith("Gewicht:") || line.startsWith("KFA:")
+                                    val paint = if (isValueLine) valuePaint else labelPaint
+                                    canvas.nativeCanvas.drawText(line, bubbleX + paddingH, baselineY, paint)
+                                    baselineY += lineHeight + lineSpacing
+                                }
                             }
                         }
                     }
 
-                    Row(
+                    Canvas(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .height(28.dp)
                     ) {
-                        Text(
-                            text = points.first().date.format(dateFormatter),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        val left = 16.dp.toPx()
+                        val right = size.width - 16.dp.toPx()
+                        val plotWidth = (right - left).coerceAtLeast(1f)
+                        val textPaint = android.graphics.Paint().apply {
+                            isAntiAlias = true
+                            color = axisTextColorArgb
+                            textSize = with(density) { 10.sp.toPx() }
+                        }
+                        val minLabelGap = 6.dp.toPx()
+                        data class TickLayout(
+                            val date: LocalDate,
+                            val x: Float,
+                            val text: String,
+                            val textWidth: Float,
+                            val textX: Float
                         )
-                        Text(
-                            text = points.last().date.format(dateFormatter),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        val tickLayouts = xAxisTicks.map { tickDate ->
+                            val dayOffset = (tickDate.toEpochDay() - firstDay).toFloat()
+                            val x = left + (dayOffset / dayRange.toFloat()) * plotWidth
+                            val label = tickDate.format(dateFormatter)
+                            val textWidth = textPaint.measureText(label)
+                            val textX = (x - textWidth / 2f).coerceIn(left, right - textWidth)
+                            TickLayout(
+                                date = tickDate,
+                                x = x,
+                                text = label,
+                                textWidth = textWidth,
+                                textX = textX
+                            )
+                        }
+                        val lastIndex = tickLayouts.lastIndex
+                        val endLabelStart = tickLayouts.lastOrNull()?.textX ?: Float.POSITIVE_INFINITY
+                        var lastDrawnLabelEnd = Float.NEGATIVE_INFINITY
+
+                        tickLayouts.forEachIndexed { index, tick ->
+                            val isBoundary = index == 0 || index == lastIndex
+                            if (!isBoundary) {
+                                val overlapsPrevious = tick.textX < (lastDrawnLabelEnd + minLabelGap)
+                                val overlapsEnd = (tick.textX + tick.textWidth + minLabelGap) > endLabelStart
+                                if (overlapsPrevious || overlapsEnd) return@forEachIndexed
+                            }
+                            drawLine(
+                                color = gridColor,
+                                start = Offset(tick.x, 0f),
+                                end = Offset(tick.x, 6.dp.toPx()),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                            drawIntoCanvas { canvas ->
+                                canvas.nativeCanvas.drawText(tick.text, tick.textX, 20.dp.toPx(), textPaint)
+                            }
+                            lastDrawnLabelEnd = max(lastDrawnLabelEnd, tick.textX + tick.textWidth)
+                        }
+                    }
                     }
                 }
+            }
+
+            if (bodyFatAxis != null) {
+                AxisLabelsColumn(
+                    top = formatWeight(bodyFatAxis.max),
+                    mid = formatWeight(bodyFatAxis.mid),
+                    bottom = formatWeight(bodyFatAxis.min),
+                    modifier = Modifier
+                        .height(220.dp)
+                        .padding(start = 8.dp, end = 4.dp),
+                    horizontalAlignment = Alignment.Start
+                )
             }
         }
     }
 }
 
-private fun filterWeightHistory(
-    points: List<WeightHistoryPoint>,
-    range: WeightRange
-): List<WeightHistoryPoint> {
+@Composable
+private fun AxisLabelsColumn(
+    top: String,
+    mid: String,
+    bottom: String,
+    modifier: Modifier,
+    horizontalAlignment: Alignment.Horizontal
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = horizontalAlignment
+    ) {
+        Text(
+            text = top,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = mid,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = bottom,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+private data class AxisRange(
+    val min: Double,
+    val max: Double,
+    val mid: Double
+)
+
+private fun computeAxisRange(values: List<Double>, pad: Double): AxisRange? {
+    if (values.isEmpty()) return null
+    val min = values.minOrNull() ?: return null
+    val max = values.maxOrNull() ?: return null
+    val paddedMin = min - pad
+    val paddedMax = max + pad
+    val range = (paddedMax - paddedMin).takeIf { it > 0.0 } ?: (pad * 2.0)
+    val safeMax = paddedMin + range
+    val mid = paddedMin + (range / 2.0)
+    return AxisRange(min = paddedMin, max = safeMax, mid = mid)
+}
+
+private fun yForValue(value: Double, axis: AxisRange?, plotBottom: Float, plotHeight: Float): Float {
+    val resolvedAxis = axis ?: return plotBottom
+    val range = (resolvedAxis.max - resolvedAxis.min).coerceAtLeast(0.0001)
+    val normalized = ((value - resolvedAxis.min) / range).toFloat()
+    return plotBottom - (normalized * plotHeight)
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMetricLine(
+    points: List<BodyMetricHistoryPoint>,
+    firstDay: Long,
+    dayRange: Long,
+    left: Float,
+    plotWidth: Float,
+    plotBottom: Float,
+    plotHeight: Float,
+    axis: AxisRange?,
+    valueSelector: (BodyMetricHistoryPoint) -> Double?,
+    color: Color
+) {
+    if (axis == null) return
+    var activePath: Path? = null
+    points.forEach { point ->
+        val value = valueSelector(point)
+        if (value == null) {
+            activePath?.let {
+                drawPath(path = it, color = color, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+            }
+            activePath = null
+            return@forEach
+        }
+
+        val dayOffset = (point.date.toEpochDay() - firstDay).toFloat()
+        val x = left + (dayOffset / dayRange.toFloat()) * plotWidth
+        val y = yForValue(value, axis, plotBottom, plotHeight)
+        val path = activePath ?: Path().also { it.moveTo(x, y) }
+        if (activePath != null) path.lineTo(x, y)
+        activePath = path
+    }
+    activePath?.let {
+        drawPath(path = it, color = color, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawMetricPoints(
+    points: List<BodyMetricHistoryPoint>,
+    selectedPointIndex: Int,
+    firstDay: Long,
+    dayRange: Long,
+    left: Float,
+    plotWidth: Float,
+    plotBottom: Float,
+    plotHeight: Float,
+    axis: AxisRange?,
+    valueSelector: (BodyMetricHistoryPoint) -> Double?,
+    defaultColor: Color,
+    selectedColor: Color
+) {
+    if (axis == null) return
+    points.forEachIndexed { index, point ->
+        val value = valueSelector(point) ?: return@forEachIndexed
+        val dayOffset = (point.date.toEpochDay() - firstDay).toFloat()
+        val x = left + (dayOffset / dayRange.toFloat()) * plotWidth
+        val y = yForValue(value, axis, plotBottom, plotHeight)
+        drawCircle(
+            color = if (index == selectedPointIndex) selectedColor else defaultColor,
+            radius = if (index == selectedPointIndex) 6.dp.toPx() else 4.dp.toPx(),
+            center = Offset(x, y)
+        )
+    }
+}
+
+internal fun filterBodyMetricHistory(
+    points: List<BodyMetricHistoryPoint>,
+    range: WeightRange,
+    spanMultiplier: Int = 1
+): List<BodyMetricHistoryPoint> {
     if (points.isEmpty()) return emptyList()
     val sorted = points.sortedBy { it.date }
-    val days = range.days ?: return sorted
+    val days = range.days ?: 365L
     val maxDate = sorted.last().date
-    val minDate = maxDate.minusDays(days - 1)
+    val effectiveDays = (days * spanMultiplier.coerceAtLeast(1)).coerceAtLeast(1L)
+    val minDate = maxDate.minusDays(effectiveDays - 1)
     return sorted.filter { !it.date.isBefore(minDate) }
+}
+
+internal fun buildXAxisTicks(start: LocalDate, end: LocalDate, range: WeightRange): List<LocalDate> {
+    if (end.isBefore(start)) return emptyList()
+    val ticks = linkedSetOf(start, end)
+
+    when (range) {
+        WeightRange.DAYS_14 -> {
+            var current = start
+            while (!current.isAfter(end)) {
+                ticks.add(current)
+                current = current.plusDays(2)
+            }
+        }
+        WeightRange.DAYS_60 -> {
+            var current = start
+            while (!current.isAfter(end)) {
+                ticks.add(current)
+                current = current.plusDays(7)
+            }
+        }
+        WeightRange.DAYS_180 -> {
+            var current = start
+            while (!current.isAfter(end)) {
+                ticks.add(current)
+                current = current.plusDays(14)
+            }
+        }
+        WeightRange.YEAR_1 -> {
+            var currentMonth = YearMonth.from(start)
+            val endMonth = YearMonth.from(end)
+            while (!currentMonth.isAfter(endMonth)) {
+                val tick = currentMonth.atDay(1)
+                if (!tick.isBefore(start) && !tick.isAfter(end)) {
+                    ticks.add(tick)
+                }
+                currentMonth = currentMonth.plusMonths(1)
+            }
+        }
+    }
+
+    return ticks.toList().sorted()
 }
 
 private fun formatWeight(value: Double): String {
     return String.format(Locale.GERMAN, "%.1f", value)
 }
+
+internal fun aggregateChartPointsForRange(
+    points: List<BodyMetricHistoryPoint>,
+    range: WeightRange,
+    windowStartDate: LocalDate,
+    latestDate: LocalDate
+): List<BodyMetricHistoryPoint> {
+    if (points.isEmpty()) return emptyList()
+    val sorted = points.sortedBy { it.date }
+    if (range == WeightRange.DAYS_14) return sorted
+
+    val grouped = when (range) {
+        WeightRange.YEAR_1 -> {
+            sorted.groupBy { YearMonth.from(it.date) }.toSortedMap().map { (_, bucketPoints) -> bucketPoints }
+        }
+        else -> {
+            val rangeStartEpoch = windowStartDate.toEpochDay()
+            sorted.groupBy { point ->
+                ((point.date.toEpochDay() - rangeStartEpoch) / 7L).toInt().coerceAtLeast(0)
+            }.toSortedMap().map { (_, bucketPoints) -> bucketPoints }
+        }
+    }
+
+    return grouped.mapNotNull { bucketPoints ->
+        val weightValues = bucketPoints.mapNotNull { it.weightKg }
+        val bodyFatValues = bucketPoints.mapNotNull { it.bodyFatPercent }
+        val avgWeight = weightValues.takeIf { it.isNotEmpty() }?.average()
+        val avgBodyFat = bodyFatValues.takeIf { it.isNotEmpty() }?.average()
+        if (avgWeight == null && avgBodyFat == null) return@mapNotNull null
+
+        val bucketEndDate = bucketPoints.maxOf { it.date }.coerceAtMost(latestDate)
+        BodyMetricHistoryPoint(
+            date = bucketEndDate,
+            weightKg = avgWeight?.let { (it * 10.0).roundToInt() / 10.0 },
+            bodyFatPercent = avgBodyFat?.let { (it * 10.0).roundToInt() / 10.0 }
+        )
+    }
+}
+
+@Composable
+private fun solidSelectionChipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primary,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
+    selectedTrailingIconColor = MaterialTheme.colorScheme.onPrimary
+)

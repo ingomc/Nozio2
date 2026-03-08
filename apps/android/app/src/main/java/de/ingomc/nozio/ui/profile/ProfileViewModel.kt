@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import de.ingomc.nozio.data.repository.BodyFatEntry
 import de.ingomc.nozio.data.repository.DailyActivityRepository
 import de.ingomc.nozio.data.repository.UserPreferences
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
+import de.ingomc.nozio.data.repository.WeightEntry
 import de.ingomc.nozio.widget.CalorieWidgetProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,9 +21,10 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-data class WeightHistoryPoint(
+data class BodyMetricHistoryPoint(
     val date: LocalDate,
-    val weightKg: Double
+    val weightKg: Double?,
+    val bodyFatPercent: Double?
 )
 
 data class ProfileUiState(
@@ -39,7 +42,7 @@ data class ProfileUiState(
     val goalSummaryItems: List<String> = emptyList(),
     val saved: Boolean = false,
     val hasChanges: Boolean = false,
-    val weightHistory: List<WeightHistoryPoint> = emptyList()
+    val bodyMetricHistory: List<BodyMetricHistoryPoint> = emptyList()
 )
 
 class ProfileViewModel(
@@ -60,23 +63,30 @@ class ProfileViewModel(
                 dailyActivityRepository.getLatestWeightEntry(),
                 dailyActivityRepository.getLatestBodyFatEntry(),
                 dailyActivityRepository.getWeightHistory(),
-                dailyActivityRepository.getStepsForDate(LocalDate.now())
-            ) { prefs, latestWeightEntry, latestBodyFatEntry, history, todaySteps ->
-                val weightHistory = history.map { WeightHistoryPoint(it.date, it.weightKg) }
+                dailyActivityRepository.getBodyFatHistory()
+            ) { prefs, latestWeightEntry, latestBodyFatEntry, weightHistory, bodyFatHistory ->
+                val bodyMetricHistory = mergeBodyMetricHistory(weightHistory, bodyFatHistory)
                 val trend = computeWeightTrend(
-                    weightHistory = weightHistory,
+                    weightHistory = bodyMetricHistory
+                        .mapNotNull { point ->
+                            point.weightKg?.let { WeightHistoryPoint(date = point.date, weightKg = it) }
+                        },
                     goalWeightKg = prefs.goalTargetWeightKg,
                     latestWeightKg = latestWeightEntry?.weightKg
                 )
                 CombinedProfileData(
                     prefs = prefs,
-                    todaySteps = todaySteps,
                     latestWeightKg = latestWeightEntry?.weightKg,
                     latestBodyFatPercent = latestBodyFatEntry?.bodyFatPercent ?: prefs.bodyFatPercent,
-                    weightHistory = weightHistory,
+                    bodyMetricHistory = bodyMetricHistory,
                     weightTrendDeltaKg = trend.deltaKg,
                     weightTrendWeeksEstimate = trend.weeksEstimate,
-                    goalSummaryItems = buildGoalSummaryItems(prefs, todaySteps)
+                    goalSummaryItems = emptyList()
+                )
+            }.combine(dailyActivityRepository.getStepsForDate(LocalDate.now())) { combined, todaySteps ->
+                combined.copy(
+                    todaySteps = todaySteps,
+                    goalSummaryItems = buildGoalSummaryItems(combined.prefs, todaySteps)
                 )
             }.collectLatest { combined ->
                 baselinePreferences = combined.prefs
@@ -94,7 +104,7 @@ class ProfileViewModel(
                     weightTrendWeeksEstimate = combined.weightTrendWeeksEstimate,
                     goalSummaryItems = combined.goalSummaryItems,
                     hasChanges = false,
-                    weightHistory = combined.weightHistory
+                    bodyMetricHistory = combined.bodyMetricHistory
                 )
             }
         }
@@ -177,14 +187,44 @@ class ProfileViewModel(
 
 private data class CombinedProfileData(
     val prefs: UserPreferences,
-    val todaySteps: Long,
+    val todaySteps: Long = 0L,
     val latestWeightKg: Double?,
     val latestBodyFatPercent: Double?,
-    val weightHistory: List<WeightHistoryPoint>,
+    val bodyMetricHistory: List<BodyMetricHistoryPoint>,
     val weightTrendDeltaKg: Double?,
     val weightTrendWeeksEstimate: Int?,
     val goalSummaryItems: List<String>
 )
+
+data class WeightHistoryPoint(
+    val date: LocalDate,
+    val weightKg: Double
+)
+
+internal fun mergeBodyMetricHistory(
+    weightHistory: List<WeightEntry>,
+    bodyFatHistory: List<BodyFatEntry>
+): List<BodyMetricHistoryPoint> {
+    if (weightHistory.isEmpty() && bodyFatHistory.isEmpty()) return emptyList()
+    val merged = linkedMapOf<LocalDate, BodyMetricHistoryPoint>()
+
+    weightHistory.forEach { entry ->
+        merged[entry.date] = BodyMetricHistoryPoint(
+            date = entry.date,
+            weightKg = entry.weightKg,
+            bodyFatPercent = merged[entry.date]?.bodyFatPercent
+        )
+    }
+    bodyFatHistory.forEach { entry ->
+        merged[entry.date] = BodyMetricHistoryPoint(
+            date = entry.date,
+            weightKg = merged[entry.date]?.weightKg,
+            bodyFatPercent = entry.bodyFatPercent
+        )
+    }
+
+    return merged.values.sortedBy { it.date }
+}
 
 internal data class WeightTrendSummary(
     val deltaKg: Double?,
