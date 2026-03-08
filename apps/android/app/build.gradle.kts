@@ -137,6 +137,7 @@ dependencies {
     implementation(libs.google.api.client.android)
     implementation(libs.google.api.services.drive)
     implementation(libs.google.http.client.android)
+    implementation(libs.coil.compose)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -109,6 +109,7 @@ class FoodRepository(
             proteinPer100g = proteinPer100g,
             fatPer100g = fatPer100g,
             carbsPer100g = carbsPer100g,
+            imageUrl = imageUrl,
             barcode = barcode,
             servingSize = servingSize,
             servingQuantity = servingQuantity,

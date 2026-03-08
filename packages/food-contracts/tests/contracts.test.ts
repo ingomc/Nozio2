@@ -9,6 +9,7 @@ test("food item schema accepts valid payload", () => {
     name: "Haferflocken",
     brand: "Ja",
     displayName: "Haferflocken (Ja)",
+    imageUrl: "https://cdn.example.com/foods/hafer.jpg",
     barcode: "1234567890123",
     caloriesPer100g: 370,
     proteinPer100g: 13.5,
@@ -23,6 +24,7 @@ test("food item schema accepts valid payload", () => {
 
   assert.equal(parsed.id, "off-123");
   assert.equal(parsed.packageQuantity, 500);
+  assert.equal(parsed.imageUrl, "https://cdn.example.com/foods/hafer.jpg");
 });
 
 test("search response schema requires totalEstimated", () => {

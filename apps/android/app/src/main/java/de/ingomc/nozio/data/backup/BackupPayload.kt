@@ -24,6 +24,7 @@ data class FoodItemBackupDto(
     val proteinPer100g: Double,
     val fatPer100g: Double,
     val carbsPer100g: Double,
+    val imageUrl: String? = null,
     val barcode: String? = null,
     val servingSize: String? = null,
     val servingQuantity: Double? = null,
