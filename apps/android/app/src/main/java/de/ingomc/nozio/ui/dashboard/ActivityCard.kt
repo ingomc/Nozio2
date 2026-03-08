@@ -16,9 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -30,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -41,7 +40,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -85,9 +83,11 @@ fun ActivityCard(
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ActivityItem(icon = Icons.Default.DirectionsRun, label = "Schritte", value = steps.toString())
-                ActivityItem(
-                    icon = Icons.Default.LocalFireDepartment,
+                ActivityMetric(
+                    label = "Schritte",
+                    value = steps.toString()
+                )
+                ActivityMetric(
                     label = "Aktivitätskalorien",
                     value = "%.0f".format(activeCalories)
                 )
@@ -100,6 +100,8 @@ fun ActivityCard(
 @Composable
 fun StepsInputBottomSheet(
     initialSteps: Long,
+    includeActivityCaloriesInBudget: Boolean,
+    onIncludeActivityCaloriesInBudgetChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
     onSave: (Long) -> Unit
 ) {
@@ -174,6 +176,33 @@ fun StepsInputBottomSheet(
                     .bringIntoViewOnFocus()
             )
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Aktivitätskalorien anrechnen",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Schritte als Bonus zum Tagesbudget zählen",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = includeActivityCaloriesInBudget,
+                    onCheckedChange = onIncludeActivityCaloriesInBudgetChange
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
@@ -187,10 +216,17 @@ fun StepsInputBottomSheet(
 }
 
 @Composable
-private fun ActivityItem(icon: ImageVector, label: String, value: String, modifier: Modifier = Modifier) {
+private fun ActivityMetric(label: String, value: String, modifier: Modifier = Modifier) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
-        Icon(imageVector = icon, contentDescription = label)
-        Text(text = value, style = MaterialTheme.typography.headlineSmall)
-        Text(text = label, style = MaterialTheme.typography.bodySmall)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
     }
 }

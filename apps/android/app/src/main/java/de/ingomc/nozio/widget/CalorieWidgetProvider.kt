@@ -63,6 +63,8 @@ abstract class BaseCalorieWidgetProvider(
     }
 
     companion object {
+        private const val ACTIVE_CALORIE_FACTOR = 0.8
+
         suspend fun updateAll(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             updateVariant(
@@ -184,7 +186,8 @@ abstract class BaseCalorieWidgetProvider(
             val goal = preferences.calorieGoal.roundToInt()
             val eaten = summary.totalCalories.roundToInt()
             val burnedRounded = burned.roundToInt()
-            val remaining = goal - eaten + burnedRounded
+            val budgetBonusCalories = if (preferences.includeActivityCaloriesInBudget) burnedRounded else 0
+            val remaining = goal - eaten + budgetBonusCalories
             val ringProgress = progressPercent(summary.totalCalories, preferences.calorieGoal)
             val isOverGoal = summary.totalCalories > preferences.calorieGoal
             return WidgetCalorieData(
@@ -206,7 +209,7 @@ abstract class BaseCalorieWidgetProvider(
             val safeWeightKg = weightKg.coerceIn(35.0, 250.0)
             val safeBodyFat = bodyFatPercent.coerceIn(3.0, 60.0)
             val leanMassKg = safeWeightKg * (1.0 - safeBodyFat / 100.0)
-            val kcalPerStep = 0.015 + (0.00057 * leanMassKg)
+            val kcalPerStep = (0.015 + (0.00057 * leanMassKg)) * ACTIVE_CALORIE_FACTOR
             return (steps * kcalPerStep).coerceAtLeast(0.0)
         }
 
