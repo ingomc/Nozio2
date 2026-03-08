@@ -50,6 +50,7 @@ enum class BackupStatus {
 
 data class SettingsUiState(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    val includeActivityCaloriesInBudget: Boolean = true,
     val mealReminderEnabled: Boolean = false,
     val mealReminderHour: Int = 19,
     val mealReminderMinute: Int = 0,
@@ -137,6 +138,7 @@ class SettingsViewModel(
                 _uiState.update { current ->
                     current.copy(
                         themeMode = prefs.themeMode,
+                        includeActivityCaloriesInBudget = prefs.includeActivityCaloriesInBudget,
                         autoBackupEnabled = prefs.autoBackupEnabled,
                         mealReminderEnabled = prefs.mealReminderEnabled,
                         mealReminderHour = prefs.mealReminderHour,
@@ -171,6 +173,14 @@ class SettingsViewModel(
             if (currentPrefs.mealReminderEnabled == enabled) return@launch
             userPreferencesStore.updatePreferences(currentPrefs.copy(mealReminderEnabled = enabled))
             onReminderChanged(enabled, currentPrefs.mealReminderHour, currentPrefs.mealReminderMinute)
+        }
+    }
+
+    fun onIncludeActivityCaloriesInBudgetChange(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentPrefs = userPreferencesStore.userPreferences.firstOrNull() ?: return@launch
+            if (currentPrefs.includeActivityCaloriesInBudget == enabled) return@launch
+            userPreferencesStore.updatePreferences(currentPrefs.copy(includeActivityCaloriesInBudget = enabled))
         }
     }
 

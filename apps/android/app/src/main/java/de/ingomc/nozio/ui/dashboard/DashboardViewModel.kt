@@ -20,8 +20,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+
+private const val ACTIVE_CALORIE_FACTOR = 0.8
 
 data class DashboardUiState(
     val selectedDate: LocalDate = LocalDate.now(),
@@ -189,15 +192,42 @@ class DashboardViewModel(
         }
     }
 
-    fun saveWeightAndBodyFatForSelectedDate(weightKg: Double, bodyFatPercent: Double?) {
+    fun saveWeightAndBodyFatForSelectedDate(weightKg: Double?, bodyFatPercent: Double?) {
         viewModelScope.launch {
-            dailyActivityRepository.saveWeightAndBodyFatForDate(
-                date = selectedDateState.value,
-                weightKg = weightKg,
-                bodyFatPercent = bodyFatPercent
-            )
+            if (weightKg == null && bodyFatPercent == null) return@launch
+
+            val selectedDate = selectedDateState.value
+            if (weightKg != null && bodyFatPercent != null) {
+                dailyActivityRepository.saveWeightAndBodyFatForDate(
+                    date = selectedDate,
+                    weightKg = weightKg,
+                    bodyFatPercent = bodyFatPercent
+                )
+            } else if (weightKg != null) {
+                dailyActivityRepository.saveWeightForDate(
+                    date = selectedDate,
+                    weightKg = weightKg
+                )
+            } else if (bodyFatPercent != null) {
+                dailyActivityRepository.saveBodyFatForDate(
+                    date = selectedDate,
+                    bodyFatPercent = bodyFatPercent
+                )
+            }
+
             CalorieWidgetProvider.updateAll(appContext)
             _uiState.value = _uiState.value.copy(weightSaved = true)
+        }
+    }
+
+    fun setIncludeActivityCaloriesInBudget(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentPrefs = userPreferencesRepository.userPreferences.firstOrNull() ?: return@launch
+            if (currentPrefs.includeActivityCaloriesInBudget == enabled) return@launch
+            userPreferencesRepository.updatePreferences(
+                currentPrefs.copy(includeActivityCaloriesInBudget = enabled)
+            )
+            CalorieWidgetProvider.updateAll(appContext)
         }
     }
 
@@ -205,7 +235,7 @@ class DashboardViewModel(
         val safeWeightKg = weightKg.coerceIn(35.0, 250.0)
         val safeBodyFat = bodyFatPercent.coerceIn(3.0, 60.0)
         val leanMassKg = safeWeightKg * (1.0 - safeBodyFat / 100.0)
-        val kcalPerStep = 0.015 + (0.00057 * leanMassKg)
+        val kcalPerStep = (0.015 + (0.00057 * leanMassKg)) * ACTIVE_CALORIE_FACTOR
         return (steps * kcalPerStep).coerceAtLeast(0.0)
     }
 

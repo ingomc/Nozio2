@@ -36,6 +36,7 @@ data class UserPreferences(
     val goalTargetWeightKg: Double = 78.0,
     val bodyFatPercent: Double = 20.0,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    val includeActivityCaloriesInBudget: Boolean = true,
     val autoBackupEnabled: Boolean = true,
     val mealReminderEnabled: Boolean = false,
     val mealReminderHour: Int = 19,
@@ -54,6 +55,7 @@ class UserPreferencesRepository(private val context: Context) {
         val GOAL_TARGET_WEIGHT_KG = doublePreferencesKey("goal_target_weight_kg")
         val BODY_FAT_PERCENT = doublePreferencesKey("body_fat_percent")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val INCLUDE_ACTIVITY_CALORIES_IN_BUDGET = booleanPreferencesKey("include_activity_calories_in_budget")
         val AUTO_BACKUP_ENABLED = booleanPreferencesKey("auto_backup_enabled")
         val MEAL_REMINDER_ENABLED = booleanPreferencesKey("meal_reminder_enabled")
         val MEAL_REMINDER_HOUR = intPreferencesKey("meal_reminder_hour")
@@ -71,6 +73,7 @@ class UserPreferencesRepository(private val context: Context) {
             goalTargetWeightKg = prefs[Keys.GOAL_TARGET_WEIGHT_KG] ?: 78.0,
             bodyFatPercent = prefs[Keys.BODY_FAT_PERCENT] ?: 20.0,
             themeMode = AppThemeMode.fromStorageValue(prefs[Keys.THEME_MODE]),
+            includeActivityCaloriesInBudget = prefs[Keys.INCLUDE_ACTIVITY_CALORIES_IN_BUDGET] ?: true,
             autoBackupEnabled = prefs[Keys.AUTO_BACKUP_ENABLED] ?: true,
             mealReminderEnabled = prefs[Keys.MEAL_REMINDER_ENABLED] ?: false,
             mealReminderHour = prefs[Keys.MEAL_REMINDER_HOUR] ?: 19,
@@ -89,6 +92,7 @@ class UserPreferencesRepository(private val context: Context) {
             prefs[Keys.GOAL_TARGET_WEIGHT_KG] = preferences.goalTargetWeightKg
             prefs[Keys.BODY_FAT_PERCENT] = preferences.bodyFatPercent
             prefs[Keys.THEME_MODE] = preferences.themeMode.storageValue
+            prefs[Keys.INCLUDE_ACTIVITY_CALORIES_IN_BUDGET] = preferences.includeActivityCaloriesInBudget
             prefs[Keys.AUTO_BACKUP_ENABLED] = preferences.autoBackupEnabled
             prefs[Keys.MEAL_REMINDER_ENABLED] = preferences.mealReminderEnabled
             prefs[Keys.MEAL_REMINDER_HOUR] = preferences.mealReminderHour.coerceIn(0, 23)

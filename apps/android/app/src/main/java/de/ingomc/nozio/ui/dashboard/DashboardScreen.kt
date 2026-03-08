@@ -112,6 +112,8 @@ fun DashboardScreen(
     if (showStepsSheet) {
         StepsInputBottomSheet(
             initialSteps = pendingSteps,
+            includeActivityCaloriesInBudget = state.preferences.includeActivityCaloriesInBudget,
+            onIncludeActivityCaloriesInBudgetChange = viewModel::setIncludeActivityCaloriesInBudget,
             onDismiss = { showStepsSheet = false },
             onSave = { selectedSteps ->
                 viewModel.saveStepsForSelectedDate(selectedSteps)
@@ -168,7 +170,8 @@ fun DashboardScreen(
             item {
                 val consumedCalories = state.totalCalories
                 val burnedCalories = state.activeCalories
-                val calorieDelta = state.preferences.calorieGoal - consumedCalories + burnedCalories
+                val budgetBonusCalories = if (state.preferences.includeActivityCaloriesInBudget) burnedCalories else 0.0
+                val calorieDelta = state.preferences.calorieGoal - consumedCalories + budgetBonusCalories
                 val centerValue = if (calorieDelta >= 0.0) {
                     calorieDelta.toInt().toString()
                 } else {

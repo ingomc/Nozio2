@@ -1,6 +1,7 @@
 package de.ingomc.nozio.ui.dashboard
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -34,10 +36,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 
 @Composable
 fun WeightCard(
@@ -78,18 +82,11 @@ fun WeightCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(vertical = 12.dp)
             ) {
-                Text(
-                    text = "Gewicht",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.SpaceAround
                 ) {
                     MetricValue(
                         label = "Gewicht",
@@ -97,7 +94,7 @@ fun WeightCard(
                         standDate = if (isWeightFallback) weightDate else null,
                         subdued = isWeightFallback,
                         dateFormatter = dateFormatter,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
                     )
                     MetricValue(
                         label = "KFA",
@@ -105,7 +102,7 @@ fun WeightCard(
                         standDate = if (isBodyFatFallback) bodyFatDate else null,
                         subdued = isBodyFatFallback,
                         dateFormatter = dateFormatter,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
                     )
                 }
             }
@@ -128,7 +125,10 @@ private fun MetricValue(
         MaterialTheme.colorScheme.onSurface
     }
 
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
@@ -160,12 +160,17 @@ fun WeightInputBottomSheet(
     latestBodyFatEntryDate: LocalDate?,
     latestBodyFatEntryPercent: Double?,
     onDismiss: () -> Unit,
-    onSave: (Double, Double) -> Unit
+    onSave: (Double?, Double?) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var selectedWeight by remember { mutableDoubleStateOf(initialWeightKg.coerceIn(20.0, 400.0)) }
-    var selectedBodyFat by remember { mutableDoubleStateOf(initialBodyFatPercent.coerceIn(3.0, 60.0)) }
+    val initialWeight = initialWeightKg.coerceIn(20.0, 400.0)
+    val initialBodyFat = initialBodyFatPercent.coerceIn(3.0, 60.0)
+    var selectedWeight by remember { mutableDoubleStateOf(initialWeight) }
+    var selectedBodyFat by remember { mutableDoubleStateOf(initialBodyFat) }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.GERMAN) }
+    val weightChanged = hasMeaningfulDelta(initialWeight, selectedWeight)
+    val bodyFatChanged = hasMeaningfulDelta(initialBodyFat, selectedBodyFat)
+    val hasAnyPendingChanges = weightChanged || bodyFatChanged
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -211,6 +216,7 @@ fun WeightInputBottomSheet(
             AdjustableMetricRow(
                 title = "Gewicht",
                 value = "${formatWeight(selectedWeight)} kg",
+                hasPendingChange = weightChanged,
                 onDecrease = { selectedWeight = (selectedWeight - 0.1).coerceIn(20.0, 400.0) },
                 onIncrease = { selectedWeight = (selectedWeight + 0.1).coerceIn(20.0, 400.0) },
                 decreaseDescription = "0,1 kg weniger",
@@ -222,6 +228,7 @@ fun WeightInputBottomSheet(
             AdjustableMetricRow(
                 title = "KFA",
                 value = "${formatWeight(selectedBodyFat)} %",
+                hasPendingChange = bodyFatChanged,
                 onDecrease = { selectedBodyFat = (selectedBodyFat - 0.1).coerceIn(3.0, 60.0) },
                 onIncrease = { selectedBodyFat = (selectedBodyFat + 0.1).coerceIn(3.0, 60.0) },
                 decreaseDescription = "0,1 % weniger",
@@ -231,7 +238,12 @@ fun WeightInputBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
-                onClick = { onSave(selectedWeight, selectedBodyFat) },
+                onClick = {
+                    val updatedWeight = selectedWeight.takeIf { weightChanged }
+                    val updatedBodyFat = selectedBodyFat.takeIf { bodyFatChanged }
+                    onSave(updatedWeight, updatedBodyFat)
+                },
+                enabled = hasAnyPendingChanges,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Werte speichern")
@@ -244,16 +256,25 @@ fun WeightInputBottomSheet(
 private fun AdjustableMetricRow(
     title: String,
     value: String,
+    hasPendingChange: Boolean,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
     decreaseDescription: String,
     increaseDescription: String
 ) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold
-    )
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        if (hasPendingChange) {
+            DirtyIndicatorDot()
+        }
+    }
     Spacer(modifier = Modifier.height(8.dp))
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -276,6 +297,22 @@ private fun AdjustableMetricRow(
             }
         }
     }
+}
+
+@Composable
+private fun DirtyIndicatorDot(size: Dp = 6.dp) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .background(
+                color = MaterialTheme.colorScheme.primary,
+                shape = CircleShape
+            )
+    )
+}
+
+private fun hasMeaningfulDelta(initialValue: Double, currentValue: Double): Boolean {
+    return abs(currentValue - initialValue) >= 0.05
 }
 
 private fun formatWeight(value: Double): String {
