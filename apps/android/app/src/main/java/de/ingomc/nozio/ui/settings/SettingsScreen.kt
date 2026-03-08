@@ -89,6 +89,7 @@ fun SettingsScreen(
     section: SettingsSection = SettingsSection.MAIN,
     onNavigateToReminder: () -> Unit = {},
     onNavigateToBackup: () -> Unit = {},
+    onNavigateToLegalInfo: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -403,6 +404,20 @@ fun SettingsScreen(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+
+                    HorizontalDivider()
+
+                    SettingRow(
+                        title = "Rechtliche Hinweise",
+                        subtitle = "Impressum, Datenschutz und Lizenzinfos",
+                        onClick = onNavigateToLegalInfo
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
 
                     HorizontalDivider()

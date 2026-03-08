@@ -192,6 +192,29 @@ cd apps/android
 ./gradlew testDebugUnitTest
 ```
 
+## Android Release Shortcut
+
+```bash
+pnpm release:android -- 0.11.2
+```
+
+Optional direkt pushen:
+
+```bash
+pnpm release:android -- 0.11.2 --push
+```
+
+Der Command:
+- bumpt `versionName` und `versionCode` in `apps/android/app/build.gradle.kts`
+- erstellt den Commit `release: v<version>`
+- erstellt den Tag `v<version>`
+- pusht mit `--push` Branch und Tag nach `origin`
+
+Checks vor dem Lauf:
+- Git-Working-Tree muss sauber sein
+- `RELEASE_NOTES_<version>.md` muss existieren
+- Tag darf lokal/remote noch nicht existieren
+
 ## Release Notes
 
 - [RELEASE_NOTES_0.1.0.md](/Users/ap4716/AndroidStudioProjects/Nozio2/RELEASE_NOTES_0.1.0.md)

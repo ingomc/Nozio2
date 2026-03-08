@@ -129,7 +129,7 @@ private object AppRoute {
     const val SEARCH = "search"
     const val PROFILE = "profile"
     const val PROFILE_EDIT = "profile/edit"
-    const val PROFILE_LEGAL = "profile/legal"
+    const val SETTINGS_LEGAL = "settings/legal"
     const val SETTINGS_MAIN = "settings/main"
     const val SETTINGS_REMINDER = "settings/reminder"
     const val SETTINGS_BACKUP = "settings/backup"
@@ -324,8 +324,7 @@ fun NozioApp(
                 composable(AppRoute.PROFILE) {
                     ProfileScreen(
                         viewModel = profileViewModel,
-                        onEditGoals = { navController.navigate(AppRoute.PROFILE_EDIT) },
-                        onOpenLegalInfo = { navController.navigate(AppRoute.PROFILE_LEGAL) }
+                        onEditGoals = { navController.navigate(AppRoute.PROFILE_EDIT) }
                     )
                 }
 
@@ -336,7 +335,7 @@ fun NozioApp(
                     )
                 }
 
-                composable(AppRoute.PROFILE_LEGAL) {
+                composable(AppRoute.SETTINGS_LEGAL) {
                     LegalInfoScreen(onBack = { navController.navigateUp() })
                 }
 
@@ -345,7 +344,8 @@ fun NozioApp(
                         viewModel = settingsViewModel,
                         section = SettingsSection.MAIN,
                         onNavigateToReminder = { navController.navigate(AppRoute.SETTINGS_REMINDER) },
-                        onNavigateToBackup = { navController.navigate(AppRoute.SETTINGS_BACKUP) }
+                        onNavigateToBackup = { navController.navigate(AppRoute.SETTINGS_BACKUP) },
+                        onNavigateToLegalInfo = { navController.navigate(AppRoute.SETTINGS_LEGAL) }
                     )
                 }
 
@@ -402,12 +402,12 @@ private fun routeRank(route: String?): Int {
         AppRoute.HOME -> 0
         AppRoute.SEARCH -> 1
         AppRoute.PROFILE,
-        AppRoute.PROFILE_EDIT,
-        AppRoute.PROFILE_LEGAL -> 2
+        AppRoute.PROFILE_EDIT -> 2
 
         AppRoute.SETTINGS_MAIN,
         AppRoute.SETTINGS_REMINDER,
-        AppRoute.SETTINGS_BACKUP -> 3
+        AppRoute.SETTINGS_BACKUP,
+        AppRoute.SETTINGS_LEGAL -> 3
 
         else -> 0
     }
@@ -476,8 +476,7 @@ enum class AppDestination(
             HOME -> currentRoute == AppRoute.HOME
             SEARCH -> currentRoute == AppRoute.SEARCH
             PROFILE -> currentRoute == AppRoute.PROFILE ||
-                currentRoute == AppRoute.PROFILE_EDIT ||
-                currentRoute == AppRoute.PROFILE_LEGAL
+                currentRoute == AppRoute.PROFILE_EDIT
             SETTINGS -> currentRoute?.startsWith("settings/") == true
         }
     }
