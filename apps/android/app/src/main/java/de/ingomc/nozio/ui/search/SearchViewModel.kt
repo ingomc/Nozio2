@@ -90,6 +90,7 @@ class SearchViewModel(
                 }
         }
         refreshSuggestionLists()
+        backfillLocalImageUrls()
     }
 
     fun onQueryChange(query: String) {
@@ -118,11 +119,18 @@ class SearchViewModel(
     }
 
     fun selectFood(food: FoodItem) {
-        _uiState.value = _uiState.value.copy(
-            selectedFood = food,
-            showBottomSheet = true,
-            showBarcodeResultsSheet = false
-        )
+        viewModelScope.launch {
+            val hydratedFood = if (!food.barcode.isNullOrBlank() && food.imageUrl.isNullOrBlank()) {
+                foodRepository.getFoodByBarcode(food.barcode) ?: food
+            } else {
+                food
+            }
+            _uiState.value = _uiState.value.copy(
+                selectedFood = hydratedFood,
+                showBottomSheet = true,
+                showBarcodeResultsSheet = false
+            )
+        }
     }
 
     fun dismissBottomSheet() {
@@ -336,6 +344,20 @@ class SearchViewModel(
                 frequentSuggestions = suggestions.frequent,
                 favoriteSuggestions = suggestions.favorites
             )
+        }
+    }
+
+    private fun backfillLocalImageUrls() {
+        viewModelScope.launch {
+            val updated = foodRepository.backfillMissingImageUrls()
+            if (updated > 0) {
+                val suggestions = loadSuggestions()
+                _uiState.value = _uiState.value.copy(
+                    recentSuggestions = suggestions.recent,
+                    frequentSuggestions = suggestions.frequent,
+                    favoriteSuggestions = suggestions.favorites
+                )
+            }
         }
     }
 

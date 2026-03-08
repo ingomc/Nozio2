@@ -171,6 +171,12 @@ class FoodRepositoryTest {
             return storage.filter { it.isFavorite }.take(limit)
         }
 
+        override suspend fun getFoodsMissingImageUrl(limit: Int): List<FoodItem> {
+            return storage
+                .filter { it.imageUrl.isNullOrBlank() && !it.barcode.isNullOrBlank() }
+                .take(limit)
+        }
+
         override suspend fun setFavorite(foodId: Long, isFavorite: Boolean) {
             val index = storage.indexOfFirst { it.id == foodId }
             if (index >= 0) {

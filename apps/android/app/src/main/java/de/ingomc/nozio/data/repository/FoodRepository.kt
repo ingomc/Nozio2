@@ -36,12 +36,25 @@ class FoodRepository(
     }
 
     suspend fun ensureFoodStored(foodItem: FoodItem): FoodItem {
-        if (foodItem.id > 0) return foodItem
+        if (foodItem.id > 0) {
+            return if (foodItem.imageUrl.isNullOrBlank() && !foodItem.barcode.isNullOrBlank()) {
+                getFoodByBarcode(foodItem.barcode) ?: foodItem
+            } else {
+                foodItem
+            }
+        }
 
         val barcode = foodItem.barcode?.takeIf { it.isNotBlank() }
         if (barcode != null) {
             val localMatch = foodDao.getByBarcode(barcode)
-            if (localMatch != null) return localMatch
+            if (localMatch != null) {
+                if (localMatch.imageUrl.isNullOrBlank() && !foodItem.imageUrl.isNullOrBlank()) {
+                    val merged = localMatch.copy(imageUrl = foodItem.imageUrl)
+                    foodDao.insert(merged)
+                    return merged
+                }
+                return localMatch
+            }
         }
 
         val id = foodDao.insert(foodItem)
@@ -52,18 +65,49 @@ class FoodRepository(
         if (barcode.isBlank()) return null
 
         val localMatch = foodDao.getByBarcode(barcode)
-        if (localMatch != null) return localMatch
+        if (localMatch != null && !localMatch.imageUrl.isNullOrBlank()) return localMatch
 
         return try {
             val response = api.getFoodByBarcode(barcode = barcode)
             val product = response.item.takeIf { it.hasValidData() } ?: return null
 
             val foodItem = product.toFoodItem()
-            val id = foodDao.insert(foodItem)
-            foodItem.copy(id = id)
+            if (localMatch != null) {
+                val merged = localMatch.copy(
+                    name = foodItem.name,
+                    caloriesPer100g = foodItem.caloriesPer100g,
+                    proteinPer100g = foodItem.proteinPer100g,
+                    fatPer100g = foodItem.fatPer100g,
+                    carbsPer100g = foodItem.carbsPer100g,
+                    imageUrl = foodItem.imageUrl ?: localMatch.imageUrl,
+                    servingSize = foodItem.servingSize ?: localMatch.servingSize,
+                    servingQuantity = foodItem.servingQuantity ?: localMatch.servingQuantity,
+                    packageSize = foodItem.packageSize ?: localMatch.packageSize,
+                    packageQuantity = foodItem.packageQuantity ?: localMatch.packageQuantity,
+                    source = foodItem.source
+                )
+                foodDao.insert(merged)
+                merged
+            } else {
+                val id = foodDao.insert(foodItem)
+                foodItem.copy(id = id)
+            }
         } catch (_: Exception) {
-            foodDao.getByBarcode(barcode)
+            localMatch
         }
+    }
+
+    suspend fun backfillMissingImageUrls(limit: Int = 120): Int {
+        val missingFoods = foodDao.getFoodsMissingImageUrl(limit)
+        var updatedCount = 0
+        missingFoods.forEach { food ->
+            val barcode = food.barcode ?: return@forEach
+            val refreshed = getFoodByBarcode(barcode)
+            if (!refreshed?.imageUrl.isNullOrBlank()) {
+                updatedCount += 1
+            }
+        }
+        return updatedCount
     }
 
     suspend fun createCustomFood(input: CustomFoodInput): FoodItem {

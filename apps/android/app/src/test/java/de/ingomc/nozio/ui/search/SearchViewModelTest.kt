@@ -225,6 +225,12 @@ class SearchViewModelTest {
             return storage.values.filter { it.isFavorite }.take(limit)
         }
 
+        override suspend fun getFoodsMissingImageUrl(limit: Int): List<FoodItem> {
+            return storage.values
+                .filter { it.imageUrl.isNullOrBlank() && !it.barcode.isNullOrBlank() }
+                .take(limit)
+        }
+
         override suspend fun setFavorite(foodId: Long, isFavorite: Boolean) {
             val existing = storage[foodId] ?: return
             storage[foodId] = existing.copy(isFavorite = isFavorite)

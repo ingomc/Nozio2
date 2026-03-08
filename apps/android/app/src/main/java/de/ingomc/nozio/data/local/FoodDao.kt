@@ -28,6 +28,18 @@ interface FoodDao {
     @Query("SELECT * FROM food_items WHERE isFavorite = 1 ORDER BY name COLLATE NOCASE ASC LIMIT :limit")
     suspend fun getFavorites(limit: Int): List<FoodItem>
 
+    @Query(
+        """
+        SELECT * FROM food_items
+        WHERE (imageUrl IS NULL OR TRIM(imageUrl) = '')
+          AND barcode IS NOT NULL
+          AND TRIM(barcode) != ''
+        ORDER BY id ASC
+        LIMIT :limit
+        """
+    )
+    suspend fun getFoodsMissingImageUrl(limit: Int): List<FoodItem>
+
     @Query("UPDATE food_items SET isFavorite = :isFavorite WHERE id = :foodId")
     suspend fun setFavorite(foodId: Long, isFavorite: Boolean)
 
