@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 data class WeightHistoryPoint(
     val date: LocalDate,
@@ -29,6 +31,11 @@ data class ProfileUiState(
     val carbsGoal: String = "250",
     val currentWeightKg: String = "80",
     val bodyFatPercent: String = "20",
+    val todaySteps: Long = 0L,
+    val latestWeightKg: Double? = null,
+    val weightTrendDeltaKg: Double? = null,
+    val weightTrendWeeksEstimate: Int? = null,
+    val goalSummaryItems: List<String> = emptyList(),
     val saved: Boolean = false,
     val hasChanges: Boolean = false,
     val weightHistory: List<WeightHistoryPoint> = emptyList()
@@ -49,28 +56,43 @@ class ProfileViewModel(
         viewModelScope.launch {
             combine(
                 userPreferencesRepository.userPreferences,
-                dailyActivityRepository.getLatestWeightEntry()
-            ) { prefs, latestWeightEntry ->
+                dailyActivityRepository.getLatestWeightEntry(),
+                dailyActivityRepository.getWeightHistory(),
+                dailyActivityRepository.getStepsForDate(LocalDate.now())
+            ) { prefs, latestWeightEntry, history, todaySteps ->
                 val effectiveCurrentWeight = latestWeightEntry?.weightKg ?: prefs.currentWeightKg
-                prefs.copy(currentWeightKg = effectiveCurrentWeight)
-            }.collectLatest { effectivePrefs ->
-                baselinePreferences = effectivePrefs
-                _uiState.value = ProfileUiState(
-                    calorieGoal = effectivePrefs.calorieGoal.toInt().toString(),
-                    proteinGoal = effectivePrefs.proteinGoal.toInt().toString(),
-                    fatGoal = effectivePrefs.fatGoal.toInt().toString(),
-                    carbsGoal = effectivePrefs.carbsGoal.toInt().toString(),
-                    currentWeightKg = formatWeightForInput(effectivePrefs.currentWeightKg),
-                    bodyFatPercent = formatDecimalForInput(effectivePrefs.bodyFatPercent),
-                    hasChanges = false,
-                    weightHistory = _uiState.value.weightHistory
+                val effectivePrefs = prefs.copy(currentWeightKg = effectiveCurrentWeight)
+                val weightHistory = history.map { WeightHistoryPoint(it.date, it.weightKg) }
+                val trend = computeWeightTrend(
+                    weightHistory = weightHistory,
+                    goalWeightKg = effectivePrefs.currentWeightKg,
+                    latestWeightKg = latestWeightEntry?.weightKg
                 )
-            }
-        }
-        viewModelScope.launch {
-            dailyActivityRepository.getWeightHistory().collectLatest { history ->
-                _uiState.value = _uiState.value.copy(
-                    weightHistory = history.map { WeightHistoryPoint(it.date, it.weightKg) }
+                CombinedProfileData(
+                    prefs = effectivePrefs,
+                    todaySteps = todaySteps,
+                    latestWeightKg = latestWeightEntry?.weightKg,
+                    weightHistory = weightHistory,
+                    weightTrendDeltaKg = trend.deltaKg,
+                    weightTrendWeeksEstimate = trend.weeksEstimate,
+                    goalSummaryItems = buildGoalSummaryItems(effectivePrefs, todaySteps)
+                )
+            }.collectLatest { combined ->
+                baselinePreferences = combined.prefs
+                _uiState.value = ProfileUiState(
+                    calorieGoal = combined.prefs.calorieGoal.toInt().toString(),
+                    proteinGoal = combined.prefs.proteinGoal.toInt().toString(),
+                    fatGoal = combined.prefs.fatGoal.toInt().toString(),
+                    carbsGoal = combined.prefs.carbsGoal.toInt().toString(),
+                    currentWeightKg = formatWeightForInput(combined.prefs.currentWeightKg),
+                    bodyFatPercent = formatDecimalForInput(combined.prefs.bodyFatPercent),
+                    todaySteps = combined.todaySteps,
+                    latestWeightKg = combined.latestWeightKg,
+                    weightTrendDeltaKg = combined.weightTrendDeltaKg,
+                    weightTrendWeeksEstimate = combined.weightTrendWeeksEstimate,
+                    goalSummaryItems = combined.goalSummaryItems,
+                    hasChanges = false,
+                    weightHistory = combined.weightHistory
                 )
             }
         }
@@ -157,4 +179,63 @@ class ProfileViewModel(
             return ProfileViewModel(appContext, userPreferencesRepository, dailyActivityRepository) as T
         }
     }
+}
+
+private data class CombinedProfileData(
+    val prefs: UserPreferences,
+    val todaySteps: Long,
+    val latestWeightKg: Double?,
+    val weightHistory: List<WeightHistoryPoint>,
+    val weightTrendDeltaKg: Double?,
+    val weightTrendWeeksEstimate: Int?,
+    val goalSummaryItems: List<String>
+)
+
+internal data class WeightTrendSummary(
+    val deltaKg: Double?,
+    val weeksEstimate: Int?
+)
+
+internal fun computeWeightTrend(
+    weightHistory: List<WeightHistoryPoint>,
+    goalWeightKg: Double,
+    latestWeightKg: Double?
+): WeightTrendSummary {
+    if (weightHistory.size < 2) return WeightTrendSummary(deltaKg = null, weeksEstimate = null)
+
+    val start = weightHistory.first()
+    val end = weightHistory.last()
+    val delta = end.weightKg - start.weightKg
+    val days = (end.date.toEpochDay() - start.date.toEpochDay()).coerceAtLeast(1L)
+    val weeks = days / 7.0
+    if (weeks <= 0.0) return WeightTrendSummary(deltaKg = delta, weeksEstimate = null)
+
+    val weeklyDelta = delta / weeks
+    val latest = latestWeightKg ?: end.weightKg
+    val remainingToGoal = goalWeightKg - latest
+    val movingTowardGoal =
+        (remainingToGoal > 0 && weeklyDelta > 0) || (remainingToGoal < 0 && weeklyDelta < 0)
+
+    val weeksEstimate = if (movingTowardGoal && abs(weeklyDelta) >= 0.05) {
+        (abs(remainingToGoal / weeklyDelta)).roundToInt().coerceAtLeast(1)
+    } else {
+        null
+    }
+
+    return WeightTrendSummary(deltaKg = delta, weeksEstimate = weeksEstimate)
+}
+
+internal fun buildGoalSummaryItems(
+    preferences: UserPreferences,
+    todaySteps: Long
+): List<String> {
+    val weight = String.format(Locale.GERMAN, "%.1f", preferences.currentWeightKg)
+    val bodyFat = String.format(Locale.GERMAN, "%.1f", preferences.bodyFatPercent)
+    return listOf(
+        "Kalorien: ${preferences.calorieGoal.toInt()} kcal",
+        "Makros: EW ${preferences.proteinGoal.toInt()} g · Fett ${preferences.fatGoal.toInt()} g · KH ${preferences.carbsGoal.toInt()} g",
+        "Gewicht: $weight kg",
+        "KFA: $bodyFat %",
+        "Heute Schritte: $todaySteps"
+    )
 }
