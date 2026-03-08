@@ -16,6 +16,11 @@
 - Aktivitaetskalorien konservativer geschaetzt (reduzierter Faktor) und optional per Toggle vom Tagesbudget entkoppelbar.
 - Toggle "Aktivitaetskalorien anrechnen" jetzt zusaetzlich direkt im Aktivitaets-BottomSheet verfuegbar.
 - Gewicht/KFA-BottomSheet speichert nur tatsaechlich geaenderte Werte; unveraenderte Felder bleiben unberuehrt (inkl. Punkt-Indikator fuer ungespeicherte Aenderungen).
+- Profil-Chart erweitert: Gewicht und KFA jetzt gemeinsam im Verlauf (zweite Linie/Farbe mit separater KFA-Achse).
+- Zeitraumauswahl im Profil-Chart auf `14T`, `60T`, `180T`, `1J` umgestellt (aktive Auswahl als solid Chip).
+- Diagramm-Logik ueberarbeitet: Initial immer neueste Daten rechts, alle Zeitraeume horizontal scrollbar (3x Fensterbreite).
+- Datenverdichtung im Profil-Chart: ab `60T` Wochenmittelwerte, bei `1J` Monatsmittelwerte fuer bessere Lesbarkeit.
+- X-Achsen-Beschriftung im Profil-Chart verbessert (regelmaessige Datums-Ticks ohne Label-Ueberlappung).
 
 ## Notes
 - Lokale DB-Migration auf Version 7: `daily_activity.bodyFatPercent` hinzugefuegt.

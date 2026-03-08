@@ -12,6 +12,11 @@ data class WeightEntry(
     val weightKg: Double
 )
 
+data class BodyFatEntry(
+    val date: LocalDate,
+    val bodyFatPercent: Double
+)
+
 data class LatestWeightEntry(
     val date: LocalDate,
     val weightKg: Double
@@ -42,6 +47,15 @@ class DailyActivityRepository(
             activities.mapNotNull { activity ->
                 val weight = activity.weightKg ?: return@mapNotNull null
                 WeightEntry(date = activity.date, weightKg = weight)
+            }
+        }
+    }
+
+    fun getBodyFatHistory(): Flow<List<BodyFatEntry>> {
+        return dailyActivityDao.getBodyFatHistory().map { activities ->
+            activities.mapNotNull { activity ->
+                val bodyFat = activity.bodyFatPercent ?: return@mapNotNull null
+                BodyFatEntry(date = activity.date, bodyFatPercent = bodyFat)
             }
         }
     }
