@@ -21,5 +21,16 @@ class Converters {
 
     @TypeConverter
     fun toFoodSource(value: String): FoodSource = FoodSource.valueOf(value)
-}
 
+    @TypeConverter
+    fun fromSupplementDayPart(dayPart: SupplementDayPart): String = dayPart.name
+
+    @TypeConverter
+    fun toSupplementDayPart(value: String): SupplementDayPart = SupplementDayPart.valueOf(value)
+
+    @TypeConverter
+    fun fromSupplementAmountUnit(unit: SupplementAmountUnit): String = unit.name
+
+    @TypeConverter
+    fun toSupplementAmountUnit(value: String): SupplementAmountUnit = SupplementAmountUnit.valueOf(value)
+}

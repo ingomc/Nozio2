@@ -71,6 +71,8 @@ import de.ingomc.nozio.ui.search.SearchViewModel
 import de.ingomc.nozio.ui.settings.SettingsScreen
 import de.ingomc.nozio.ui.settings.SettingsSection
 import de.ingomc.nozio.ui.settings.SettingsViewModel
+import de.ingomc.nozio.ui.supplements.SupplementsEditScreen
+import de.ingomc.nozio.ui.supplements.SupplementsEditViewModel
 import de.ingomc.nozio.ui.theme.NozioTheme
 import de.ingomc.nozio.ui.theme.nozioColors
 import de.ingomc.nozio.widget.CalorieWidgetProvider
@@ -133,6 +135,7 @@ private object AppRoute {
     const val SETTINGS_MAIN = "settings/main"
     const val SETTINGS_REMINDER = "settings/reminder"
     const val SETTINGS_BACKUP = "settings/backup"
+    const val SUPPLEMENTS_EDIT = "supplements/edit"
 }
 
 @Composable
@@ -155,7 +158,8 @@ fun NozioApp(
             app.applicationContext,
             app.diaryRepository,
             app.userPreferencesRepository,
-            app.dailyActivityRepository
+            app.dailyActivityRepository,
+            app.supplementRepository
         )
     )
     val searchViewModel: SearchViewModel = viewModel(
@@ -192,6 +196,11 @@ fun NozioApp(
                     app.backupScheduler.cancelWeeklyBackup()
                 }
             }
+        )
+    )
+    val supplementsEditViewModel: SupplementsEditViewModel = viewModel(
+        factory = SupplementsEditViewModel.Factory(
+            supplementRepository = app.supplementRepository
         )
     )
     val dashboardState by dashboardViewModel.uiState.collectAsState()
@@ -304,7 +313,8 @@ fun NozioApp(
                             searchViewModel.setSelectedDate(dashboardState.selectedDate)
                             preselectedMealType = mealType
                             navController.navigateToBottomDestination(AppRoute.SEARCH)
-                        }
+                        },
+                        onEditSupplements = { navController.navigate(AppRoute.SUPPLEMENTS_EDIT) }
                     )
                 }
 
@@ -364,6 +374,13 @@ fun NozioApp(
                         onBack = { navController.navigateUp() }
                     )
                 }
+
+                composable(AppRoute.SUPPLEMENTS_EDIT) {
+                    SupplementsEditScreen(
+                        viewModel = supplementsEditViewModel,
+                        onBack = { navController.navigateUp() }
+                    )
+                }
             }
         }
 
@@ -400,14 +417,15 @@ private fun transitionDirection(targetRoute: String?, initialRoute: String?): In
 private fun routeRank(route: String?): Int {
     return when (route) {
         AppRoute.HOME -> 0
-        AppRoute.SEARCH -> 1
+        AppRoute.SUPPLEMENTS_EDIT -> 1
+        AppRoute.SEARCH -> 2
         AppRoute.PROFILE,
-        AppRoute.PROFILE_EDIT -> 2
+        AppRoute.PROFILE_EDIT -> 3
 
         AppRoute.SETTINGS_MAIN,
         AppRoute.SETTINGS_REMINDER,
         AppRoute.SETTINGS_BACKUP,
-        AppRoute.SETTINGS_LEGAL -> 3
+        AppRoute.SETTINGS_LEGAL -> 4
 
         else -> 0
     }
@@ -473,7 +491,7 @@ enum class AppDestination(
 
     fun matches(currentRoute: String?): Boolean {
         return when (this) {
-            HOME -> currentRoute == AppRoute.HOME
+            HOME -> currentRoute == AppRoute.HOME || currentRoute == AppRoute.SUPPLEMENTS_EDIT
             SEARCH -> currentRoute == AppRoute.SEARCH
             PROFILE -> currentRoute == AppRoute.PROFILE ||
                 currentRoute == AppRoute.PROFILE_EDIT

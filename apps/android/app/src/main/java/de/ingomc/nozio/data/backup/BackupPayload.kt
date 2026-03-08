@@ -4,16 +4,29 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class BackupPayloadV1(
-    val schemaVersion: Int = SCHEMA_VERSION,
+    val schemaVersion: Int = SchemaVersions.V1,
     val createdAtEpochMs: Long,
     val appVersionName: String,
     val foodItems: List<FoodItemBackupDto>,
     val diaryEntries: List<DiaryEntryBackupDto>,
     val dailyActivities: List<DailyActivityBackupDto>
-) {
-    companion object {
-        const val SCHEMA_VERSION = 1
-    }
+)
+
+@Serializable
+data class BackupPayloadV2(
+    val schemaVersion: Int = SchemaVersions.V2,
+    val createdAtEpochMs: Long,
+    val appVersionName: String,
+    val foodItems: List<FoodItemBackupDto>,
+    val diaryEntries: List<DiaryEntryBackupDto>,
+    val dailyActivities: List<DailyActivityBackupDto>,
+    val supplementPlanItems: List<SupplementPlanItemBackupDto>,
+    val supplementIntakes: List<SupplementIntakeBackupDto>
+)
+
+object SchemaVersions {
+    const val V1 = 1
+    const val V2 = 2
 }
 
 @Serializable
@@ -49,4 +62,21 @@ data class DailyActivityBackupDto(
     val steps: Long,
     val weightKg: Double? = null,
     val bodyFatPercent: Double? = null
+)
+
+@Serializable
+data class SupplementPlanItemBackupDto(
+    val id: Long,
+    val name: String,
+    val dayPart: String,
+    val scheduledMinutesOfDay: Int,
+    val amountValue: Double,
+    val amountUnit: String
+)
+
+@Serializable
+data class SupplementIntakeBackupDto(
+    val dateIso: String,
+    val supplementId: Long,
+    val takenAtEpochMs: Long
 )

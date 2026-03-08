@@ -10,8 +10,14 @@ import androidx.room.withTransaction
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [FoodItem::class, DiaryEntry::class, DailyActivity::class],
-    version = 7,
+    entities = [
+        FoodItem::class,
+        DiaryEntry::class,
+        DailyActivity::class,
+        SupplementPlanItemEntity::class,
+        SupplementIntakeEntity::class
+    ],
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -19,13 +25,19 @@ abstract class NozioDatabase : RoomDatabase() {
     abstract fun foodDao(): FoodDao
     abstract fun diaryDao(): DiaryDao
     abstract fun dailyActivityDao(): DailyActivityDao
+    abstract fun supplementDao(): SupplementDao
+    abstract fun supplementIntakeDao(): SupplementIntakeDao
 
     suspend fun replaceTrackingData(
         foodItems: List<FoodItem>,
         diaryEntries: List<DiaryEntry>,
-        dailyActivities: List<DailyActivity>
+        dailyActivities: List<DailyActivity>,
+        supplementPlanItems: List<SupplementPlanItemEntity>,
+        supplementIntakes: List<SupplementIntakeEntity>
     ) {
         withTransaction {
+            supplementIntakeDao().deleteAll()
+            supplementDao().deleteAll()
             diaryDao().deleteAll()
             dailyActivityDao().deleteAll()
             foodDao().deleteAll()
@@ -33,6 +45,8 @@ abstract class NozioDatabase : RoomDatabase() {
             foodDao().insertAllWithIds(foodItems)
             diaryDao().insertAll(diaryEntries)
             dailyActivityDao().upsertAll(dailyActivities)
+            supplementDao().insertAll(supplementPlanItems)
+            supplementIntakeDao().insertAll(supplementIntakes)
         }
     }
 
@@ -83,6 +97,57 @@ abstract class NozioDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE daily_activity ADD COLUMN bodyFatPercent REAL")
             }
         }
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS supplement_plan_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        dayPart TEXT NOT NULL,
+                        scheduledMinutesOfDay INTEGER NOT NULL,
+                        amountValue REAL NOT NULL,
+                        amountUnit TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS supplement_intakes (
+                        date TEXT NOT NULL,
+                        supplementId INTEGER NOT NULL,
+                        takenAtEpochMs INTEGER NOT NULL,
+                        PRIMARY KEY(date, supplementId),
+                        FOREIGN KEY(supplementId) REFERENCES supplement_plan_items(id) ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_supplement_plan_items_scheduledMinutesOfDay
+                    ON supplement_plan_items(scheduledMinutesOfDay)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_supplement_plan_items_dayPart
+                    ON supplement_plan_items(dayPart)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_supplement_intakes_supplementId
+                    ON supplement_intakes(supplementId)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_supplement_intakes_date
+                    ON supplement_intakes(date)
+                    """.trimIndent()
+                )
+            }
+        }
 
         @Volatile
         private var INSTANCE: NozioDatabase? = null
@@ -99,7 +164,8 @@ abstract class NozioDatabase : RoomDatabase() {
                     MIGRATION_3_4,
                     MIGRATION_4_5,
                     MIGRATION_5_6,
-                    MIGRATION_6_7
+                    MIGRATION_6_7,
+                    MIGRATION_7_8
                 ).build()
                 INSTANCE = instance
                 instance
