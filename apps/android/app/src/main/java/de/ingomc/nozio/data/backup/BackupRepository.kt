@@ -105,6 +105,7 @@ private fun FoodItem.toDto(): FoodItemBackupDto = FoodItemBackupDto(
     servingQuantity = servingQuantity,
     packageSize = packageSize,
     packageQuantity = packageQuantity,
+    isFavorite = isFavorite,
     source = source.name
 )
 
@@ -120,6 +121,7 @@ private fun FoodItemBackupDto.toEntity(): FoodItem = FoodItem(
     servingQuantity = servingQuantity,
     packageSize = packageSize,
     packageQuantity = packageQuantity,
+    isFavorite = isFavorite,
     source = FoodSource.valueOf(source)
 )
 

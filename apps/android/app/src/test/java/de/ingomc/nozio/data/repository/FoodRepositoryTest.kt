@@ -167,6 +167,17 @@ class FoodRepositoryTest {
 
         override suspend fun getAll(): List<FoodItem> = storage.toList()
 
+        override suspend fun getFavorites(limit: Int): List<FoodItem> {
+            return storage.filter { it.isFavorite }.take(limit)
+        }
+
+        override suspend fun setFavorite(foodId: Long, isFavorite: Boolean) {
+            val index = storage.indexOfFirst { it.id == foodId }
+            if (index >= 0) {
+                storage[index] = storage[index].copy(isFavorite = isFavorite)
+            }
+        }
+
         override suspend fun insertAllWithIds(foodItems: List<FoodItem>) {
             storage += foodItems
         }

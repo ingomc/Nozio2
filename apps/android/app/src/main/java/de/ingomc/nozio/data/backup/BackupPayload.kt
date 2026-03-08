@@ -29,6 +29,7 @@ data class FoodItemBackupDto(
     val servingQuantity: Double? = null,
     val packageSize: String? = null,
     val packageQuantity: Double? = null,
+    val isFavorite: Boolean = false,
     val source: String
 )
 

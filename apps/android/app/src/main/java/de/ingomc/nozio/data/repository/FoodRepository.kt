@@ -88,6 +88,16 @@ class FoodRepository(
         return storedFood.copy(id = id)
     }
 
+    suspend fun getFavoriteFoods(limit: Int = 50): List<FoodItem> {
+        return foodDao.getFavorites(limit)
+    }
+
+    suspend fun setFavorite(foodId: Long, isFavorite: Boolean): FoodItem? {
+        if (foodId <= 0) return null
+        foodDao.setFavorite(foodId = foodId, isFavorite = isFavorite)
+        return foodDao.getById(foodId)
+    }
+
     private fun FoodSearchItemDto.hasValidData(): Boolean {
         return displayName.isNotBlank() && caloriesPer100g >= 0
     }

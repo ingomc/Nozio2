@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import kotlin.math.roundToInt
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
@@ -75,7 +77,8 @@ fun AddFoodBottomSheet(
     food: FoodItem,
     preselectedMealType: MealType?,
     onDismiss: () -> Unit,
-    onAdd: (MealType, Double, String) -> Unit
+    onAdd: (MealType, Double, String) -> Unit,
+    onToggleFavorite: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val maxSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.88f
@@ -102,12 +105,24 @@ fun AddFoodBottomSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
         ) {
-            // Food name
-            Text(
-                text = food.name,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = food.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onToggleFavorite) {
+                    Icon(
+                        imageVector = if (food.isFavorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                        contentDescription = if (food.isFavorite) "Als Favorit entfernen" else "Als Favorit markieren",
+                        tint = if (food.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 

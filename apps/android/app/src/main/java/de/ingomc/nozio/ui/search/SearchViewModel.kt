@@ -49,6 +49,8 @@ data class SearchUiState(
     val query: String = "",
     val results: List<FoodItem> = emptyList(),
     val recentSuggestions: List<FoodItem> = emptyList(),
+    val frequentSuggestions: List<FoodItem> = emptyList(),
+    val favoriteSuggestions: List<FoodItem> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val selectedFood: FoodItem? = null,
@@ -87,7 +89,7 @@ class SearchViewModel(
                     performSearch(query)
                 }
         }
-        loadRecentlyAddedFoods()
+        refreshSuggestionLists()
     }
 
     fun onQueryChange(query: String) {
@@ -167,12 +169,14 @@ class SearchViewModel(
                 foodItemId = storedFood.id,
                 amountInGrams = amountInGrams
             )
-            val recentSuggestions = diaryRepository.getRecentlyAddedFoods()
+            val suggestions = loadSuggestions()
             _searchQuery.value = ""
             _uiState.value = _uiState.value.copy(
                 query = "",
                 results = emptyList(),
-                recentSuggestions = recentSuggestions,
+                recentSuggestions = suggestions.recent,
+                frequentSuggestions = suggestions.frequent,
+                favoriteSuggestions = suggestions.favorites,
                 showBottomSheet = false,
                 selectedFood = null,
                 activeAddConfirmation = storedFood.toAddConfirmation(
@@ -212,12 +216,14 @@ class SearchViewModel(
                 foodItemId = storedFood.id,
                 amountInGrams = 100.0
             )
-            val recentSuggestions = diaryRepository.getRecentlyAddedFoods()
+            val suggestions = loadSuggestions()
             _searchQuery.value = ""
             _uiState.value = _uiState.value.copy(
                 query = "",
                 results = emptyList(),
-                recentSuggestions = recentSuggestions,
+                recentSuggestions = suggestions.recent,
+                frequentSuggestions = suggestions.frequent,
+                favoriteSuggestions = suggestions.favorites,
                 showQuickAddSheet = false,
                 activeAddConfirmation = AddConfirmationState(
                     bannerId = nextBannerId++,
@@ -269,12 +275,32 @@ class SearchViewModel(
         val confirmation = _uiState.value.activeAddConfirmation ?: return
         viewModelScope.launch {
             diaryRepository.deleteEntry(confirmation.entryId)
-            val recentSuggestions = diaryRepository.getRecentlyAddedFoods()
+            val suggestions = loadSuggestions()
             _uiState.value = _uiState.value.copy(
-                recentSuggestions = recentSuggestions,
+                recentSuggestions = suggestions.recent,
+                frequentSuggestions = suggestions.frequent,
+                favoriteSuggestions = suggestions.favorites,
                 activeAddConfirmation = null
             )
             widgetRefreshDelegate.refresh()
+        }
+    }
+
+    fun toggleSelectedFoodFavorite() {
+        val selectedFood = _uiState.value.selectedFood ?: return
+        viewModelScope.launch {
+            val storedFood = foodRepository.ensureFoodStored(selectedFood)
+            val updatedFood = foodRepository.setFavorite(
+                foodId = storedFood.id,
+                isFavorite = !storedFood.isFavorite
+            ) ?: storedFood.copy(isFavorite = !storedFood.isFavorite)
+            val suggestions = loadSuggestions()
+            _uiState.value = _uiState.value.copy(
+                selectedFood = updatedFood,
+                recentSuggestions = suggestions.recent,
+                frequentSuggestions = suggestions.frequent,
+                favoriteSuggestions = suggestions.favorites
+            )
         }
     }
 
@@ -302,12 +328,30 @@ class SearchViewModel(
         }
     }
 
-    private fun loadRecentlyAddedFoods() {
+    private fun refreshSuggestionLists() {
         viewModelScope.launch {
-            val recentSuggestions = diaryRepository.getRecentlyAddedFoods()
-            _uiState.value = _uiState.value.copy(recentSuggestions = recentSuggestions)
+            val suggestions = loadSuggestions()
+            _uiState.value = _uiState.value.copy(
+                recentSuggestions = suggestions.recent,
+                frequentSuggestions = suggestions.frequent,
+                favoriteSuggestions = suggestions.favorites
+            )
         }
     }
+
+    private suspend fun loadSuggestions(): SuggestionLists {
+        return SuggestionLists(
+            recent = diaryRepository.getRecentlyAddedFoods(),
+            frequent = diaryRepository.getFrequentlyAddedFoods(),
+            favorites = foodRepository.getFavoriteFoods()
+        )
+    }
+
+    private data class SuggestionLists(
+        val recent: List<FoodItem>,
+        val frequent: List<FoodItem>,
+        val favorites: List<FoodItem>
+    )
 
     class Factory(
         private val appContext: Context,
