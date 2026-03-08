@@ -9,6 +9,10 @@
 - Ziele fokussieren jetzt auf Kalorien, Makros sowie Start- und Zielgewicht.
 - Aktivkalorien-Berechnung (Dashboard + Widget) nutzt Tages-Gewicht/KFA mit sauberer Fallback-Kette.
 - Backup/Restore erweitert um taeglichen KFA-Wert.
+- Add-/Edit-BottomSheets sind jetzt bei geoeffneter Tastatur robust: Inhalte bleiben scrollbar und das aktive Eingabefeld wird automatisch in den sichtbaren Bereich gescrollt.
+- "Rechtliche Hinweise" wurde von der Profilseite in die Einstellungen verschoben.
+- Android-Release-Workflow lokal vereinfacht: neuer Shortcut fuer Version-Bump, Tagging und optionalen Push.
 
 ## Notes
 - Lokale DB-Migration auf Version 7: `daily_activity.bodyFatPercent` hinzugefuegt.
+- Build-Version in der App-Konfiguration auf den aktuellen Stand angehoben (`versionName 0.11.1`, `versionCode 17`).

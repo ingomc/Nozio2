@@ -5,6 +5,7 @@
   "scripts": {
     "build": "corepack pnpm -r build",
     "test": "corepack pnpm -r test",
+    "release:android": "bash scripts/release-android.sh",
     "dev:food-api": "corepack pnpm --filter @nozio/food-api dev",
     "build:food-api": "corepack pnpm --filter @nozio/food-api build",
     "import:meili": "corepack pnpm --filter @nozio/meili-import run import",

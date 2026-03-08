@@ -32,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -83,7 +82,6 @@ private enum class WeightRange(val label: String, val days: Long?) {
 fun ProfileScreen(
     viewModel: ProfileViewModel,
     onEditGoals: () -> Unit,
-    onOpenLegalInfo: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -226,17 +224,6 @@ fun ProfileScreen(
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
-                }
-            }
-
-            item {
-                OutlinedButton(
-                    onClick = onOpenLegalInfo,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                ) {
-                    Text("Rechtliche Hinweise")
                 }
             }
 
