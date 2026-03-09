@@ -319,8 +319,9 @@ fun DashboardScreen(
                             mealBounds[meal] = bounds
                         },
                         isDropTargetHighlighted = draggedEntry != null &&
-                            draggedPosition != null &&
-                            mealBounds[mealType]?.contains(draggedPosition!!) == true
+                            (draggedPosition?.let { position ->
+                                mealBounds[mealType]?.contains(position) == true
+                            } == true)
                     )
                 }
 
@@ -362,13 +363,15 @@ fun DashboardScreen(
             }
         }
 
-        if (draggedEntry != null && draggedPosition != null) {
+        val dragEntry = draggedEntry
+        val dragPosition = draggedPosition
+        if (dragEntry != null && dragPosition != null) {
             ElevatedCard(
                 modifier = Modifier
                     .offset {
                         IntOffset(
-                            x = draggedPosition!!.x.roundToInt(),
-                            y = draggedPosition!!.y.roundToInt()
+                            x = dragPosition.x.roundToInt(),
+                            y = dragPosition.y.roundToInt()
                         )
                     },
                 colors = CardDefaults.elevatedCardColors(
@@ -376,7 +379,7 @@ fun DashboardScreen(
                 )
             ) {
                 Text(
-                    text = draggedEntry!!.foodName,
+                    text = dragEntry.foodName,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold
