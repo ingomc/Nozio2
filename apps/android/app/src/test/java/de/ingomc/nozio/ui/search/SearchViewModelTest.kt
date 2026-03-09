@@ -279,6 +279,14 @@ class SearchViewModelTest {
             }
         }
 
+        override suspend fun updateDateAndMealType(entryId: Long, date: java.time.LocalDate, mealType: MealType) {
+            val index = entries.indexOfFirst { it.id == entryId }
+            if (index >= 0) {
+                entries[index] = entries[index].copy(date = date, mealType = mealType)
+                syncDayEntries()
+            }
+        }
+
         override fun getEntriesWithFoodForDate(date: java.time.LocalDate): Flow<List<DiaryEntryWithFood>> {
             return flowOf(dayEntriesFlow.value.filter { it.date == date })
         }

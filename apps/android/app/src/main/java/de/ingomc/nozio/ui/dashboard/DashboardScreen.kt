@@ -1,6 +1,7 @@
 package de.ingomc.nozio.ui.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,23 +33,29 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.MealType
+import de.ingomc.nozio.data.local.DiaryEntryWithFood
 import de.ingomc.nozio.ui.theme.nozioColors
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +75,9 @@ fun DashboardScreen(
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN)
     val appBarState = rememberTopAppBarState()
     val appBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(appBarState)
+    var draggedEntry by remember { mutableStateOf<DiaryEntryWithFood?>(null) }
+    var draggedPosition by remember { mutableStateOf<Offset?>(null) }
+    val mealBounds = remember { mutableStateMapOf<MealType, Rect>() }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerStateForDate(state.selectedDate)
@@ -123,12 +134,15 @@ fun DashboardScreen(
         )
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .nestedScroll(appBarScrollBehavior.nestedScrollConnection)
+    Box(
+        modifier = modifier.fillMaxSize()
     ) {
-        TopAppBar(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(appBarScrollBehavior.nestedScrollConnection)
+        ) {
+            TopAppBar(
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = Color.Transparent,
                 scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
@@ -161,13 +175,13 @@ fun DashboardScreen(
             }
         )
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
             item {
                 val consumedCalories = state.totalCalories
                 val burnedCalories = state.activeCalories
@@ -257,17 +271,59 @@ fun DashboardScreen(
             item { Spacer(modifier = Modifier.height(4.dp)) }
 
             // Meal Cards
-            items(MealType.entries) { mealType ->
-                MealCard(
-                    mealType = mealType,
-                    entries = state.entriesByMeal[mealType] ?: emptyList(),
-                    onAddClick = { onAddFood(mealType) },
-                    onDeleteEntry = { viewModel.deleteEntry(it) },
-                    onUpdateEntryAmount = { entryId, amount ->
-                        viewModel.updateEntryAmount(entryId, amount)
-                    }
-                )
-            }
+                items(MealType.entries) { mealType ->
+                    MealCard(
+                        mealType = mealType,
+                        entries = state.entriesByMeal[mealType] ?: emptyList(),
+                        onAddClick = { onAddFood(mealType) },
+                        onDeleteEntry = { viewModel.deleteEntry(it) },
+                        onUpdateEntryAmount = { entryId, amount ->
+                            viewModel.updateEntryAmount(entryId, amount)
+                        },
+                        onCopyEntry = { entry, date, targetMeal, amount ->
+                            viewModel.copyEntry(
+                                foodItemId = entry.foodItemId,
+                                date = date,
+                                mealType = targetMeal,
+                                amountInGrams = amount
+                            )
+                        },
+                        onDragStarted = { entry, start ->
+                            draggedEntry = entry
+                            draggedPosition = start
+                        },
+                        onDragMoved = { position ->
+                            draggedPosition = position
+                        },
+                        onDragEnded = {
+                            val entry = draggedEntry
+                            val position = draggedPosition
+                            val targetMeal = if (position != null) {
+                                mealBounds.entries
+                                    .firstOrNull { (_, bounds) -> bounds.contains(position) }
+                                    ?.key
+                            } else {
+                                null
+                            }
+                            if (entry != null && targetMeal != null && targetMeal != entry.mealType) {
+                                viewModel.moveEntry(
+                                    entryId = entry.entryId,
+                                    date = state.selectedDate,
+                                    mealType = targetMeal
+                                )
+                            }
+                            draggedEntry = null
+                            draggedPosition = null
+                        },
+                        onMealBoundsChanged = { meal, bounds ->
+                            mealBounds[meal] = bounds
+                        },
+                        isDropTargetHighlighted = draggedEntry != null &&
+                            (draggedPosition?.let { position ->
+                                mealBounds[mealType]?.contains(position) == true
+                            } == true)
+                    )
+                }
 
             item { Spacer(modifier = Modifier.height(4.dp)) }
 
@@ -304,6 +360,31 @@ fun DashboardScreen(
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
+        }
+
+        val dragEntry = draggedEntry
+        val dragPosition = draggedPosition
+        if (dragEntry != null && dragPosition != null) {
+            ElevatedCard(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            x = dragPosition.x.roundToInt(),
+                            y = dragPosition.y.roundToInt()
+                        )
+                    },
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Text(
+                    text = dragEntry.foodName,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }

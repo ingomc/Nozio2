@@ -57,6 +57,10 @@ class DiaryRepository(private val diaryDao: DiaryDao) {
         diaryDao.updateAmountInGrams(entryId, amountInGrams)
     }
 
+    suspend fun moveEntry(entryId: Long, date: LocalDate, mealType: MealType) {
+        diaryDao.updateDateAndMealType(entryId, date, mealType)
+    }
+
     suspend fun getRecentlyAddedFoods(limit: Int = 8): List<FoodItem> {
         return diaryDao.getRecentlyAddedFoods(limit)
     }

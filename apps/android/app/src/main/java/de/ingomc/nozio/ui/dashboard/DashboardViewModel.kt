@@ -285,6 +285,30 @@ class DashboardViewModel(
         }
     }
 
+    fun copyEntry(
+        foodItemId: Long,
+        date: LocalDate,
+        mealType: MealType,
+        amountInGrams: Double
+    ) {
+        viewModelScope.launch {
+            diaryRepository.addEntry(
+                date = date,
+                mealType = mealType,
+                foodItemId = foodItemId,
+                amountInGrams = amountInGrams
+            )
+            CalorieWidgetProvider.updateAll(appContext)
+        }
+    }
+
+    fun moveEntry(entryId: Long, date: LocalDate, mealType: MealType) {
+        viewModelScope.launch {
+            diaryRepository.moveEntry(entryId, date, mealType)
+            CalorieWidgetProvider.updateAll(appContext)
+        }
+    }
+
     class Factory(
         private val appContext: Context,
         private val diaryRepository: DiaryRepository,
