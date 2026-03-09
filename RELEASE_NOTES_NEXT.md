@@ -29,6 +29,8 @@
 - Clipping beim Drag in den Mahlzeit-Karten entfernt, damit gezogene Eintraege auch ausserhalb des Card-Rahmens sichtbar bleiben.
 - Copy-BottomSheet optimiert: Mahlzeit-Chips sind gleich breit, einzeilig und umbrechen nicht mehr unruhig.
 - Home-Screen-Widgets nutzen die Breite besser: reduzierte Seitenabstaende sowie groessere Scan-/Plus-Buttons fuer bessere Touchbarkeit.
+- Add-Product-BottomSheet zeigt beim Laden von Produktbildern jetzt einen Shimmer-Placeholder im Bildcontainer (mit sauberem Fallback bei fehlendem/fehlerhaftem Bild).
+- Supplements-Timeline ueberarbeitet: Uhrzeit als sticky Zeitlabel plus incoming Zeitlabels fuer kommende Gruppen; Badge-/Card-Layout und Layering wurden gegen Clipping/Versatz stabilisiert.
 
 ## Notes
 - Lokale DB-Migration auf Version 8: neue Tabellen `supplement_plan_items` und `supplement_intakes`.
