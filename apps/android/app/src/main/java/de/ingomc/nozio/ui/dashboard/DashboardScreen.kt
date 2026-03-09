@@ -45,7 +45,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.local.DiaryEntryWithFood
@@ -55,7 +54,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +74,13 @@ fun DashboardScreen(
     val appBarState = rememberTopAppBarState()
     val appBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(appBarState)
     var draggedEntry by remember { mutableStateOf<DiaryEntryWithFood?>(null) }
+    var draggedStartPosition by remember { mutableStateOf<Offset?>(null) }
     var draggedPosition by remember { mutableStateOf<Offset?>(null) }
+    val draggedOffsetY = draggedStartPosition?.let { start ->
+        draggedPosition?.let { current ->
+            current.y - start.y
+        }
+    } ?: 0f
     val mealBounds = remember { mutableStateMapOf<MealType, Rect>() }
 
     if (showDatePicker) {
@@ -290,10 +294,13 @@ fun DashboardScreen(
                         },
                         onDragStarted = { entry, start ->
                             draggedEntry = entry
+                            draggedStartPosition = start
                             draggedPosition = start
                         },
                         onDragMoved = { position ->
-                            draggedPosition = position
+                            draggedPosition = draggedPosition?.let { current ->
+                                Offset(x = current.x, y = position.y)
+                            } ?: position
                         },
                         onDragEnded = {
                             val entry = draggedEntry
@@ -313,11 +320,14 @@ fun DashboardScreen(
                                 )
                             }
                             draggedEntry = null
+                            draggedStartPosition = null
                             draggedPosition = null
                         },
                         onMealBoundsChanged = { meal, bounds ->
                             mealBounds[meal] = bounds
                         },
+                        draggedEntryId = draggedEntry?.entryId,
+                        draggedOffsetY = draggedOffsetY,
                         isDropTargetHighlighted = draggedEntry != null &&
                             (draggedPosition?.let { position ->
                                 mealBounds[mealType]?.contains(position) == true
@@ -360,30 +370,6 @@ fun DashboardScreen(
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
-            }
-        }
-
-        val dragEntry = draggedEntry
-        val dragPosition = draggedPosition
-        if (dragEntry != null && dragPosition != null) {
-            ElevatedCard(
-                modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            x = dragPosition.x.roundToInt(),
-                            y = dragPosition.y.roundToInt()
-                        )
-                    },
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Text(
-                    text = dragEntry.foodName,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
             }
         }
     }

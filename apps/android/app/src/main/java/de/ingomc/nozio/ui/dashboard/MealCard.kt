@@ -30,10 +30,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -56,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
@@ -68,6 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import de.ingomc.nozio.data.local.DiaryEntryWithFood
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
@@ -90,26 +90,38 @@ fun MealCard(
     onDragMoved: (Offset) -> Unit,
     onDragEnded: () -> Unit,
     onMealBoundsChanged: (MealType, Rect) -> Unit,
+    draggedEntryId: Long?,
+    draggedOffsetY: Float,
     isDropTargetHighlighted: Boolean,
     modifier: Modifier = Modifier
 ) {
     val totalCalories = entries.sumOf { it.calories }
     var editingEntry by remember { mutableStateOf<DiaryEntryWithFood?>(null) }
     var copyingEntry by remember { mutableStateOf<DiaryEntryWithFood?>(null) }
+    val isDraggingInThisCard = draggedEntryId != null && entries.any { it.entryId == draggedEntryId }
+    val mealCardColor = if (isDropTargetHighlighted) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    val mealCardShape = RoundedCornerShape(16.dp)
 
-    ElevatedCard(
+    Box(
         modifier = modifier
             .fillMaxWidth()
+            .zIndex(if (isDraggingInThisCard) 10f else 0f)
             .onGloballyPositioned { coordinates ->
                 onMealBoundsChanged(mealType, coordinates.boundsInRoot())
-            },
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = if (isDropTargetHighlighted) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-            } else {
-                MaterialTheme.colorScheme.surface
             }
-        )
+            .shadow(
+                elevation = 1.dp,
+                shape = mealCardShape,
+                clip = false
+            )
+            .background(
+                color = mealCardColor,
+                shape = mealCardShape
+            )
     ) {
         Column {
             // Header
@@ -163,7 +175,9 @@ fun MealCard(
                             onDragMoved = onDragMoved,
                             onDragEnded = {
                                 onDragEnded()
-                            }
+                            },
+                            isBeingDragged = draggedEntryId == entry.entryId,
+                            dragOffsetY = draggedOffsetY
                         )
                     }
                 }
@@ -203,7 +217,9 @@ private fun SwipeRevealEntryRow(
     onEdit: () -> Unit,
     onDragStarted: (Offset) -> Unit,
     onDragMoved: (Offset) -> Unit,
-    onDragEnded: () -> Unit
+    onDragEnded: () -> Unit,
+    isBeingDragged: Boolean,
+    dragOffsetY: Float
 ) {
     val actionSlotWidth = 52.dp
     val actionButtonSize = 44.dp
@@ -220,7 +236,6 @@ private fun SwipeRevealEntryRow(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .heightIn(min = 64.dp)
-            .clip(rowShape)
     ) {
         Box(
             modifier = Modifier
@@ -298,7 +313,13 @@ private fun SwipeRevealEntryRow(
 
         Row(
             modifier = Modifier
-                .offset { IntOffset(animatedOffset.roundToInt(), 0) }
+                .offset {
+                    IntOffset(
+                        x = animatedOffset.roundToInt(),
+                        y = if (isBeingDragged) dragOffsetY.roundToInt() else 0
+                    )
+                }
+                .zIndex(if (isBeingDragged) 1f else 0f)
                 .fillMaxWidth()
                 .clip(rowShape)
                 .background(MaterialTheme.colorScheme.surface)
@@ -454,9 +475,16 @@ private fun CopyEntryBottomSheet(
             ) {
                 MealType.entries.forEach { meal ->
                     FilterChip(
+                        modifier = Modifier.weight(1f),
                         selected = targetMeal == meal,
                         onClick = { targetMeal = meal },
-                        label = { Text(meal.displayName) }
+                        label = {
+                            Text(
+                                text = meal.displayName.substringAfter(' '),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     )
                 }
             }
