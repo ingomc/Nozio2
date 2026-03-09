@@ -25,6 +25,10 @@
 - Datenverdichtung im Profil-Chart: ab `60T` Wochenmittelwerte, bei `1J` Monatsmittelwerte fuer bessere Lesbarkeit.
 - X-Achsen-Beschriftung im Profil-Chart verbessert (regelmaessige Datums-Ticks ohne Label-Ueberlappung).
 - Supplements-Timeline visuell verdichtet: kompaktere Zwei-Zeilen-Karten, kleinerer Toggle-Indikator mit animiertem Check-in.
+- Dashboard-Drag-and-Drop fuer Mahlzeit-Eintraege verbessert: Das Original-Item wird entlang der Y-Achse gezogen (kein dupliziertes Overlay mehr), inklusive sauberem Layering ueber den Karten.
+- Clipping beim Drag in den Mahlzeit-Karten entfernt, damit gezogene Eintraege auch ausserhalb des Card-Rahmens sichtbar bleiben.
+- Copy-BottomSheet optimiert: Mahlzeit-Chips sind gleich breit, einzeilig und umbrechen nicht mehr unruhig.
+- Home-Screen-Widgets nutzen die Breite besser: reduzierte Seitenabstaende sowie groessere Scan-/Plus-Buttons fuer bessere Touchbarkeit.
 
 ## Notes
 - Lokale DB-Migration auf Version 8: neue Tabellen `supplement_plan_items` und `supplement_intakes`.
