@@ -36,6 +36,9 @@ interface DiaryDao {
     @Query("UPDATE diary_entries SET amountInGrams = :amountInGrams WHERE id = :entryId")
     suspend fun updateAmountInGrams(entryId: Long, amountInGrams: Double)
 
+    @Query("UPDATE diary_entries SET date = :date, mealType = :mealType WHERE id = :entryId")
+    suspend fun updateDateAndMealType(entryId: Long, date: LocalDate, mealType: MealType)
+
     @Query(
         """
         SELECT 

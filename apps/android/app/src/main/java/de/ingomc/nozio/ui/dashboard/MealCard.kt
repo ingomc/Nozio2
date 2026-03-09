@@ -23,14 +23,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +56,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.consume
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +72,11 @@ import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.DiaryEntryWithFood
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -69,15 +86,30 @@ fun MealCard(
     onAddClick: () -> Unit,
     onDeleteEntry: (Long) -> Unit,
     onUpdateEntryAmount: (Long, Double) -> Unit,
+    onCopyEntry: (DiaryEntryWithFood, LocalDate, MealType, Double) -> Unit,
+    onDragStarted: (DiaryEntryWithFood, Offset) -> Unit,
+    onDragMoved: (Offset) -> Unit,
+    onDragEnded: () -> Unit,
+    onMealBoundsChanged: (MealType, Rect) -> Unit,
+    isDropTargetHighlighted: Boolean,
     modifier: Modifier = Modifier
 ) {
     val totalCalories = entries.sumOf { it.calories }
     var editingEntry by remember { mutableStateOf<DiaryEntryWithFood?>(null) }
+    var copyingEntry by remember { mutableStateOf<DiaryEntryWithFood?>(null) }
 
     ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { coordinates ->
+                onMealBoundsChanged(mealType, coordinates.boundsInRoot())
+            },
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (isDropTargetHighlighted) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
         )
     ) {
         Column {
@@ -126,8 +158,13 @@ fun MealCard(
                         SwipeRevealEntryRow(
                             entry = entry,
                             onDelete = { onDeleteEntry(entry.entryId) },
-                            onCopy = {},
-                            onEdit = { editingEntry = entry }
+                            onCopy = { copyingEntry = entry },
+                            onEdit = { editingEntry = entry },
+                            onDragStarted = { start -> onDragStarted(entry, start) },
+                            onDragMoved = onDragMoved,
+                            onDragEnded = {
+                                onDragEnded()
+                            }
                         )
                     }
                 }
@@ -145,6 +182,18 @@ fun MealCard(
             }
         )
     }
+
+    copyingEntry?.let { entry ->
+        CopyEntryBottomSheet(
+            entry = entry,
+            initialMealType = mealType,
+            onDismiss = { copyingEntry = null },
+            onSave = { date, targetMeal, amount ->
+                onCopyEntry(entry, date, targetMeal, amount)
+                copyingEntry = null
+            }
+        )
+    }
 }
 
 @Composable
@@ -152,7 +201,10 @@ private fun SwipeRevealEntryRow(
     entry: DiaryEntryWithFood,
     onDelete: () -> Unit,
     onCopy: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onDragStarted: (Offset) -> Unit,
+    onDragMoved: (Offset) -> Unit,
+    onDragEnded: () -> Unit
 ) {
     val actionSlotWidth = 52.dp
     val actionButtonSize = 44.dp
@@ -162,6 +214,7 @@ private fun SwipeRevealEntryRow(
     val maxRevealPx = remember(density) { with(density) { actionSlotWidth.toPx() * 2f } }
     var offsetX by remember(entry.entryId) { mutableFloatStateOf(0f) }
     val animatedOffset by animateFloatAsState(targetValue = offsetX, label = "entryRevealOffset")
+    var layoutCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     Box(
         modifier = Modifier
@@ -267,6 +320,26 @@ private fun SwipeRevealEntryRow(
                         offsetX = if (offsetX < -maxRevealPx * 0.45f) -maxRevealPx else 0f
                     }
                 )
+                .onGloballyPositioned { coordinates ->
+                    layoutCoordinates = coordinates
+                }
+                .pointerInput(entry.entryId) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { offset ->
+                            layoutCoordinates?.let { coordinates ->
+                                onDragStarted(coordinates.localToRoot(offset))
+                            }
+                        },
+                        onDragEnd = onDragEnded,
+                        onDragCancel = onDragEnded,
+                        onDrag = { change, _ ->
+                            change.consume()
+                            layoutCoordinates?.let { coordinates ->
+                                onDragMoved(coordinates.localToRoot(change.position))
+                            }
+                        }
+                    )
+                }
                 .padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -288,6 +361,129 @@ private fun SwipeRevealEntryRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CopyEntryBottomSheet(
+    entry: DiaryEntryWithFood,
+    initialMealType: MealType,
+    onDismiss: () -> Unit,
+    onSave: (LocalDate, MealType, Double) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showDatePicker by remember { mutableStateOf(false) }
+    var targetDate by remember(entry.entryId) { mutableStateOf(LocalDate.now()) }
+    var targetMeal by remember(entry.entryId) { mutableStateOf(initialMealType) }
+    var amountText by remember(entry.entryId) { mutableStateOf(entry.amountInGrams.toInt().toString()) }
+    val amount = amountText.toDoubleOrNull()
+    val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d. MMMM yyyy", Locale.GERMAN)
+
+    if (showDatePicker) {
+        val initialDateMillis = remember(targetDate) {
+            targetDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        }
+        val pickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = initialDateMillis
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            targetDate = Instant.ofEpochMilli(millis)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = entry.foodName,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Eintrag kopieren",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = { showDatePicker = true }
+            ) {
+                Icon(imageVector = Icons.Default.DateRange, contentDescription = null)
+                Text(
+                    text = targetDate.format(dateFormatter),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+            Text(
+                text = "Mahlzeit",
+                style = MaterialTheme.typography.labelLarge
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MealType.entries.forEach { meal ->
+                    FilterChip(
+                        selected = targetMeal == meal,
+                        onClick = { targetMeal = meal },
+                        label = { Text(meal.displayName) }
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { value -> amountText = value.filter { it.isDigit() } },
+                label = { Text("Gramm") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewOnFocus()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("Abbrechen")
+                }
+                Button(
+                    onClick = { onSave(targetDate, targetMeal, amount ?: 0.0) },
+                    enabled = (amount ?: 0.0) > 0.0
+                ) {
+                    Text("Kopieren")
+                }
             }
         }
     }
