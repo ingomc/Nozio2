@@ -7,19 +7,22 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +35,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -40,11 +45,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import de.ingomc.nozio.data.repository.SupplementTimelineItem
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val TimelineChipTopPadding = 8.dp
+private val TimelineBadgeOffsetY = (-2).dp
 
 @Composable
 fun SupplementsTimelineCard(
@@ -56,6 +65,16 @@ fun SupplementsTimelineCard(
 ) {
     val listState = rememberLazyListState()
     val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm", Locale.GERMAN) }
+    val firstIndexByMinutes = remember(items) {
+        buildMap<Int, Int> {
+            items.forEachIndexed { index, item ->
+                putIfAbsent(item.scheduledMinutesOfDay, index)
+            }
+        }
+    }
+    val stickyMinutesOfDay by remember(items, listState) {
+        derivedStateOf { items.getOrNull(listState.firstVisibleItemIndex)?.scheduledMinutesOfDay }
+    }
 
     LaunchedEffect(selectedDate, items.map { it.id }) {
         if (items.isEmpty()) return@LaunchedEffect
@@ -95,16 +114,51 @@ fun SupplementsTimelineCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            LazyRow(
-                state = listState,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(items, key = { it.id }) { item ->
-                    SupplementTimelineNode(
-                        item = item,
-                        timeFormatter = timeFormatter,
-                        onClick = { onToggleTaken(item.id, !item.isTaken) }
-                    )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                LazyRow(
+                    state = listState,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(top = TimelineChipTopPadding)
+                ) {
+                    itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+                        val isGroupStart = firstIndexByMinutes[item.scheduledMinutesOfDay] == index
+                        val showInlineTimeBadge = isGroupStart &&
+                            stickyMinutesOfDay != null &&
+                            item.scheduledMinutesOfDay != stickyMinutesOfDay
+                        SupplementTimelineNode(
+                            item = item,
+                            inlineTime = if (showInlineTimeBadge) {
+                                formatScheduledTime(item.scheduledMinutesOfDay, timeFormatter)
+                            } else {
+                                null
+                            },
+                            onClick = { onToggleTaken(item.id, !item.isTaken) }
+                        )
+                    }
+                }
+
+                stickyMinutesOfDay?.let { minutes ->
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(start = 10.dp, top = TimelineChipTopPadding)
+                            .offset(y = TimelineBadgeOffsetY)
+                            .zIndex(1f),
+                        shape = RoundedCornerShape(9.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                        )
+                    ) {
+                        Text(
+                            text = formatScheduledTime(minutes, timeFormatter),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
         }
@@ -114,7 +168,7 @@ fun SupplementsTimelineCard(
 @Composable
 private fun SupplementTimelineNode(
     item: SupplementTimelineItem,
-    timeFormatter: DateTimeFormatter,
+    inlineTime: String?,
     onClick: () -> Unit
 ) {
     val toggleBackgroundColor = animateColorAsState(
@@ -127,11 +181,14 @@ private fun SupplementTimelineNode(
         animationSpec = tween(durationMillis = 180),
         label = "supplementToggleBorder"
     )
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Box(
+        modifier = Modifier.width(176.dp),
+        contentAlignment = Alignment.TopStart
+    ) {
         Surface(
             modifier = Modifier
-                .width(176.dp)
+                .fillMaxWidth()
+                .padding(top = TimelineChipTopPadding)
                 .clip(RoundedCornerShape(16.dp))
                 .clickable(onClick = onClick),
             shape = RoundedCornerShape(16.dp),
@@ -150,12 +207,7 @@ private fun SupplementTimelineNode(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${
-                            LocalTime.of(
-                                item.scheduledMinutesOfDay / 60,
-                                item.scheduledMinutesOfDay % 60
-                            ).format(timeFormatter)
-                        } · ${item.name}",
+                        text = item.name,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -199,7 +251,34 @@ private fun SupplementTimelineNode(
                 )
             }
         }
+
+        inlineTime?.let { time ->
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = 10.dp, y = TimelineBadgeOffsetY)
+                    .zIndex(2f),
+                shape = RoundedCornerShape(9.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                )
+            ) {
+                Text(
+                    text = time,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
+        }
     }
+}
+
+private fun formatScheduledTime(minutesOfDay: Int, formatter: DateTimeFormatter): String {
+    return LocalTime.of(minutesOfDay / 60, minutesOfDay % 60).format(formatter)
 }
 
 private fun formatAmount(value: Double): String {

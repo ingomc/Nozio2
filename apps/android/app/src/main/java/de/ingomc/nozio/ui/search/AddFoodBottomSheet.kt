@@ -1,5 +1,11 @@
 package de.ingomc.nozio.ui.search
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -55,9 +61,13 @@ import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import kotlin.math.roundToInt
-import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
@@ -127,12 +137,18 @@ fun AddFoodBottomSheet(
                         .height(180.dp)
                         .clip(MaterialTheme.shapes.medium)
                 ) {
-                    AsyncImage(
+                    SubcomposeAsyncImage(
                         model = imageUrl,
                         contentDescription = "Produktbild",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Fit
-                    )
+                    ) {
+                        when (painter.state) {
+                            is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
+                            is AsyncImagePainter.State.Error -> ProductImagePlaceholder()
+                            else -> ProductImageShimmer()
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             } ?: run {
@@ -143,22 +159,7 @@ fun AddFoodBottomSheet(
                         .fillMaxWidth()
                         .height(120.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Image,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Kein Produktbild",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    ProductImagePlaceholder()
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
@@ -381,6 +382,52 @@ fun AddFoodBottomSheet(
                 Text("Hinzufügen")
             }
         }
+    }
+}
+
+@Composable
+private fun ProductImageShimmer() {
+    val transition = rememberInfiniteTransition(label = "productImageShimmer")
+    val shimmerX by transition.animateFloat(
+        initialValue = -300f,
+        targetValue = 900f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1050, easing = LinearEasing)
+        ),
+        label = "productImageShimmerOffset"
+    )
+    val baseColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+    val highlightColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    val shimmerBrush = Brush.linearGradient(
+        colors = listOf(baseColor, highlightColor, baseColor),
+        start = Offset(shimmerX - 320f, 0f),
+        end = Offset(shimmerX, 0f)
+    )
+
+    Spacer(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(shimmerBrush)
+    )
+}
+
+@Composable
+private fun ProductImagePlaceholder() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Image,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "Kein Produktbild",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
