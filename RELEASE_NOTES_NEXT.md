@@ -25,6 +25,7 @@
 - Datenverdichtung im Profil-Chart: ab `60T` Wochenmittelwerte, bei `1J` Monatsmittelwerte fuer bessere Lesbarkeit.
 - X-Achsen-Beschriftung im Profil-Chart verbessert (regelmaessige Datums-Ticks ohne Label-Ueberlappung).
 - Supplements-Timeline visuell verdichtet: kompaktere Zwei-Zeilen-Karten, kleinerer Toggle-Indikator mit animiertem Check-in.
+- Widget-Schnellaktionen (`Scan`/`Add`) haben jetzt etwas groessere Buttons und Icons fuer bessere Treffsicherheit.
 
 ## Notes
 - Lokale DB-Migration auf Version 8: neue Tabellen `supplement_plan_items` und `supplement_intakes`.
