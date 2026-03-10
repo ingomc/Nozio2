@@ -18,9 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -34,30 +35,21 @@ fun MacroBar(
     modifier: Modifier = Modifier
 ) {
     val progressRatio = if (goal > 0) (consumed / goal).toFloat() else 0f
-    val (targetNormalRatio, targetOverRatio) = if (goal <= 0.0) {
-        0f to 0f
-    } else if (progressRatio <= 1f) {
-        progressRatio.coerceIn(0f, 1f) to 0f
+    val targetFillRatio = if (goal > 0.0) progressRatio.coerceIn(0f, 1f) else 0f
+    val overRatio = if (goal > 0.0 && progressRatio > 1f) {
+        (progressRatio - 1f).coerceIn(0f, 1f)
     } else {
-        val overRatio = (progressRatio - 1f).coerceIn(0f, 1f)
-        (1f - overRatio).coerceIn(0f, 1f) to overRatio
+        0f
     }
 
-    var animatedNormalTarget by remember { mutableFloatStateOf(0f) }
-    var animatedOverTarget by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(targetNormalRatio, targetOverRatio) {
-        animatedNormalTarget = targetNormalRatio
-        animatedOverTarget = targetOverRatio
+    var animatedFillTarget by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(targetFillRatio) {
+        animatedFillTarget = targetFillRatio
     }
-    val animatedNormalRatio by animateFloatAsState(
-        targetValue = animatedNormalTarget,
+    val animatedFillRatio by animateFloatAsState(
+        targetValue = animatedFillTarget,
         animationSpec = tween(durationMillis = 600),
-        label = "macroBarNormalAnimation"
-    )
-    val animatedOverRatio by animateFloatAsState(
-        targetValue = animatedOverTarget,
-        animationSpec = tween(durationMillis = 600),
-        label = "macroBarOverAnimation"
+        label = "macroBarFillAnimation"
     )
     val overColor = MaterialTheme.colorScheme.error
     val trackColor = color.copy(alpha = 0.25f)
@@ -86,22 +78,22 @@ fun MacroBar(
                 size = size
             )
 
-            val normalWidth = (size.width * animatedNormalRatio).coerceIn(0f, size.width)
-            if (normalWidth > 0f) {
+            val fillWidth = (size.width * animatedFillRatio).coerceIn(0f, size.width)
+            if (fillWidth > 0f) {
                 drawRoundRect(
                     color = color,
                     cornerRadius = CornerRadius(radius, radius),
-                    size = Size(normalWidth, size.height)
+                    size = Size(fillWidth, size.height)
                 )
             }
 
-            val overWidth = (size.width * animatedOverRatio).coerceIn(0f, size.width)
-            if (overWidth > 0f) {
+            val overStartX = (size.width * (1f - overRatio)).coerceIn(0f, size.width)
+            if (overRatio > 0f && fillWidth > overStartX) {
                 drawRoundRect(
                     color = overColor,
-                    topLeft = androidx.compose.ui.geometry.Offset(size.width - overWidth, 0f),
+                    topLeft = Offset(overStartX, 0f),
                     cornerRadius = CornerRadius(radius, radius),
-                    size = Size(overWidth, size.height)
+                    size = Size(fillWidth - overStartX, size.height)
                 )
             }
         }
