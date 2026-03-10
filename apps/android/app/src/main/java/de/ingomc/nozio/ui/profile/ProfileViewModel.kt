@@ -1,6 +1,7 @@
 package de.ingomc.nozio.ui.profile
 
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -15,7 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.abs
@@ -42,7 +45,9 @@ data class ProfileUiState(
     val goalSummaryItems: List<String> = emptyList(),
     val saved: Boolean = false,
     val hasChanges: Boolean = false,
-    val bodyMetricHistory: List<BodyMetricHistoryPoint> = emptyList()
+    val bodyMetricHistory: List<BodyMetricHistoryPoint> = emptyList(),
+    val profileImagePath: String? = null,
+    val profileImageUpdatedAt: Long = 0L
 )
 
 class ProfileViewModel(
@@ -81,7 +86,9 @@ class ProfileViewModel(
                     bodyMetricHistory = bodyMetricHistory,
                     weightTrendDeltaKg = trend.deltaKg,
                     weightTrendWeeksEstimate = trend.weeksEstimate,
-                    goalSummaryItems = emptyList()
+                    goalSummaryItems = emptyList(),
+                    profileImagePath = resolveStoredProfileImagePath(appContext),
+                    profileImageUpdatedAt = prefs.profileImageUpdatedAt
                 )
             }.combine(dailyActivityRepository.getStepsForDate(LocalDate.now())) { combined, todaySteps ->
                 combined.copy(
@@ -104,7 +111,9 @@ class ProfileViewModel(
                     weightTrendWeeksEstimate = combined.weightTrendWeeksEstimate,
                     goalSummaryItems = combined.goalSummaryItems,
                     hasChanges = false,
-                    bodyMetricHistory = combined.bodyMetricHistory
+                    bodyMetricHistory = combined.bodyMetricHistory,
+                    profileImagePath = combined.profileImagePath,
+                    profileImageUpdatedAt = combined.profileImageUpdatedAt
                 )
             }
         }
@@ -144,6 +153,24 @@ class ProfileViewModel(
             )
             CalorieWidgetProvider.updateAll(appContext)
             _uiState.value = _uiState.value.copy(saved = true, hasChanges = false)
+        }
+    }
+
+    internal fun saveProfileImage(
+        sourceBitmap: Bitmap,
+        cropSpec: ProfileImageCropSpec
+    ) {
+        viewModelScope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                saveProfileImageToStorage(
+                    context = appContext,
+                    sourceBitmap = sourceBitmap,
+                    cropSpec = cropSpec
+                )
+            }
+            if (saved) {
+                userPreferencesRepository.updateProfileImageUpdatedAt(System.currentTimeMillis())
+            }
         }
     }
 
@@ -193,7 +220,9 @@ private data class CombinedProfileData(
     val bodyMetricHistory: List<BodyMetricHistoryPoint>,
     val weightTrendDeltaKg: Double?,
     val weightTrendWeeksEstimate: Int?,
-    val goalSummaryItems: List<String>
+    val goalSummaryItems: List<String>,
+    val profileImagePath: String?,
+    val profileImageUpdatedAt: Long
 )
 
 data class WeightHistoryPoint(

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -40,7 +41,8 @@ data class UserPreferences(
     val autoBackupEnabled: Boolean = true,
     val mealReminderEnabled: Boolean = false,
     val mealReminderHour: Int = 19,
-    val mealReminderMinute: Int = 0
+    val mealReminderMinute: Int = 0,
+    val profileImageUpdatedAt: Long = 0L
 )
 
 class UserPreferencesRepository(private val context: Context) {
@@ -60,6 +62,7 @@ class UserPreferencesRepository(private val context: Context) {
         val MEAL_REMINDER_ENABLED = booleanPreferencesKey("meal_reminder_enabled")
         val MEAL_REMINDER_HOUR = intPreferencesKey("meal_reminder_hour")
         val MEAL_REMINDER_MINUTE = intPreferencesKey("meal_reminder_minute")
+        val PROFILE_IMAGE_UPDATED_AT = longPreferencesKey("profile_image_updated_at")
     }
 
     val userPreferences: Flow<UserPreferences> = context.dataStore.data.map { prefs ->
@@ -77,7 +80,8 @@ class UserPreferencesRepository(private val context: Context) {
             autoBackupEnabled = prefs[Keys.AUTO_BACKUP_ENABLED] ?: true,
             mealReminderEnabled = prefs[Keys.MEAL_REMINDER_ENABLED] ?: false,
             mealReminderHour = prefs[Keys.MEAL_REMINDER_HOUR] ?: 19,
-            mealReminderMinute = prefs[Keys.MEAL_REMINDER_MINUTE] ?: 0
+            mealReminderMinute = prefs[Keys.MEAL_REMINDER_MINUTE] ?: 0,
+            profileImageUpdatedAt = prefs[Keys.PROFILE_IMAGE_UPDATED_AT] ?: 0L
         )
     }
 
@@ -97,6 +101,13 @@ class UserPreferencesRepository(private val context: Context) {
             prefs[Keys.MEAL_REMINDER_ENABLED] = preferences.mealReminderEnabled
             prefs[Keys.MEAL_REMINDER_HOUR] = preferences.mealReminderHour.coerceIn(0, 23)
             prefs[Keys.MEAL_REMINDER_MINUTE] = preferences.mealReminderMinute.coerceIn(0, 59)
+            prefs[Keys.PROFILE_IMAGE_UPDATED_AT] = preferences.profileImageUpdatedAt
+        }
+    }
+
+    suspend fun updateProfileImageUpdatedAt(timestamp: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.PROFILE_IMAGE_UPDATED_AT] = timestamp
         }
     }
 }
