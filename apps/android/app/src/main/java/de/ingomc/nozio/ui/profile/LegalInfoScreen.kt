@@ -21,10 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.ingomc.nozio.ui.theme.expressiveTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,11 +41,7 @@ fun LegalInfoScreen(
             .nestedScroll(appBarScrollBehavior.nestedScrollConnection)
     ) {
         TopAppBar(
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-                scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                titleContentColor = MaterialTheme.colorScheme.onSurface
-            ),
+            colors = expressiveTopAppBarColors(),
             scrollBehavior = appBarScrollBehavior,
             title = {
                 Text(

@@ -46,7 +46,10 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -59,12 +62,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -84,6 +87,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.TransformOrigin
@@ -91,6 +95,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
+import de.ingomc.nozio.ui.theme.nozioColors
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,7 +123,7 @@ fun SearchScreen(
     var showScannerSheet by remember { mutableStateOf(false) }
     var searchContainerHeightPx by remember { mutableStateOf(0) }
     val density = LocalDensity.current
-    val listBottomPadding = with(density) { searchContainerHeightPx.toDp() + 8.dp }
+    val listBottomPadding = with(density) { searchContainerHeightPx.toDp() + 28.dp }
     val showingSuggestions = state.query.length < 3
     val hasAnySuggestions = state.recentSuggestions.isNotEmpty() ||
         state.frequentSuggestions.isNotEmpty() ||
@@ -339,77 +344,79 @@ fun SearchScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
                     .imePadding()
             ) {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .onSizeChanged { searchContainerHeightPx = it.height },
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp,
+                    color = MaterialTheme.nozioColors.surface2,
+                    shape = CircleShape,
+                    tonalElevation = 2.dp,
                     shadowElevation = 0.dp
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        HorizontalDivider()
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = state.query,
-                                onValueChange = viewModel::onQueryChange,
-                                singleLine = true,
-                                placeholder = { Text("Lebensmittel suchen...") },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Search, contentDescription = "Suchen")
-                                },
-                                trailingIcon = {
-                                    if (state.query.isNotEmpty()) {
-                                        IconButton(onClick = { viewModel.onQueryChange("") }) {
-                                            Icon(Icons.Default.Close, contentDescription = "Suche leeren")
-                                        }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = state.query,
+                            onValueChange = viewModel::onQueryChange,
+                            singleLine = true,
+                            placeholder = { Text("Lebensmittel suchen...") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = "Suchen")
+                            },
+                            trailingIcon = {
+                                if (state.query.isNotEmpty()) {
+                                    IconButton(onClick = { viewModel.onQueryChange("") }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Suche leeren")
                                     }
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(56.dp)
-                                    .focusRequester(searchFocusRequester),
-                                shape = RoundedCornerShape(28.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.outline,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    focusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    focusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-
-                            Surface(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = CircleShape,
-                                tonalElevation = 0.dp,
-                                shadowElevation = 0.dp
-                            ) {
-                                IconButton(
-                                    onClick = {
-                                        launchBarcodeScanner()
-                                    },
-                                    modifier = Modifier.size(56.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.QrCodeScanner,
-                                        contentDescription = "Barcode scannen",
-                                        tint = MaterialTheme.colorScheme.onPrimary
-                                    )
                                 }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp)
+                                .focusRequester(searchFocusRequester),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.nozioColors.baseBgElevated,
+                                unfocusedContainerColor = MaterialTheme.nozioColors.baseBgElevated,
+                                disabledContainerColor = MaterialTheme.nozioColors.baseBgElevated,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = CircleShape,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    launchBarcodeScanner()
+                                },
+                                modifier = Modifier.size(56.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.QrCodeScanner,
+                                    contentDescription = "Barcode scannen",
+                                    tint = MaterialTheme.colorScheme.onPrimary
+                                )
                             }
                         }
                     }
@@ -521,12 +528,16 @@ fun SearchScreen(
     }
 }
 
-private enum class SuggestionTab(val label: String) {
-    RECENT("Zuletzt"),
-    FREQUENT("Häufig"),
-    FAVORITES("Favoriten")
+private enum class SuggestionTab(
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    RECENT("Zuletzt", Icons.Default.History),
+    FREQUENT("Häufig", Icons.Default.Repeat),
+    FAVORITES("Favoriten", Icons.Default.Favorite)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SuggestionsSection(
     modifier: Modifier = Modifier,
@@ -556,7 +567,7 @@ private fun SuggestionsSection(
             return@Column
         }
 
-        TabRow(selectedTabIndex = pagerState.currentPage) {
+        PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
             tabs.forEachIndexed { index, tab ->
                 Tab(
                     selected = pagerState.currentPage == index,
@@ -565,12 +576,16 @@ private fun SuggestionsSection(
                             pagerState.animateScrollToPage(index)
                         }
                     },
-                    modifier = Modifier.height(52.dp),
+                    icon = {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = null
+                        )
+                    },
                     text = {
                         Text(
                             text = tab.label,
-                            maxLines = 1,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            maxLines = 1
                         )
                     }
                 )
@@ -631,6 +646,8 @@ private fun BarcodeResultsBottomSheet(
     val maxSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.88f
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier

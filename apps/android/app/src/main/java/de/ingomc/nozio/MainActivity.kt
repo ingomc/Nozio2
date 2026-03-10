@@ -73,6 +73,7 @@ import de.ingomc.nozio.ui.settings.SettingsSection
 import de.ingomc.nozio.ui.settings.SettingsViewModel
 import de.ingomc.nozio.ui.supplements.SupplementsEditScreen
 import de.ingomc.nozio.ui.supplements.SupplementsEditViewModel
+import de.ingomc.nozio.ui.theme.ExpressiveMotion
 import de.ingomc.nozio.ui.theme.NozioTheme
 import de.ingomc.nozio.ui.theme.nozioColors
 import de.ingomc.nozio.widget.CalorieWidgetProvider
@@ -275,7 +276,7 @@ fun NozioApp(
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = MaterialTheme.colorScheme.primary,
                                     selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                    indicatorColor = MaterialTheme.nozioColors.emphasisContainer,
                                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -432,20 +433,20 @@ private fun routeRank(route: String?): Int {
 }
 
 private fun sharedAxisEnter(forward: Boolean) = slideInHorizontally(
-    animationSpec = tween(280),
+    animationSpec = tween(ExpressiveMotion.DurationLong, easing = ExpressiveMotion.Emphasized),
     initialOffsetX = { fullWidth ->
-        val distance = (fullWidth * 0.12f).toInt()
+        val distance = (fullWidth * 0.16f).toInt()
         if (forward) distance else -distance
     }
-) + fadeIn(animationSpec = tween(280))
+) + fadeIn(animationSpec = tween(ExpressiveMotion.DurationMedium, easing = ExpressiveMotion.Standard))
 
 private fun sharedAxisExit(forward: Boolean) = slideOutHorizontally(
-    animationSpec = tween(280),
+    animationSpec = tween(ExpressiveMotion.DurationLong, easing = ExpressiveMotion.Emphasized),
     targetOffsetX = { fullWidth ->
-        val distance = (fullWidth * 0.12f).toInt()
+        val distance = (fullWidth * 0.16f).toInt()
         if (forward) -distance else distance
     }
-) + fadeOut(animationSpec = tween(220))
+) + fadeOut(animationSpec = tween(ExpressiveMotion.DurationMedium, easing = ExpressiveMotion.Standard))
 
 private fun NavHostController.navigateToBottomDestination(route: String) {
     navigate(

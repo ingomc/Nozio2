@@ -1,19 +1,28 @@
 package de.ingomc.nozio.ui.search
 
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,11 +37,13 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import de.ingomc.nozio.ui.theme.nozioColors
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
+import androidx.compose.material3.rememberModalBottomSheetState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,14 +53,19 @@ fun BarcodeScannerBottomSheet(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
     val previewView = remember {
         PreviewView(context).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+            scaleType = PreviewView.ScaleType.FILL_CENTER
         }
     }
     var hasDetectedBarcode by remember { mutableStateOf(false) }
+    var boundCamera by remember { mutableStateOf<Camera?>(null) }
+    var isTorchOn by remember { mutableStateOf(false) }
+    val hasFlash = boundCamera?.cameraInfo?.hasFlashUnit() == true
 
     DisposableEffect(Unit) {
         val scannerOptions = BarcodeScannerOptions.Builder()
@@ -112,12 +128,13 @@ fun BarcodeScannerBottomSheet(
 
                 try {
                     cameraProvider?.unbindAll()
-                    cameraProvider?.bindToLifecycle(
+                    boundCamera = cameraProvider?.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview,
                         imageAnalysis
                     )
+                    isTorchOn = false
                 } catch (_: Exception) {
                     // Ignore binding errors and allow user to dismiss.
                 }
@@ -126,37 +143,82 @@ fun BarcodeScannerBottomSheet(
         )
 
         onDispose {
+            boundCamera?.cameraControl?.enableTorch(false)
             cameraProvider?.unbindAll()
             scanner.close()
             cameraExecutor.shutdown()
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Barcode scannen",
-                style = MaterialTheme.typography.titleMedium
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Barcode scannen",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isTorchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                        contentDescription = null,
+                        tint = if (hasFlash) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Switch(
+                        checked = isTorchOn,
+                        onCheckedChange = { checked ->
+                            boundCamera?.cameraControl?.enableTorch(checked)
+                            isTorchOn = checked
+                        },
+                        enabled = hasFlash
+                    )
+                }
+            }
             Text(
                 text = "Halte den Barcode mittig vor die Kamera.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Box(
+            Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(360.dp),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth(0.88f)
+                    .align(Alignment.CenterHorizontally)
+                    .widthIn(max = 380.dp)
+                    .aspectRatio(1f),
+                color = MaterialTheme.nozioColors.baseBgElevated,
+                shape = MaterialTheme.shapes.large
             ) {
-                AndroidView(
-                    factory = { previewView },
-                    modifier = Modifier.fillMaxWidth()
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AndroidView(
+                        factory = { previewView },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            if (!hasFlash) {
+                Text(
+                    text = "Blitz auf diesem Gerät nicht verfügbar.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

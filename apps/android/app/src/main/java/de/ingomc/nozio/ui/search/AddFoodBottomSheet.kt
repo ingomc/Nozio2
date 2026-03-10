@@ -71,6 +71,7 @@ import coil.compose.SubcomposeAsyncImageContent
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
+import de.ingomc.nozio.ui.theme.nozioColors
 
 private enum class AmountUnitType {
     GRAM,
@@ -117,7 +118,9 @@ fun AddFoodBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier

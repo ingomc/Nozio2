@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
+import de.ingomc.nozio.ui.theme.nozioColors
 
 @Composable
 fun ActivityCard(
@@ -98,7 +99,9 @@ fun StepsInputBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier

@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.SupplementAmountUnit
 import de.ingomc.nozio.data.local.SupplementDayPart
 import de.ingomc.nozio.data.repository.SupplementPlanItem
+import de.ingomc.nozio.ui.theme.expressiveTopAppBarColors
+import de.ingomc.nozio.ui.theme.nozioColors
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -121,9 +123,7 @@ fun SupplementsEditScreen(
                     )
                 }
             },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+            colors = expressiveTopAppBarColors()
         )
 
         state.errorMessage?.let { errorMessage ->
@@ -315,7 +315,9 @@ private fun SupplementEditorSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier

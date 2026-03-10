@@ -29,7 +29,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/widget_zero"
                 android:textColor="@color/widget_calorie_eaten"
-                android:textSize="20sp"
+                android:textSize="22sp"
+                android:fontFamily="sans-serif-medium"
                 android:textStyle="bold" />
 
             <TextView
@@ -38,7 +39,7 @@
                 android:layout_marginTop="3dp"
                 android:text="@string/widget_eaten"
                 android:textColor="@color/widget_calorie_text_secondary"
-                android:textSize="10sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
         <RelativeLayout
@@ -60,7 +61,8 @@
                 android:layout_marginTop="42dp"
                 android:text="@string/widget_zero"
                 android:textColor="@color/widget_calorie_positive"
-                android:textSize="26sp"
+                android:textSize="28sp"
+                android:fontFamily="sans-serif-medium"
                 android:textStyle="bold" />
 
             <TextView
@@ -72,7 +74,7 @@
                 android:layout_marginTop="2dp"
                 android:text="@string/widget_remaining"
                 android:textColor="@color/widget_calorie_text_secondary"
-                android:textSize="12sp" />
+                android:textSize="13sp" />
         </RelativeLayout>
 
         <LinearLayout
@@ -88,7 +90,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/widget_zero"
                 android:textColor="@color/widget_calorie_burned"
-                android:textSize="20sp"
+                android:textSize="22sp"
+                android:fontFamily="sans-serif-medium"
                 android:textStyle="bold" />
 
             <TextView
@@ -97,7 +100,7 @@
                 android:layout_marginTop="3dp"
                 android:text="@string/widget_burned"
                 android:textColor="@color/widget_calorie_text_secondary"
-                android:textSize="10sp" />
+                android:textSize="11sp" />
 
             <LinearLayout
                 android:layout_width="wrap_content"

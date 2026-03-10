@@ -7,16 +7,16 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="widget_calorie_background">#FF081012</color>
-    <color name="widget_calorie_border">#FF5C6869</color>
+    <color name="widget_calorie_background">#FF0D1719</color>
+    <color name="widget_calorie_border">#FF3A4A4D</color>
     <color name="widget_calorie_text_primary">#FFEEF3F3</color>
-    <color name="widget_calorie_text_secondary">#FFC1C8C9</color>
+    <color name="widget_calorie_text_secondary">#FFA8B6B8</color>
     <color name="widget_calorie_eaten">#FF14F2CB</color>
     <color name="widget_calorie_burned">#FFF4C542</color>
     <color name="widget_calorie_positive">#FF22C55E</color>
     <color name="widget_calorie_negative">#FFFF6E70</color>
     <color name="widget_calorie_action_icon">#FFEEF3F3</color>
-    <color name="widget_calorie_button_background">#FF14F2CB</color>
+    <color name="widget_calorie_button_background">#FF18DEC0</color>
     <color name="widget_calorie_button_icon">#FF002019</color>
-    <color name="widget_calorie_macro_track">#405C6869</color>
+    <color name="widget_calorie_macro_track">#3349595D</color>
 </resources>
