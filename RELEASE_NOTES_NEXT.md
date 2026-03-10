@@ -38,6 +38,7 @@
 - Suchleiste im Suchscreen visuell harmonisiert (subdued-primary statt lila Stich) und als klarere, zusammengehoerige Suche+Scanner-Aktionseinheit gestaltet.
 - QR-Scanner-BottomSheet verbessert: quadratischer Kameraausschnitt, dynamischere Sheet-Hoehe nach Inhalt und neuer Blitz-Toggle fuer dunkle Umgebungen.
 - Dashboard-Mahlzeitzeilen verdichtet: weniger vertikaler Verbrauch, staerkere Full-Width-Anmutung, Swipe-Actions mit progressivem Einblenden und stabilerem Button-Hintergrund-Kontrast.
+- Swipe-Actions in Mahlzeitzeilen weiter verfeinert: groesserer Reveal-Bereich fuer Gesten sowie klarere Copy/Delete-Button-Farben fuer bessere Erkennbarkeit.
 - Swipe/Drag-Layering in Mahlzeiten weiter verfeinert: gezogenes Item liegt per erhoehtem z-index sichtbar ueber Nachbarinhalten.
 - Einstellungen visuell entschlackt: Row-Hierarchie klarer, weniger "Kachel-Overload", besserer Fit zum restlichen App-Chrome.
 
