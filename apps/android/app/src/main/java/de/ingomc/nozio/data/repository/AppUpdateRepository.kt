@@ -66,16 +66,41 @@ class AppUpdateRepository(
     }
 
     private fun buildNotesPreview(body: String?): String {
-        val compact = body
-            ?.trim()
-            ?.replace(Regex("\\s+"), " ")
+        val cleaned = body
+            ?.lineSequence()
+            ?.map { sanitizeMarkdownLine(it) }
+            ?.filter { it.isNotBlank() }
+            ?.joinToString(separator = "\n")
             .orEmpty()
-        if (compact.isBlank()) return "Keine Release-Notizen vorhanden."
-        return if (compact.length <= RELEASE_NOTES_PREVIEW_MAX_LENGTH) {
-            compact
+
+        if (cleaned.isBlank()) return "Keine Release-Notizen vorhanden."
+        return if (cleaned.length <= RELEASE_NOTES_PREVIEW_MAX_LENGTH) {
+            cleaned
         } else {
-            compact.take(RELEASE_NOTES_PREVIEW_MAX_LENGTH - 3).trimEnd() + "..."
+            cleaned.take(RELEASE_NOTES_PREVIEW_MAX_LENGTH - 3).trimEnd() + "..."
         }
+    }
+
+    private fun sanitizeMarkdownLine(rawLine: String): String {
+        var line = rawLine.trim()
+        if (line.isBlank()) return ""
+        if (HORIZONTAL_RULE_REGEX.matches(line)) return ""
+
+        line = line
+            .replace(HEADING_PREFIX_REGEX, "")
+            .replace(BLOCKQUOTE_PREFIX_REGEX, "")
+            .replace(UNORDERED_LIST_PREFIX_REGEX, "• ")
+            .replace(ORDERED_LIST_PREFIX_REGEX, "• ")
+            .replace(MARKDOWN_LINK_REGEX, "$1")
+            .replace("`", "")
+            .replace(BOLD_ASTERISK_REGEX, "$1")
+            .replace(BOLD_UNDERSCORE_REGEX, "$1")
+            .replace(ITALIC_ASTERISK_REGEX, "$1")
+            .replace(ITALIC_UNDERSCORE_REGEX, "$1")
+            .replace(GITHUB_ATTRIBUTION_SUFFIX_REGEX, "")
+            .trim()
+
+        return line.replace(Regex("\\s+"), " ")
     }
 
     internal fun compareSemanticVersions(candidate: String, current: String): Int? {
@@ -111,5 +136,16 @@ class AppUpdateRepository(
     companion object {
         private const val RELEASE_NOTES_PREVIEW_MAX_LENGTH = 280
         private val SEMVER_REGEX = Regex("^(\\d+)\\.(\\d+)\\.(\\d+)$")
+        private val HEADING_PREFIX_REGEX = Regex("^#{1,6}\\s*")
+        private val BLOCKQUOTE_PREFIX_REGEX = Regex("^>\\s*")
+        private val UNORDERED_LIST_PREFIX_REGEX = Regex("^[-*+]\\s+")
+        private val ORDERED_LIST_PREFIX_REGEX = Regex("^\\d+[.)]\\s+")
+        private val HORIZONTAL_RULE_REGEX = Regex("^([-*_])\\1{2,}$")
+        private val MARKDOWN_LINK_REGEX = Regex("\\[([^\\]]+)]\\(([^)]+)\\)")
+        private val BOLD_ASTERISK_REGEX = Regex("\\*\\*(.+?)\\*\\*")
+        private val BOLD_UNDERSCORE_REGEX = Regex("__(.+?)__")
+        private val ITALIC_ASTERISK_REGEX = Regex("(?<!\\*)\\*(.+?)\\*(?!\\*)")
+        private val ITALIC_UNDERSCORE_REGEX = Regex("(?<!_)_(.+?)_(?!_)")
+        private val GITHUB_ATTRIBUTION_SUFFIX_REGEX = Regex("\\s+by\\s+@[\\w-]+\\s+in\\s+.+$", RegexOption.IGNORE_CASE)
     }
 }

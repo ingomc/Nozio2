@@ -31,6 +31,8 @@
 - Home-Screen-Widgets nutzen die Breite besser: reduzierte Seitenabstaende sowie groessere Scan-/Plus-Buttons fuer bessere Touchbarkeit.
 - Add-Product-BottomSheet zeigt beim Laden von Produktbildern jetzt einen Shimmer-Placeholder im Bildcontainer (mit sauberem Fallback bei fehlendem/fehlerhaftem Bild).
 - Supplements-Timeline ueberarbeitet: Uhrzeit als sticky Zeitlabel plus incoming Zeitlabels fuer kommende Gruppen; Badge-/Card-Layout und Layering wurden gegen Clipping/Versatz stabilisiert.
+- Dashboard-Makro-Balken zeigen Ueberziel jetzt anteilig in Rot (rechter Anteil), waehrend die Fuellung als ein durchgehender Balken animiert.
+- Kompaktes Widget-Makro-Layout neu aufgeteilt: links kurze Labels (`KH`, `EW`, `F`), rechts die jeweiligen Balken fuer bessere Lesbarkeit.
 
 ## Notes
 - Lokale DB-Migration auf Version 8: neue Tabellen `supplement_plan_items` und `supplement_intakes`.

@@ -190,6 +190,7 @@ fun DashboardScreen(
                 val consumedCalories = state.totalCalories
                 val burnedCalories = state.activeCalories
                 val budgetBonusCalories = if (state.preferences.includeActivityCaloriesInBudget) burnedCalories else 0.0
+                val ringConsumedCalories = consumedCalories - budgetBonusCalories
                 val calorieDelta = state.preferences.calorieGoal - consumedCalories + budgetBonusCalories
                 val centerValue = if (calorieDelta >= 0.0) {
                     calorieDelta.toInt().toString()
@@ -220,7 +221,7 @@ fun DashboardScreen(
                                 label = "Gegessen"
                             )
                             CalorieRing(
-                                consumed = consumedCalories,
+                                consumed = ringConsumedCalories,
                                 goal = state.preferences.calorieGoal,
                                 centerValue = centerValue,
                                 centerLabel = centerLabel
@@ -264,10 +265,16 @@ fun DashboardScreen(
             item { Spacer(modifier = Modifier.height(4.dp)) }
 
             item {
+                DashboardSectionHeader(
+                    title = "Supplements",
+                    onEditClick = onEditSupplements
+                )
+            }
+
+            item {
                 SupplementsTimelineCard(
                     selectedDate = state.selectedDate,
                     items = state.supplementTimelineItems,
-                    onEditClick = onEditSupplements,
                     onToggleTaken = viewModel::toggleSupplementTaken
                 )
             }
@@ -275,69 +282,87 @@ fun DashboardScreen(
             item { Spacer(modifier = Modifier.height(4.dp)) }
 
             // Meal Cards
-                items(MealType.entries) { mealType ->
-                    MealCard(
-                        mealType = mealType,
-                        entries = state.entriesByMeal[mealType] ?: emptyList(),
-                        onAddClick = { onAddFood(mealType) },
-                        onDeleteEntry = { viewModel.deleteEntry(it) },
-                        onUpdateEntryAmount = { entryId, amount ->
-                            viewModel.updateEntryAmount(entryId, amount)
-                        },
-                        onCopyEntry = { entry, date, targetMeal, amount ->
-                            viewModel.copyEntry(
-                                foodItemId = entry.foodItemId,
-                                date = date,
-                                mealType = targetMeal,
-                                amountInGrams = amount
+            item {
+                Text(
+                    text = "Ernährung",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            items(MealType.entries) { mealType ->
+                MealCard(
+                    mealType = mealType,
+                    entries = state.entriesByMeal[mealType] ?: emptyList(),
+                    onAddClick = { onAddFood(mealType) },
+                    onDeleteEntry = { viewModel.deleteEntry(it) },
+                    onUpdateEntryAmount = { entryId, amount ->
+                        viewModel.updateEntryAmount(entryId, amount)
+                    },
+                    onCopyEntry = { entry, date, targetMeal, amount ->
+                        viewModel.copyEntry(
+                            foodItemId = entry.foodItemId,
+                            date = date,
+                            mealType = targetMeal,
+                            amountInGrams = amount
+                        )
+                    },
+                    onDragStarted = { entry, start ->
+                        draggedEntry = entry
+                        draggedStartPosition = start
+                        draggedPosition = start
+                    },
+                    onDragMoved = { position ->
+                        draggedPosition = draggedPosition?.let { current ->
+                            Offset(x = current.x, y = position.y)
+                        } ?: position
+                    },
+                    onDragEnded = {
+                        val entry = draggedEntry
+                        val position = draggedPosition
+                        val targetMeal = if (position != null) {
+                            mealBounds.entries
+                                .firstOrNull { (_, bounds) -> bounds.contains(position) }
+                                ?.key
+                        } else {
+                            null
+                        }
+                        if (entry != null && targetMeal != null && targetMeal != entry.mealType) {
+                            viewModel.moveEntry(
+                                entryId = entry.entryId,
+                                date = state.selectedDate,
+                                mealType = targetMeal
                             )
-                        },
-                        onDragStarted = { entry, start ->
-                            draggedEntry = entry
-                            draggedStartPosition = start
-                            draggedPosition = start
-                        },
-                        onDragMoved = { position ->
-                            draggedPosition = draggedPosition?.let { current ->
-                                Offset(x = current.x, y = position.y)
-                            } ?: position
-                        },
-                        onDragEnded = {
-                            val entry = draggedEntry
-                            val position = draggedPosition
-                            val targetMeal = if (position != null) {
-                                mealBounds.entries
-                                    .firstOrNull { (_, bounds) -> bounds.contains(position) }
-                                    ?.key
-                            } else {
-                                null
-                            }
-                            if (entry != null && targetMeal != null && targetMeal != entry.mealType) {
-                                viewModel.moveEntry(
-                                    entryId = entry.entryId,
-                                    date = state.selectedDate,
-                                    mealType = targetMeal
-                                )
-                            }
-                            draggedEntry = null
-                            draggedStartPosition = null
-                            draggedPosition = null
-                        },
-                        onMealBoundsChanged = { meal, bounds ->
-                            mealBounds[meal] = bounds
-                        },
-                        draggedEntryId = draggedEntry?.entryId,
-                        draggedOffsetY = draggedOffsetY,
-                        isDropTargetHighlighted = draggedEntry != null &&
-                            (draggedPosition?.let { position ->
-                                mealBounds[mealType]?.contains(position) == true
-                            } == true)
-                    )
-                }
+                        }
+                        draggedEntry = null
+                        draggedStartPosition = null
+                        draggedPosition = null
+                    },
+                    onMealBoundsChanged = { meal, bounds ->
+                        mealBounds[meal] = bounds
+                    },
+                    draggedEntryId = draggedEntry?.entryId,
+                    draggedOffsetY = draggedOffsetY,
+                    isDropTargetHighlighted = draggedEntry != null &&
+                        (draggedPosition?.let { position ->
+                            mealBounds[mealType]?.contains(position) == true
+                        } == true)
+                )
+            }
 
             item { Spacer(modifier = Modifier.height(4.dp)) }
 
             // Activity Card
+            item {
+                DashboardSectionHeader(
+                    title = "Aktivität",
+                    onEditClick = {
+                        pendingSteps = state.totalSteps
+                        showStepsSheet = true
+                    }
+                )
+            }
+
             item {
                 ActivityCard(
                     steps = state.totalSteps,
@@ -350,6 +375,19 @@ fun DashboardScreen(
             }
 
             item { Spacer(modifier = Modifier.height(4.dp)) }
+
+            item {
+                DashboardSectionHeader(
+                    title = "Gewicht & KFA",
+                    onEditClick = {
+                        pendingWeight = state.displayWeightKg
+                            ?: state.preferences.currentWeightKg
+                        pendingBodyFat = state.displayBodyFatPercent
+                            ?: state.preferences.bodyFatPercent
+                        showWeightSheet = true
+                    }
+                )
+            }
 
             item {
                 WeightCard(
@@ -419,6 +457,28 @@ private fun rememberDatePickerStateForDate(date: LocalDate): DatePickerState {
     return androidx.compose.material3.rememberDatePickerState(
         initialSelectedDateMillis = initialDateMillis
     )
+}
+
+@Composable
+private fun DashboardSectionHeader(
+    title: String,
+    onEditClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        TextButton(onClick = onEditClick) {
+            Text("BEARBEITEN")
+        }
+    }
 }
 
 private fun millisToLocalDate(millis: Long): LocalDate {
