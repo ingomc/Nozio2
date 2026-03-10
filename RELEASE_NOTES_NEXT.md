@@ -10,6 +10,7 @@
 ## Improvements
 - Profilbereich "Meine Ziele" bereinigt: aktuelles Gewicht und KFA aus Ziel-Ansicht/Bearbeitung entfernt.
 - Ziele fokussieren jetzt auf Kalorien, Makros sowie Start- und Zielgewicht.
+- Profilbild kann jetzt per Tap auf den Avatar geaendert werden (Bildauswahl, Zuschneiden und optimierte Speicherung).
 - Aktivkalorien-Berechnung (Dashboard + Widget) nutzt Tages-Gewicht/KFA mit sauberer Fallback-Kette.
 - Backup/Restore erweitert um taeglichen KFA-Wert.
 - Add-/Edit-BottomSheets sind jetzt bei geoeffneter Tastatur robust: Inhalte bleiben scrollbar und das aktive Eingabefeld wird automatisch in den sichtbaren Bereich gescrollt.

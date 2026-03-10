@@ -1,9 +1,14 @@
 package de.ingomc.nozio.ui.profile
 
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,15 +22,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -36,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -45,35 +54,48 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import de.ingomc.nozio.ui.theme.nozioColors
 import de.ingomc.nozio.ui.theme.expressiveTopAppBarColors
+import java.io.File
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -93,9 +115,26 @@ fun ProfileScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
+    val appContext = LocalContext.current.applicationContext
+    val coroutineScope = rememberCoroutineScope()
     val appBarState = rememberTopAppBarState()
     val appBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(appBarState)
     var selectedWeightRange by remember { mutableStateOf(WeightRange.DAYS_60) }
+    var pendingProfileImageBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var profileImageLoading by remember { mutableStateOf(false) }
+    val profileImagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        profileImageLoading = true
+        coroutineScope.launch {
+            val decodedBitmap = withContext(Dispatchers.IO) {
+                decodeProfileImageForEditing(appContext, uri)
+            }
+            pendingProfileImageBitmap = decodedBitmap
+            profileImageLoading = false
+        }
+    }
 
     val filteredBodyMetricHistory = remember(state.bodyMetricHistory, selectedWeightRange) {
         filterBodyMetricHistory(state.bodyMetricHistory, selectedWeightRange)
@@ -139,7 +178,11 @@ fun ProfileScreen(
                     currentWeightKg = state.latestWeightKg,
                     bodyFatPercent = state.latestBodyFatPercent,
                     calorieGoal = state.calorieGoal.toDoubleOrNull()?.toInt(),
-                    todaySteps = state.todaySteps
+                    todaySteps = state.todaySteps,
+                    profileImagePath = state.profileImagePath,
+                    profileImageUpdatedAt = state.profileImageUpdatedAt,
+                    isLoadingProfileImage = profileImageLoading,
+                    onProfileImageClick = { profileImagePickerLauncher.launch("image/*") }
                 )
             }
 
@@ -269,6 +312,17 @@ fun ProfileScreen(
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
         }
+
+        pendingProfileImageBitmap?.let { sourceBitmap ->
+            ProfileImageCropDialog(
+                sourceBitmap = sourceBitmap,
+                onDismiss = { pendingProfileImageBitmap = null },
+                onConfirm = { cropSpec ->
+                    viewModel.saveProfileImage(sourceBitmap, cropSpec)
+                    pendingProfileImageBitmap = null
+                }
+            )
+        }
     }
 }
 
@@ -328,8 +382,14 @@ private fun ProfileSummaryCard(
     currentWeightKg: Double?,
     bodyFatPercent: Double?,
     calorieGoal: Int?,
-    todaySteps: Long
+    todaySteps: Long,
+    profileImagePath: String?,
+    profileImageUpdatedAt: Long,
+    isLoadingProfileImage: Boolean,
+    onProfileImageClick: () -> Unit
 ) {
+    val context = LocalContext.current
+
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -351,18 +411,40 @@ private fun ProfileSummaryCard(
                 Box(
                     modifier = Modifier
                         .size(68.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onProfileImageClick)
                         .background(
                             color = MaterialTheme.colorScheme.primaryContainer,
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(34.dp)
-                    )
+                    if (profileImagePath != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(File(profileImagePath))
+                                .memoryCacheKey("profile-image-$profileImageUpdatedAt")
+                                .diskCacheKey("profile-image-$profileImageUpdatedAt")
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Profilbild",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
+                    if (isLoadingProfileImage) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -379,6 +461,11 @@ private fun ProfileSummaryCard(
                     Text(
                         text = "Kalorienziel ${calorieGoal ?: 0} kcal",
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (isLoadingProfileImage) "Bild wird geladen..." else "Profilbild antippen zum Ändern",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -403,6 +490,108 @@ private fun ProfileSummaryCard(
             }
         }
     }
+}
+
+@Composable
+private fun ProfileImageCropDialog(
+    sourceBitmap: Bitmap,
+    onDismiss: () -> Unit,
+    onConfirm: (ProfileImageCropSpec) -> Unit
+) {
+    var zoom by remember(sourceBitmap) { mutableFloatStateOf(1f) }
+    var offsetX by remember(sourceBitmap) { mutableFloatStateOf(0f) }
+    var offsetY by remember(sourceBitmap) { mutableFloatStateOf(0f) }
+    val imageBitmap = remember(sourceBitmap) { sourceBitmap.asImageBitmap() }
+    val cropWindow = remember(sourceBitmap.width, sourceBitmap.height, zoom, offsetX, offsetY) {
+        computeProfileImageCropWindow(
+            imageWidth = sourceBitmap.width,
+            imageHeight = sourceBitmap.height,
+            cropSpec = ProfileImageCropSpec(
+                zoom = zoom,
+                offsetX = offsetX,
+                offsetY = offsetY
+            )
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        title = { Text("Profilbild zuschneiden") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        drawImage(
+                            image = imageBitmap,
+                            srcOffset = IntOffset(cropWindow.left, cropWindow.top),
+                            srcSize = IntSize(cropWindow.size, cropWindow.size),
+                            dstOffset = IntOffset.Zero,
+                            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt())
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Zoom ${String.format(Locale.GERMAN, "%.1f", zoom)}x",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Slider(
+                    value = zoom,
+                    onValueChange = { zoom = it },
+                    valueRange = 1f..3f
+                )
+
+                Text(
+                    text = "Ausschnitt horizontal",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Slider(
+                    value = offsetX,
+                    onValueChange = { offsetX = it },
+                    valueRange = -1f..1f,
+                    enabled = zoom > 1f
+                )
+
+                Text(
+                    text = "Ausschnitt vertikal",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Slider(
+                    value = offsetY,
+                    onValueChange = { offsetY = it },
+                    valueRange = -1f..1f,
+                    enabled = zoom > 1f
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(
+                        ProfileImageCropSpec(
+                            zoom = zoom,
+                            offsetX = offsetX,
+                            offsetY = offsetY
+                        )
+                    )
+                }
+            ) {
+                Text("Speichern")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen")
+            }
+        }
+    )
 }
 
 @Composable
