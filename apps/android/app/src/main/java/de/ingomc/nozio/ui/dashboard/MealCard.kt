@@ -237,7 +237,7 @@ private fun SwipeRevealEntryRow(
     val rowShape = RoundedCornerShape(0.dp)
     val actionShape = RoundedCornerShape(18.dp)
     val density = LocalDensity.current
-    val maxRevealPx = remember(density) { with(density) { actionSlotWidth.toPx() * 2f } }
+    val maxRevealPx = remember(density) { with(density) { actionSlotWidth.toPx() * 3f } }
     var offsetX by remember(entry.entryId) { mutableFloatStateOf(0f) }
     val animatedOffset by animateFloatAsState(targetValue = offsetX, label = "entryRevealOffset")
     val revealProgress = (-animatedOffset / maxRevealPx).coerceIn(0f, 1f)
@@ -260,23 +260,14 @@ private fun SwipeRevealEntryRow(
                     .fillMaxHeight()
                     .width(actionSlotWidth * 2)
                     .clip(actionShape)
-                    .alpha(actionBackgroundAlpha)
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.surfaceContainerLow,
-                                MaterialTheme.colorScheme.surfaceContainer,
-                                MaterialTheme.colorScheme.surfaceContainerHigh
-                            )
-                        )
-                    )
+
             )
 
             Row(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(actionSlotWidth * 2)
-                    .padding(horizontal = 4.dp),
+                    .width(actionSlotWidth * 3)
+                    .padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -298,7 +289,7 @@ private fun SwipeRevealEntryRow(
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = "Eintrag kopieren",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }
@@ -313,14 +304,14 @@ private fun SwipeRevealEntryRow(
                             .size(actionButtonSize)
                             .alpha(deleteActionAlpha)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .background(MaterialTheme.colorScheme.error)
                             .clickable(enabled = deleteActionAlpha > 0.2f, onClick = onDelete),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Eintrag löschen",
-                            tint = MaterialTheme.colorScheme.onErrorContainer
+                            tint = MaterialTheme.colorScheme.onError
                         )
                     }
                 }
