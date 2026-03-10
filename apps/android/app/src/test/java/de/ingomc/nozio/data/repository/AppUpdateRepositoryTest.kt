@@ -108,6 +108,34 @@ class AppUpdateRepositoryTest {
         assertEquals(null, missing)
     }
 
+    @Test
+    fun checkForUpdate_sanitizesMarkdownInNotesPreview() = runTest {
+        val repository = AppUpdateRepository(
+            gitHubReleaseApi = FakeGitHubReleaseApi(
+                GitHubReleaseDto(
+                    tagName = "v0.5.3",
+                    name = "Nozio 0.5.3",
+                    body = """
+                        ### Highlights
+                        - **Neuer** Dashboard Header
+                        - [Release ansehen](https://example.com/release) by @ingomc in https://github.com/ingomc/Nozio2/pull/123
+                        > Hinweis: `Beta`
+                    """.trimIndent(),
+                    htmlUrl = "https://github.com/ingomc/Nozio2/releases/tag/v0.5.3",
+                    assets = emptyList()
+                )
+            )
+        )
+
+        val result = repository.checkForUpdate(currentVersionName = "0.5.2")
+        assertTrue(result is UpdateCheckResult.UpdateAvailable)
+        result as UpdateCheckResult.UpdateAvailable
+        assertEquals(
+            "Highlights\n• Neuer Dashboard Header\n• Release ansehen\nHinweis: Beta",
+            result.release.notesPreview
+        )
+    }
+
     private class FakeGitHubReleaseApi(
         private val release: GitHubReleaseDto
     ) : GitHubReleaseApi {

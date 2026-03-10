@@ -21,8 +21,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.ui.theme.nozioColors
-import kotlin.math.min
-
 @Composable
 fun CalorieRing(
     consumed: Double,
@@ -32,7 +30,7 @@ fun CalorieRing(
     modifier: Modifier = Modifier
 ) {
     val progress = if (goal > 0) (consumed / goal).toFloat() else 0f
-    val clampedProgress = min(progress, 1f)
+    val clampedProgress = progress.coerceIn(0f, 1f)
     val arcStartAngle = 140f
     val arcSweepAngle = 260f
 

@@ -28,12 +28,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -59,7 +58,6 @@ private val TimelineBadgeOffsetY = (-2).dp
 fun SupplementsTimelineCard(
     selectedDate: LocalDate,
     items: List<SupplementTimelineItem>,
-    onEditClick: () -> Unit,
     onToggleTaken: (supplementId: Long, taken: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -89,24 +87,6 @@ fun SupplementsTimelineCard(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Supplements",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            IconButton(onClick = onEditClick) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Supplements bearbeiten"
-                )
-            }
-        }
-
         if (items.isEmpty()) {
             Text(
                 text = "Noch keine Supplements geplant. Tippe auf Bearbeiten, um welche hinzuzufügen.",

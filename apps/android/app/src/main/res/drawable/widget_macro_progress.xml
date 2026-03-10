@@ -6,6 +6,14 @@
             <solid android:color="@color/widget_calorie_macro_track" />
         </shape>
     </item>
+    <item android:id="@android:id/secondaryProgress">
+        <clip android:clipOrientation="horizontal" android:gravity="right">
+            <shape android:shape="rectangle">
+                <corners android:radius="3dp" />
+                <solid android:color="@color/widget_calorie_negative" />
+            </shape>
+        </clip>
+    </item>
     <item android:id="@android:id/progress">
         <clip android:clipOrientation="horizontal" android:gravity="left">
             <shape android:shape="rectangle">

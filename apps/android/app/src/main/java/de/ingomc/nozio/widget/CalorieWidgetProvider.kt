@@ -111,9 +111,12 @@ abstract class BaseCalorieWidgetProvider(
                 }
                 views.setTextViewText(R.id.widget_remaining_value, remainingDisplayValue.toString())
                 views.setTextViewText(R.id.widget_remaining_label, remainingLabel)
-                views.setProgressBar(R.id.widget_carbs_progress, 100, data.carbsProgress, false)
-                views.setProgressBar(R.id.widget_protein_progress, 100, data.proteinProgress, false)
-                views.setProgressBar(R.id.widget_fat_progress, 100, data.fatProgress, false)
+                views.setProgressBar(R.id.widget_carbs_progress, 100, data.carbsBaseProgress, false)
+                views.setInt(R.id.widget_carbs_progress, "setSecondaryProgress", data.carbsOverProgress)
+                views.setProgressBar(R.id.widget_protein_progress, 100, data.proteinBaseProgress, false)
+                views.setInt(R.id.widget_protein_progress, "setSecondaryProgress", data.proteinOverProgress)
+                views.setProgressBar(R.id.widget_fat_progress, 100, data.fatBaseProgress, false)
+                views.setInt(R.id.widget_fat_progress, "setSecondaryProgress", data.fatOverProgress)
                 if (variant == WidgetVariant.EXPANDED) {
                     views.setTextViewText(R.id.widget_eaten_value, data.eaten.toString())
                     views.setTextViewText(R.id.widget_burned_value, data.burned.toString())
@@ -187,18 +190,22 @@ abstract class BaseCalorieWidgetProvider(
             val eaten = summary.totalCalories.roundToInt()
             val burnedRounded = burned.roundToInt()
             val budgetBonusCalories = if (preferences.includeActivityCaloriesInBudget) burnedRounded else 0
+            val effectiveConsumedForBudget = summary.totalCalories - budgetBonusCalories.toDouble()
             val remaining = goal - eaten + budgetBonusCalories
-            val ringProgress = progressPercent(summary.totalCalories, preferences.calorieGoal)
-            val isOverGoal = summary.totalCalories > preferences.calorieGoal
+            val ringProgress = progressPercent(effectiveConsumedForBudget, preferences.calorieGoal)
+            val isOverGoal = effectiveConsumedForBudget > preferences.calorieGoal
             return WidgetCalorieData(
                 eaten = eaten,
                 burned = burnedRounded,
                 remaining = remaining,
                 ringProgress = ringProgress,
                 isOverGoal = isOverGoal,
-                carbsProgress = progressPercent(summary.totalCarbs, preferences.carbsGoal),
-                proteinProgress = progressPercent(summary.totalProtein, preferences.proteinGoal),
-                fatProgress = progressPercent(summary.totalFat, preferences.fatGoal),
+                carbsBaseProgress = macroBaseProgressPercent(summary.totalCarbs, preferences.carbsGoal),
+                carbsOverProgress = macroOverProgressPercent(summary.totalCarbs, preferences.carbsGoal),
+                proteinBaseProgress = macroBaseProgressPercent(summary.totalProtein, preferences.proteinGoal),
+                proteinOverProgress = macroOverProgressPercent(summary.totalProtein, preferences.proteinGoal),
+                fatBaseProgress = macroBaseProgressPercent(summary.totalFat, preferences.fatGoal),
+                fatOverProgress = macroOverProgressPercent(summary.totalFat, preferences.fatGoal),
                 carbsText = macroValueText(summary.totalCarbs, preferences.carbsGoal),
                 proteinText = macroValueText(summary.totalProtein, preferences.proteinGoal),
                 fatText = macroValueText(summary.totalFat, preferences.fatGoal)
@@ -220,6 +227,27 @@ abstract class BaseCalorieWidgetProvider(
 
         private fun macroValueText(value: Double, goal: Double): String {
             return "${value.roundToInt()} / ${goal.roundToInt()} g"
+        }
+
+        private fun macroBaseProgressPercent(value: Double, goal: Double): Int {
+            if (goal <= 0.0) return 0
+            val ratio = value / goal
+            return if (ratio <= 1.0) {
+                (ratio * 100.0).roundToInt().coerceIn(0, 100)
+            } else {
+                val overPercent = ((ratio - 1.0) * 100.0).roundToInt().coerceIn(0, 100)
+                (100 - overPercent).coerceIn(0, 100)
+            }
+        }
+
+        private fun macroOverProgressPercent(value: Double, goal: Double): Int {
+            if (goal <= 0.0) return 0
+            val ratio = value / goal
+            return if (ratio <= 1.0) {
+                0
+            } else {
+                ((ratio - 1.0) * 100.0).roundToInt().coerceIn(0, 100)
+            }
         }
 
         private fun createRemainingRingBitmap(
@@ -276,9 +304,12 @@ private data class WidgetCalorieData(
     val remaining: Int,
     val ringProgress: Int,
     val isOverGoal: Boolean,
-    val carbsProgress: Int,
-    val proteinProgress: Int,
-    val fatProgress: Int,
+    val carbsBaseProgress: Int,
+    val carbsOverProgress: Int,
+    val proteinBaseProgress: Int,
+    val proteinOverProgress: Int,
+    val fatBaseProgress: Int,
+    val fatOverProgress: Int,
     val carbsText: String,
     val proteinText: String,
     val fatText: String
