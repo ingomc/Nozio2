@@ -7,11 +7,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -53,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -71,6 +73,7 @@ import androidx.compose.ui.zIndex
 import de.ingomc.nozio.data.local.DiaryEntryWithFood
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
+import de.ingomc.nozio.ui.theme.nozioColors
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -121,6 +124,13 @@ fun MealCard(
             .background(
                 color = mealCardColor,
                 shape = mealCardShape
+            )
+            .then(
+                if (isDraggingInThisCard) {
+                    Modifier
+                } else {
+                    Modifier.clip(mealCardShape)
+                }
             )
     ) {
         Column {
@@ -180,6 +190,7 @@ fun MealCard(
                             dragOffsetY = draggedOffsetY
                         )
                     }
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
         }
@@ -223,24 +234,25 @@ private fun SwipeRevealEntryRow(
 ) {
     val actionSlotWidth = 52.dp
     val actionButtonSize = 44.dp
-    val rowShape = RoundedCornerShape(14.dp)
+    val rowShape = RoundedCornerShape(0.dp)
     val actionShape = RoundedCornerShape(18.dp)
     val density = LocalDensity.current
     val maxRevealPx = remember(density) { with(density) { actionSlotWidth.toPx() * 2f } }
     var offsetX by remember(entry.entryId) { mutableFloatStateOf(0f) }
     val animatedOffset by animateFloatAsState(targetValue = offsetX, label = "entryRevealOffset")
+    val revealProgress = (-animatedOffset / maxRevealPx).coerceIn(0f, 1f)
+    val actionBackgroundAlpha = ((revealProgress - 0.12f) / 0.88f).coerceIn(0f, 1f)
+    val copyActionAlpha = ((revealProgress - 0.10f) / 0.55f).coerceIn(0f, 1f)
+    val deleteActionAlpha = ((revealProgress - 0.35f) / 0.65f).coerceIn(0f, 1f)
     var layoutCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .heightIn(min = 64.dp)
     ) {
         Box(
             modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight(),
+                .matchParentSize(),
             contentAlignment = Alignment.CenterEnd
         ) {
             Box(
@@ -248,12 +260,13 @@ private fun SwipeRevealEntryRow(
                     .fillMaxHeight()
                     .width(actionSlotWidth * 2)
                     .clip(actionShape)
+                    .alpha(actionBackgroundAlpha)
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.32f),
-                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f)
+                                MaterialTheme.colorScheme.surfaceContainerLow,
+                                MaterialTheme.colorScheme.surfaceContainer,
+                                MaterialTheme.colorScheme.surfaceContainerHigh
                             )
                         )
                     )
@@ -262,6 +275,7 @@ private fun SwipeRevealEntryRow(
             Row(
                 modifier = Modifier
                     .fillMaxHeight()
+                    .width(actionSlotWidth * 2)
                     .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
@@ -275,15 +289,16 @@ private fun SwipeRevealEntryRow(
                     Box(
                         modifier = Modifier
                             .size(actionButtonSize)
+                            .alpha(copyActionAlpha)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
-                            .clickable(onClick = onCopy),
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable(enabled = copyActionAlpha > 0.2f, onClick = onCopy),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = "Eintrag kopieren",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
@@ -296,15 +311,16 @@ private fun SwipeRevealEntryRow(
                     Box(
                         modifier = Modifier
                             .size(actionButtonSize)
+                            .alpha(deleteActionAlpha)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
-                            .clickable(onClick = onDelete),
+                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .clickable(enabled = deleteActionAlpha > 0.2f, onClick = onDelete),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Eintrag löschen",
-                            tint = MaterialTheme.colorScheme.error
+                            tint = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
                 }
@@ -319,7 +335,7 @@ private fun SwipeRevealEntryRow(
                         y = if (isBeingDragged) dragOffsetY.roundToInt() else 0
                     )
                 }
-                .zIndex(if (isBeingDragged) 1f else 0f)
+                .zIndex(if (isBeingDragged) 100f else 0f)
                 .fillMaxWidth()
                 .clip(rowShape)
                 .background(MaterialTheme.colorScheme.surface)
@@ -360,13 +376,13 @@ private fun SwipeRevealEntryRow(
                         }
                     )
                 }
-                .padding(vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = 8.dp)
+                    .padding(horizontal = 2.dp)
             ) {
                 Text(
                     text = entry.foodName,
@@ -435,7 +451,9 @@ private fun CopyEntryBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier
@@ -533,7 +551,9 @@ private fun EditEntryBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier

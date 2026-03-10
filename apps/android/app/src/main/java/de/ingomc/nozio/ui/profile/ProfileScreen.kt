@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -68,6 +69,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.ingomc.nozio.ui.theme.nozioColors
+import de.ingomc.nozio.ui.theme.expressiveTopAppBarColors
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -113,13 +115,7 @@ fun ProfileScreen(
             .nestedScroll(appBarScrollBehavior.nestedScrollConnection)
     ) {
         TopAppBar(
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-                scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                titleContentColor = MaterialTheme.colorScheme.onSurface,
-                actionIconContentColor = MaterialTheme.colorScheme.onSurface
-            ),
+            colors = expressiveTopAppBarColors(),
             scrollBehavior = appBarScrollBehavior,
             title = {
                 Text(
@@ -310,10 +306,7 @@ fun ProfileEditGoalsScreen(
                     )
                 }
             },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-                scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
-            )
+            colors = expressiveTopAppBarColors()
         )
 
         EditableGoalsSection(
@@ -337,7 +330,13 @@ private fun ProfileSummaryCard(
     calorieGoal: Int?,
     todaySteps: Long
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.nozioColors.surface2
+        )
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -459,7 +458,13 @@ private fun WeightProgressCard(
     trendDeltaKg: Double?,
     weeksEstimate: Int?
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.nozioColors.surface2
+        )
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -537,7 +542,13 @@ private fun WeightProgressCard(
 
 @Composable
 private fun GoalsSummaryCard(items: List<String>) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.nozioColors.surface2
+        )
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

@@ -26,13 +26,20 @@
 - X-Achsen-Beschriftung im Profil-Chart verbessert (regelmaessige Datums-Ticks ohne Label-Ueberlappung).
 - Supplements-Timeline visuell verdichtet: kompaktere Zwei-Zeilen-Karten, kleinerer Toggle-Indikator mit animiertem Check-in.
 - Dashboard-Drag-and-Drop fuer Mahlzeit-Eintraege verbessert: Das Original-Item wird entlang der Y-Achse gezogen (kein dupliziertes Overlay mehr), inklusive sauberem Layering ueber den Karten.
-- Clipping beim Drag in den Mahlzeit-Karten entfernt, damit gezogene Eintraege auch ausserhalb des Card-Rahmens sichtbar bleiben.
+- Clipping in den Mahlzeit-Karten ist jetzt zustandsabhaengig: normal sauber geclippt, waehrend aktivem Drag-and-Drop bewusst offen fuer fluesiges Umordnen.
 - Copy-BottomSheet optimiert: Mahlzeit-Chips sind gleich breit, einzeilig und umbrechen nicht mehr unruhig.
 - Home-Screen-Widgets nutzen die Breite besser: reduzierte Seitenabstaende sowie groessere Scan-/Plus-Buttons fuer bessere Touchbarkeit.
 - Add-Product-BottomSheet zeigt beim Laden von Produktbildern jetzt einen Shimmer-Placeholder im Bildcontainer (mit sauberem Fallback bei fehlendem/fehlerhaftem Bild).
 - Supplements-Timeline ueberarbeitet: Uhrzeit als sticky Zeitlabel plus incoming Zeitlabels fuer kommende Gruppen; Badge-/Card-Layout und Layering wurden gegen Clipping/Versatz stabilisiert.
 - Dashboard-Makro-Balken zeigen Ueberziel jetzt anteilig in Rot (rechter Anteil), waehrend die Fuellung als ein durchgehender Balken animiert.
 - Kompaktes Widget-Makro-Layout neu aufgeteilt: links kurze Labels (`KH`, `EW`, `F`), rechts die jeweiligen Balken fuer bessere Lesbarkeit.
+- App-weites Material3-Refresh gestartet: konsistentere expressive Tokens fuer Farben, Shapes, TopBars, BottomSheets und Navigation.
+- Suche auf Android-Primary-Tabs umgestellt (`Zuletzt`, `Haeufig`, `Favoriten`) inkl. Icon+Label pro Tab bei unveraenderter Ergebnis-Logik.
+- Suchleiste im Suchscreen visuell harmonisiert (subdued-primary statt lila Stich) und als klarere, zusammengehoerige Suche+Scanner-Aktionseinheit gestaltet.
+- QR-Scanner-BottomSheet verbessert: quadratischer Kameraausschnitt, dynamischere Sheet-Hoehe nach Inhalt und neuer Blitz-Toggle fuer dunkle Umgebungen.
+- Dashboard-Mahlzeitzeilen verdichtet: weniger vertikaler Verbrauch, staerkere Full-Width-Anmutung, Swipe-Actions mit progressivem Einblenden und stabilerem Button-Hintergrund-Kontrast.
+- Swipe/Drag-Layering in Mahlzeiten weiter verfeinert: gezogenes Item liegt per erhoehtem z-index sichtbar ueber Nachbarinhalten.
+- Einstellungen visuell entschlackt: Row-Hierarchie klarer, weniger "Kachel-Overload", besserer Fit zum restlichen App-Chrome.
 
 ## Notes
 - Lokale DB-Migration auf Version 8: neue Tabellen `supplement_plan_items` und `supplement_intakes`.

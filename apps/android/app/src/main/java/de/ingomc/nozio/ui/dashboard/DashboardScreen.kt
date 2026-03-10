@@ -42,12 +42,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.local.DiaryEntryWithFood
+import de.ingomc.nozio.ui.theme.expressiveTopAppBarColors
 import de.ingomc.nozio.ui.theme.nozioColors
 import java.time.Instant
 import java.time.LocalDate
@@ -147,13 +147,7 @@ fun DashboardScreen(
                 .nestedScroll(appBarScrollBehavior.nestedScrollConnection)
         ) {
             TopAppBar(
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-                scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                titleContentColor = MaterialTheme.colorScheme.onSurface,
-                actionIconContentColor = MaterialTheme.colorScheme.onSurface
-            ),
+            colors = expressiveTopAppBarColors(),
             scrollBehavior = appBarScrollBehavior,
             title = {
                 Column {
@@ -202,8 +196,9 @@ fun DashboardScreen(
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                        containerColor = MaterialTheme.nozioColors.surface2
+                    ),
+                    shape = MaterialTheme.shapes.large
                 ) {
                     Column(
                         modifier = Modifier

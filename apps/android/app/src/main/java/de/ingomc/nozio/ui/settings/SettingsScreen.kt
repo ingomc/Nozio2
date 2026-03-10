@@ -73,6 +73,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import de.ingomc.nozio.BuildConfig
 import de.ingomc.nozio.data.repository.AppThemeMode
 import de.ingomc.nozio.notifications.MealReminderReceiver
+import de.ingomc.nozio.ui.theme.expressiveTopAppBarColors
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
@@ -302,6 +303,7 @@ fun SettingsScreen(
     ) {
         TopAppBar(
             scrollBehavior = appBarScrollBehavior,
+            colors = expressiveTopAppBarColors(),
             navigationIcon = {
                 if (onBack != null) {
                     IconButton(onClick = onBack) {
@@ -681,11 +683,11 @@ private fun SettingRow(
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 2.dp)
+            .padding(horizontal = 4.dp, vertical = 8.dp)
     } else {
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
+            .padding(horizontal = 4.dp, vertical = 8.dp)
     }
     Row(
         modifier = rowModifier,
@@ -699,7 +701,7 @@ private fun SettingRow(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
             subtitle?.let {

@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import de.ingomc.nozio.ui.theme.nozioColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -162,7 +163,9 @@ fun WeightInputBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier

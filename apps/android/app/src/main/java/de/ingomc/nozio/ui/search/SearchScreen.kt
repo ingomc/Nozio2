@@ -646,6 +646,8 @@ private fun BarcodeResultsBottomSheet(
     val maxSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.88f
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         Column(
             modifier = Modifier
