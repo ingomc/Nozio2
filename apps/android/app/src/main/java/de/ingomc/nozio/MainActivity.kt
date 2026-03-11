@@ -9,15 +9,27 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -42,6 +54,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -66,6 +80,8 @@ import de.ingomc.nozio.ui.profile.LegalInfoScreen
 import de.ingomc.nozio.ui.profile.ProfileEditGoalsScreen
 import de.ingomc.nozio.ui.profile.ProfileScreen
 import de.ingomc.nozio.ui.profile.ProfileViewModel
+import de.ingomc.nozio.ui.search.AddConfirmationBanner
+import de.ingomc.nozio.ui.search.AddConfirmationState
 import de.ingomc.nozio.ui.search.SearchScreen
 import de.ingomc.nozio.ui.search.SearchViewModel
 import de.ingomc.nozio.ui.settings.SettingsScreen
@@ -205,6 +221,10 @@ fun NozioApp(
         )
     )
     val dashboardState by dashboardViewModel.uiState.collectAsState()
+    val searchState by searchViewModel.uiState.collectAsState()
+    val addConfirmationProgress = remember { Animatable(0f) }
+    val addBannerVisibilityState = remember { MutableTransitionState(false) }
+    var displayedAddConfirmation by remember { mutableStateOf<AddConfirmationState?>(null) }
 
     val darkTheme = when (userPreferences?.themeMode ?: AppThemeMode.SYSTEM) {
         AppThemeMode.SYSTEM -> null
@@ -214,6 +234,46 @@ fun NozioApp(
 
     LaunchedEffect(dashboardState.selectedDate) {
         searchViewModel.setSelectedDate(dashboardState.selectedDate)
+    }
+
+    LaunchedEffect(searchState.activeAddConfirmation?.bannerId) {
+        val confirmation = searchState.activeAddConfirmation
+        if (confirmation == null) {
+            addConfirmationProgress.snapTo(0f)
+        } else {
+            addConfirmationProgress.snapTo(1f)
+            addConfirmationProgress.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 3000, easing = LinearEasing)
+            )
+            searchViewModel.dismissAddConfirmation()
+        }
+    }
+
+    LaunchedEffect(searchState.activeAddConfirmation) {
+        val confirmation = searchState.activeAddConfirmation
+        if (confirmation != null) {
+            displayedAddConfirmation = confirmation
+            addBannerVisibilityState.targetState = true
+        } else {
+            addBannerVisibilityState.targetState = false
+        }
+    }
+
+    LaunchedEffect(
+        addBannerVisibilityState.currentState,
+        addBannerVisibilityState.targetState,
+        addBannerVisibilityState.isIdle,
+        searchState.activeAddConfirmation
+    ) {
+        if (
+            searchState.activeAddConfirmation == null &&
+            addBannerVisibilityState.isIdle &&
+            !addBannerVisibilityState.currentState &&
+            !addBannerVisibilityState.targetState
+        ) {
+            displayedAddConfirmation = null
+        }
     }
 
     LaunchedEffect(launchAction, navController) {
@@ -286,101 +346,162 @@ fun NozioApp(
                 }
             }
         ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = AppRoute.HOME,
-                modifier = Modifier.padding(innerPadding),
-                enterTransition = {
-                    val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
-                    sharedAxisEnter(forward)
-                },
-                exitTransition = {
-                    val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
-                    sharedAxisExit(forward)
-                },
-                popEnterTransition = {
-                    val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
-                    sharedAxisEnter(!forward)
-                },
-                popExitTransition = {
-                    val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
-                    sharedAxisExit(!forward)
-                }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
             ) {
-                composable(AppRoute.HOME) {
-                    DashboardScreen(
-                        viewModel = dashboardViewModel,
-                        onAddFood = { mealType ->
-                            searchViewModel.setSelectedDate(dashboardState.selectedDate)
-                            preselectedMealType = mealType
-                            navController.navigateToBottomDestination(AppRoute.SEARCH)
-                        },
-                        onEditSupplements = { navController.navigate(AppRoute.SUPPLEMENTS_EDIT) }
-                    )
+                NavHost(
+                    navController = navController,
+                    startDestination = AppRoute.HOME,
+                    modifier = Modifier.fillMaxSize(),
+                    enterTransition = {
+                        val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
+                        sharedAxisEnter(forward)
+                    },
+                    exitTransition = {
+                        val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
+                        sharedAxisExit(forward)
+                    },
+                    popEnterTransition = {
+                        val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
+                        sharedAxisEnter(!forward)
+                    },
+                    popExitTransition = {
+                        val forward = transitionDirection(targetState.destination.route, initialState.destination.route) >= 0
+                        sharedAxisExit(!forward)
+                    }
+                ) {
+                    composable(AppRoute.HOME) {
+                        DashboardScreen(
+                            viewModel = dashboardViewModel,
+                            onAddFood = { mealType ->
+                                searchViewModel.setSelectedDate(dashboardState.selectedDate)
+                                preselectedMealType = mealType
+                                navController.navigateToBottomDestination(AppRoute.SEARCH)
+                            },
+                            onEditSupplements = { navController.navigate(AppRoute.SUPPLEMENTS_EDIT) }
+                        )
+                    }
+
+                    composable(AppRoute.SEARCH) {
+                        SearchScreen(
+                            viewModel = searchViewModel,
+                            preselectedMealType = preselectedMealType,
+                            openQuickAddOnStart = openQuickAddOnStart,
+                            openBarcodeScannerOnStart = openBarcodeScannerOnStart,
+                            focusSearchOnStart = focusSearchOnStart,
+                            onQuickAddOpened = { openQuickAddOnStart = false },
+                            onBarcodeScannerOpened = { openBarcodeScannerOnStart = false },
+                            onSearchFocused = { focusSearchOnStart = false }
+                        )
+                    }
+
+                    composable(AppRoute.PROFILE) {
+                        ProfileScreen(
+                            viewModel = profileViewModel,
+                            onEditGoals = { navController.navigate(AppRoute.PROFILE_EDIT) }
+                        )
+                    }
+
+                    composable(AppRoute.PROFILE_EDIT) {
+                        ProfileEditGoalsScreen(
+                            viewModel = profileViewModel,
+                            onBack = { navController.navigateUp() }
+                        )
+                    }
+
+                    composable(AppRoute.SETTINGS_LEGAL) {
+                        LegalInfoScreen(onBack = { navController.navigateUp() })
+                    }
+
+                    composable(AppRoute.SETTINGS_MAIN) {
+                        SettingsScreen(
+                            viewModel = settingsViewModel,
+                            section = SettingsSection.MAIN,
+                            onNavigateToReminder = { navController.navigate(AppRoute.SETTINGS_REMINDER) },
+                            onNavigateToBackup = { navController.navigate(AppRoute.SETTINGS_BACKUP) },
+                            onNavigateToLegalInfo = { navController.navigate(AppRoute.SETTINGS_LEGAL) }
+                        )
+                    }
+
+                    composable(AppRoute.SETTINGS_REMINDER) {
+                        SettingsScreen(
+                            viewModel = settingsViewModel,
+                            section = SettingsSection.REMINDER,
+                            onBack = { navController.navigateUp() }
+                        )
+                    }
+
+                    composable(AppRoute.SETTINGS_BACKUP) {
+                        SettingsScreen(
+                            viewModel = settingsViewModel,
+                            section = SettingsSection.BACKUP,
+                            onBack = { navController.navigateUp() }
+                        )
+                    }
+
+                    composable(AppRoute.SUPPLEMENTS_EDIT) {
+                        SupplementsEditScreen(
+                            viewModel = supplementsEditViewModel,
+                            onBack = { navController.navigateUp() }
+                        )
+                    }
                 }
 
-                composable(AppRoute.SEARCH) {
-                    SearchScreen(
-                        viewModel = searchViewModel,
-                        preselectedMealType = preselectedMealType,
-                        openQuickAddOnStart = openQuickAddOnStart,
-                        openBarcodeScannerOnStart = openBarcodeScannerOnStart,
-                        focusSearchOnStart = focusSearchOnStart,
-                        onQuickAddOpened = { openQuickAddOnStart = false },
-                        onBarcodeScannerOpened = { openBarcodeScannerOnStart = false },
-                        onSearchFocused = { focusSearchOnStart = false }
+                AnimatedVisibility(
+                    visibleState = addBannerVisibilityState,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 8.dp, start = 16.dp, end = 16.dp),
+                    enter = fadeIn(
+                        animationSpec = tween(
+                            durationMillis = ExpressiveMotion.DurationShort,
+                            easing = ExpressiveMotion.Standard
+                        )
+                    ) + slideInVertically(
+                        animationSpec = spring(
+                            dampingRatio = 0.8f,
+                            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                        ),
+                        initialOffsetY = { -it }
+                    ) + scaleIn(
+                        initialScale = 0.96f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                        animationSpec = spring(
+                            dampingRatio = 0.88f,
+                            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                        )
+                    ),
+                    exit = fadeOut(
+                        animationSpec = tween(
+                            durationMillis = ExpressiveMotion.DurationShort,
+                            easing = ExpressiveMotion.Emphasized
+                        )
+                    ) + slideOutVertically(
+                        animationSpec = tween(
+                            durationMillis = ExpressiveMotion.DurationMedium,
+                            easing = ExpressiveMotion.Emphasized
+                        ),
+                        targetOffsetY = { -it / 2 }
+                    ) + scaleOut(
+                        targetScale = 0.98f,
+                        transformOrigin = TransformOrigin(0.5f, 0f),
+                        animationSpec = tween(
+                            durationMillis = ExpressiveMotion.DurationShort,
+                            easing = ExpressiveMotion.Standard
+                        )
                     )
-                }
-
-                composable(AppRoute.PROFILE) {
-                    ProfileScreen(
-                        viewModel = profileViewModel,
-                        onEditGoals = { navController.navigate(AppRoute.PROFILE_EDIT) }
-                    )
-                }
-
-                composable(AppRoute.PROFILE_EDIT) {
-                    ProfileEditGoalsScreen(
-                        viewModel = profileViewModel,
-                        onBack = { navController.navigateUp() }
-                    )
-                }
-
-                composable(AppRoute.SETTINGS_LEGAL) {
-                    LegalInfoScreen(onBack = { navController.navigateUp() })
-                }
-
-                composable(AppRoute.SETTINGS_MAIN) {
-                    SettingsScreen(
-                        viewModel = settingsViewModel,
-                        section = SettingsSection.MAIN,
-                        onNavigateToReminder = { navController.navigate(AppRoute.SETTINGS_REMINDER) },
-                        onNavigateToBackup = { navController.navigate(AppRoute.SETTINGS_BACKUP) },
-                        onNavigateToLegalInfo = { navController.navigate(AppRoute.SETTINGS_LEGAL) }
-                    )
-                }
-
-                composable(AppRoute.SETTINGS_REMINDER) {
-                    SettingsScreen(
-                        viewModel = settingsViewModel,
-                        section = SettingsSection.REMINDER,
-                        onBack = { navController.navigateUp() }
-                    )
-                }
-
-                composable(AppRoute.SETTINGS_BACKUP) {
-                    SettingsScreen(
-                        viewModel = settingsViewModel,
-                        section = SettingsSection.BACKUP,
-                        onBack = { navController.navigateUp() }
-                    )
-                }
-
-                composable(AppRoute.SUPPLEMENTS_EDIT) {
-                    SupplementsEditScreen(
-                        viewModel = supplementsEditViewModel,
-                        onBack = { navController.navigateUp() }
-                    )
+                ) {
+                    displayedAddConfirmation?.let { confirmation ->
+                        AddConfirmationBanner(
+                            confirmation = confirmation,
+                            progress = addConfirmationProgress.value,
+                            onUndo = searchViewModel::undoLastAddedFood,
+                            onConfirm = searchViewModel::dismissAddConfirmation
+                        )
+                    }
                 }
             }
         }
