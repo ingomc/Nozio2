@@ -6,6 +6,20 @@ import de.ingomc.nozio.data.local.FoodSource
 import de.ingomc.nozio.data.remote.FoodApi
 import de.ingomc.nozio.data.remote.CreateCustomFoodRequestDto
 import de.ingomc.nozio.data.remote.FoodSearchItemDto
+import de.ingomc.nozio.data.remote.VisionNutritionParseRequestDto
+
+data class NutritionParseResult(
+    val name: String? = null,
+    val brand: String? = null,
+    val caloriesPer100g: Double? = null,
+    val proteinPer100g: Double? = null,
+    val carbsPer100g: Double? = null,
+    val fatPer100g: Double? = null,
+    val sugarPer100g: Double? = null,
+    val confidence: Double,
+    val model: String,
+    val warnings: List<String> = emptyList()
+)
 
 data class CustomFoodInput(
     val name: String,
@@ -140,6 +154,30 @@ class FoodRepository(
         if (foodId <= 0) return null
         foodDao.setFavorite(foodId = foodId, isFavorite = isFavorite)
         return foodDao.getById(foodId)
+    }
+
+    suspend fun parseNutritionFromImage(
+        imageBase64: String,
+        locale: String = "de"
+    ): NutritionParseResult {
+        val response = api.parseNutritionFromImage(
+            VisionNutritionParseRequestDto(
+                imageBase64 = imageBase64,
+                locale = locale
+            )
+        )
+        return NutritionParseResult(
+            name = response.name,
+            brand = response.brand,
+            caloriesPer100g = response.caloriesPer100g,
+            proteinPer100g = response.proteinPer100g,
+            carbsPer100g = response.carbsPer100g,
+            fatPer100g = response.fatPer100g,
+            sugarPer100g = response.sugarPer100g,
+            confidence = response.confidence,
+            model = response.model,
+            warnings = response.warnings
+        )
     }
 
     private fun FoodSearchItemDto.hasValidData(): Boolean {

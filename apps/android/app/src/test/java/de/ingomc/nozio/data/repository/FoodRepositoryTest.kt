@@ -9,6 +9,8 @@ import de.ingomc.nozio.data.remote.CreateCustomFoodResponseDto
 import de.ingomc.nozio.data.remote.FoodBarcodeResponseDto
 import de.ingomc.nozio.data.remote.FoodSearchItemDto
 import de.ingomc.nozio.data.remote.FoodSearchResponseDto
+import de.ingomc.nozio.data.remote.VisionNutritionParseRequestDto
+import de.ingomc.nozio.data.remote.VisionNutritionParseResponseDto
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -100,6 +102,20 @@ class FoodRepositoryTest {
         assertEquals("Protein Porridge (Nozio)", result.name)
     }
 
+    @Test
+    fun parseNutritionFromImage_mapsVisionResponse() = runTest {
+        val repository = FoodRepository(
+            api = FakeFoodApi(),
+            foodDao = FakeFoodDao()
+        )
+
+        val result = repository.parseNutritionFromImage("abc123", "de")
+
+        assertEquals(420.0, result.caloriesPer100g)
+        assertEquals(24.0, result.proteinPer100g)
+        assertEquals("gemini-2.0-flash", result.model)
+    }
+
     private class FakeFoodApi(
         private val searchResponse: FoodSearchResponseDto = FoodSearchResponseDto(),
         private val barcodeResponse: FoodBarcodeResponseDto? = FoodBarcodeResponseDto(
@@ -139,6 +155,20 @@ class FoodRepositoryTest {
 
         override suspend fun createCustomFood(request: CreateCustomFoodRequestDto): CreateCustomFoodResponseDto {
             return customFoodResponse
+        }
+
+        override suspend fun parseNutritionFromImage(request: VisionNutritionParseRequestDto): VisionNutritionParseResponseDto {
+            return VisionNutritionParseResponseDto(
+                name = "Protein Bar",
+                caloriesPer100g = 420.0,
+                proteinPer100g = 24.0,
+                carbsPer100g = 38.0,
+                fatPer100g = 16.0,
+                sugarPer100g = 6.0,
+                confidence = 0.91,
+                model = "gemini-2.0-flash",
+                warnings = emptyList()
+            )
         }
     }
 

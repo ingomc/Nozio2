@@ -36,6 +36,26 @@ data class CreateCustomFoodResponseDto(
 )
 
 @Serializable
+data class VisionNutritionParseRequestDto(
+    val imageBase64: String,
+    val locale: String = "de"
+)
+
+@Serializable
+data class VisionNutritionParseResponseDto(
+    val name: String? = null,
+    val brand: String? = null,
+    val caloriesPer100g: Double? = null,
+    val proteinPer100g: Double? = null,
+    val carbsPer100g: Double? = null,
+    val fatPer100g: Double? = null,
+    val sugarPer100g: Double? = null,
+    val confidence: Double,
+    val model: String,
+    val warnings: List<String> = emptyList()
+)
+
+@Serializable
 data class FoodSearchItemDto(
     val id: String,
     val name: String,

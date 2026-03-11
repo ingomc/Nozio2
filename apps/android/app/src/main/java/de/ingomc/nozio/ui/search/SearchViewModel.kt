@@ -10,6 +10,7 @@ import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.repository.CustomFoodInput
 import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.FoodRepository
+import de.ingomc.nozio.data.repository.NutritionParseResult
 import de.ingomc.nozio.widget.CalorieWidgetProvider
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,19 @@ data class AddConfirmationState(
     val source: AddConfirmationSource
 )
 
+enum class NutritionApplyTarget {
+    QUICK_ADD,
+    CUSTOM_FOOD
+}
+
+data class QuickAddDraft(
+    val name: String? = null,
+    val calories: Double? = null,
+    val protein: Double? = null,
+    val fat: Double? = null,
+    val carbs: Double? = null
+)
+
 fun interface WidgetRefreshDelegate {
     suspend fun refresh()
 }
@@ -57,6 +71,12 @@ data class SearchUiState(
     val showBottomSheet: Boolean = false,
     val showQuickAddSheet: Boolean = false,
     val showCreateCustomFoodSheet: Boolean = false,
+    val showNutritionScannerSheet: Boolean = false,
+    val showNutritionReviewSheet: Boolean = false,
+    val nutritionApplyTarget: NutritionApplyTarget? = null,
+    val nutritionScanResult: NutritionScanResult? = null,
+    val prefillCustomFoodDraft: CustomFoodDraft? = null,
+    val prefillQuickAddDraft: QuickAddDraft? = null,
     val activeAddConfirmation: AddConfirmationState? = null,
     val showBarcodeResultsSheet: Boolean = false,
     val isSubmittingCustomFood: Boolean = false
@@ -140,23 +160,147 @@ class SearchViewModel(
     fun showQuickAddSheet() {
         _uiState.value = _uiState.value.copy(
             showQuickAddSheet = true,
-            showCreateCustomFoodSheet = false
+            showCreateCustomFoodSheet = false,
+            showNutritionReviewSheet = false,
+            prefillCustomFoodDraft = null
         )
     }
 
     fun dismissQuickAddSheet() {
-        _uiState.value = _uiState.value.copy(showQuickAddSheet = false)
+        _uiState.value = _uiState.value.copy(
+            showQuickAddSheet = false,
+            prefillQuickAddDraft = null
+        )
     }
 
     fun showCreateCustomFoodSheet() {
         _uiState.value = _uiState.value.copy(
             showCreateCustomFoodSheet = true,
-            showQuickAddSheet = false
+            showQuickAddSheet = false,
+            showNutritionReviewSheet = false,
+            prefillQuickAddDraft = null,
+            prefillCustomFoodDraft = null
         )
     }
 
     fun dismissCreateCustomFoodSheet() {
-        _uiState.value = _uiState.value.copy(showCreateCustomFoodSheet = false)
+        _uiState.value = _uiState.value.copy(
+            showCreateCustomFoodSheet = false,
+            prefillCustomFoodDraft = null
+        )
+    }
+
+    fun showNutritionScannerSheet(target: NutritionApplyTarget) {
+        _uiState.value = _uiState.value.copy(
+            showNutritionScannerSheet = true,
+            showQuickAddSheet = false,
+            showCreateCustomFoodSheet = false,
+            nutritionApplyTarget = target
+        )
+    }
+
+    fun dismissNutritionScannerSheet() {
+        _uiState.value = _uiState.value.copy(showNutritionScannerSheet = false)
+    }
+
+    fun dismissNutritionReviewSheet() {
+        _uiState.value = _uiState.value.copy(
+            showNutritionReviewSheet = false,
+            nutritionScanResult = null,
+            nutritionApplyTarget = null
+        )
+    }
+
+    fun onNutritionTextScanned(rawText: String) {
+        val scanResult = NutritionLabelParser.parse(rawText)
+        _uiState.value = if (scanResult == null) {
+            _uiState.value.copy(
+                showNutritionScannerSheet = false,
+                showNutritionReviewSheet = false,
+                nutritionScanResult = null,
+                nutritionApplyTarget = null,
+                error = "Keine Naehrwerte pro 100g/100ml erkannt."
+            )
+        } else {
+            _uiState.value.copy(
+                showNutritionScannerSheet = false,
+                showNutritionReviewSheet = true,
+                nutritionScanResult = scanResult,
+                error = null
+            )
+        }
+    }
+
+    fun onNutritionImageCaptured(imageBase64: String, locale: String = "de") {
+        if (imageBase64.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                showNutritionScannerSheet = false,
+                error = "Scanbild war leer. Bitte erneut versuchen."
+            )
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(
+            showNutritionScannerSheet = false,
+            error = null
+        )
+
+        viewModelScope.launch {
+            try {
+                val parsed = foodRepository.parseNutritionFromImage(
+                    imageBase64 = imageBase64,
+                    locale = locale
+                )
+                val scanResult = parsed.toNutritionScanResult()
+                if (scanResult.fields.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        showNutritionReviewSheet = false,
+                        nutritionScanResult = null,
+                        error = "Keine verwertbaren Naehrwerte erkannt. Bitte manuell pruefen."
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        showNutritionReviewSheet = true,
+                        nutritionScanResult = scanResult,
+                        error = null
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    showNutritionReviewSheet = false,
+                    nutritionScanResult = null,
+                    error = "Vision-Scan fehlgeschlagen. Bitte erneut versuchen."
+                )
+            }
+        }
+    }
+
+    fun applyNutritionDraft(draft: CustomFoodDraft) {
+        when (_uiState.value.nutritionApplyTarget) {
+            NutritionApplyTarget.QUICK_ADD -> {
+                _uiState.value = _uiState.value.copy(
+                    showNutritionReviewSheet = false,
+                    nutritionScanResult = null,
+                    nutritionApplyTarget = null,
+                    prefillQuickAddDraft = draft.toQuickAddDraft(),
+                    prefillCustomFoodDraft = null,
+                    showQuickAddSheet = true,
+                    showCreateCustomFoodSheet = false
+                )
+            }
+
+            NutritionApplyTarget.CUSTOM_FOOD, null -> {
+                _uiState.value = _uiState.value.copy(
+                    showNutritionReviewSheet = false,
+                    nutritionScanResult = null,
+                    nutritionApplyTarget = null,
+                    prefillCustomFoodDraft = draft,
+                    prefillQuickAddDraft = null,
+                    showCreateCustomFoodSheet = true,
+                    showQuickAddSheet = false
+                )
+            }
+        }
     }
 
     fun dismissBarcodeResultsSheet() {
@@ -233,6 +377,7 @@ class SearchViewModel(
                 frequentSuggestions = suggestions.frequent,
                 favoriteSuggestions = suggestions.favorites,
                 showQuickAddSheet = false,
+                prefillQuickAddDraft = null,
                 activeAddConfirmation = AddConfirmationState(
                     bannerId = nextBannerId++,
                     entryId = entryId,
@@ -261,6 +406,8 @@ class SearchViewModel(
                 _uiState.value = _uiState.value.copy(
                     isSubmittingCustomFood = false,
                     showCreateCustomFoodSheet = false,
+                    prefillCustomFoodDraft = null,
+                    prefillQuickAddDraft = null,
                     selectedFood = createdFood,
                     showBottomSheet = true
                 )
@@ -276,6 +423,12 @@ class SearchViewModel(
     fun dismissAddConfirmation() {
         if (_uiState.value.activeAddConfirmation != null) {
             _uiState.value = _uiState.value.copy(activeAddConfirmation = null)
+        }
+    }
+
+    fun clearError() {
+        if (_uiState.value.error != null) {
+            _uiState.value = _uiState.value.copy(error = null)
         }
     }
 
@@ -413,5 +566,62 @@ private fun FoodItem.toAddConfirmation(
         fat = (fatPer100g * multiplier).roundToInt(),
         carbs = (carbsPer100g * multiplier).roundToInt(),
         source = source
+    )
+}
+
+private fun NutritionParseResult.toNutritionScanResult(): NutritionScanResult {
+    val normalizedConfidence = confidence.coerceIn(0.0, 1.0).toFloat()
+    val fields = linkedMapOf<NutritionFieldKey, NutritionFieldValue>()
+    caloriesPer100g?.let {
+        fields[NutritionFieldKey.CALORIES] = NutritionFieldValue(
+            value = it,
+            confidence = normalizedConfidence,
+            sourceTag = model
+        )
+    }
+    proteinPer100g?.let {
+        fields[NutritionFieldKey.PROTEIN] = NutritionFieldValue(
+            value = it,
+            confidence = normalizedConfidence,
+            sourceTag = model
+        )
+    }
+    carbsPer100g?.let {
+        fields[NutritionFieldKey.CARBS] = NutritionFieldValue(
+            value = it,
+            confidence = normalizedConfidence,
+            sourceTag = model
+        )
+    }
+    fatPer100g?.let {
+        fields[NutritionFieldKey.FAT] = NutritionFieldValue(
+            value = it,
+            confidence = normalizedConfidence,
+            sourceTag = model
+        )
+    }
+    sugarPer100g?.let {
+        fields[NutritionFieldKey.SUGAR] = NutritionFieldValue(
+            value = it,
+            confidence = normalizedConfidence,
+            sourceTag = model
+        )
+    }
+    return NutritionScanResult(
+        fields = fields,
+        rawText = "gemini:$model",
+        productName = name,
+        brand = brand,
+        warnings = warnings
+    )
+}
+
+private fun CustomFoodDraft.toQuickAddDraft(): QuickAddDraft {
+    return QuickAddDraft(
+        name = name,
+        calories = caloriesPer100g,
+        protein = proteinPer100g,
+        fat = fatPer100g,
+        carbs = carbsPer100g
     )
 }

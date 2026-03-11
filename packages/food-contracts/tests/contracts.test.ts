@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { foodItemSchema, foodSearchResponseSchema } from "../src/index.ts";
+import {
+  foodItemSchema,
+  foodSearchResponseSchema,
+  visionNutritionParseRequestSchema,
+  visionNutritionParseResponseSchema
+} from "../src/index.ts";
 
 test("food item schema accepts valid payload", () => {
   const parsed = foodItemSchema.parse({
@@ -31,5 +36,23 @@ test("search response schema requires totalEstimated", () => {
   assert.throws(
     () => foodSearchResponseSchema.parse({ items: [] }),
     /totalEstimated/
+  );
+});
+
+test("vision parse request schema defaults locale", () => {
+  const parsed = visionNutritionParseRequestSchema.parse({
+    imageBase64: "abc123"
+  });
+  assert.equal(parsed.locale, "de");
+});
+
+test("vision parse response schema validates confidence range", () => {
+  assert.throws(
+    () => visionNutritionParseResponseSchema.parse({
+      confidence: 1.2,
+      model: "gemini-2.0-flash",
+      warnings: []
+    }),
+    /confidence/
   );
 });

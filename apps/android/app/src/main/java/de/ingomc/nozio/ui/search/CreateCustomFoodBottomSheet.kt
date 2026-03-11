@@ -14,15 +14,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
@@ -30,6 +34,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.QrCodeScanner
 import de.ingomc.nozio.data.repository.CustomFoodInput
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
 import de.ingomc.nozio.ui.theme.nozioColors
@@ -38,23 +45,32 @@ import de.ingomc.nozio.ui.theme.nozioColors
 @Composable
 fun CreateCustomFoodBottomSheet(
     isSubmitting: Boolean,
+    initial: CustomFoodDraft? = null,
+    prefilledBarcode: String? = null,
+    onScanNutrition: (() -> Unit)? = null,
+    onScanBarcode: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onSave: (CustomFoodInput) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val maxSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.88f
-    var name by remember { mutableStateOf("") }
-    var brand by remember { mutableStateOf("") }
-    var barcode by remember { mutableStateOf("") }
-    var calories by remember { mutableStateOf("") }
-    var protein by remember { mutableStateOf("") }
-    var fat by remember { mutableStateOf("") }
-    var carbs by remember { mutableStateOf("") }
-    var sugar by remember { mutableStateOf("") }
-    var servingSize by remember { mutableStateOf("") }
-    var servingQuantity by remember { mutableStateOf("") }
-    var packageSize by remember { mutableStateOf("") }
-    var packageQuantity by remember { mutableStateOf("") }
+    var name by rememberSaveable(initial) { mutableStateOf(initial?.name.orEmpty()) }
+    var brand by rememberSaveable(initial) { mutableStateOf(initial?.brand.orEmpty()) }
+    var barcode by rememberSaveable(initial) { mutableStateOf("") }
+    var calories by rememberSaveable(initial) { mutableStateOf(initial?.caloriesPer100g?.let(::formatDraftNumber).orEmpty()) }
+    var protein by rememberSaveable(initial) { mutableStateOf(initial?.proteinPer100g?.let(::formatDraftNumber).orEmpty()) }
+    var fat by rememberSaveable(initial) { mutableStateOf(initial?.fatPer100g?.let(::formatDraftNumber).orEmpty()) }
+    var carbs by rememberSaveable(initial) { mutableStateOf(initial?.carbsPer100g?.let(::formatDraftNumber).orEmpty()) }
+    var sugar by rememberSaveable(initial) { mutableStateOf(initial?.sugarPer100g?.let(::formatDraftNumber).orEmpty()) }
+    var servingSize by rememberSaveable(initial) { mutableStateOf("") }
+    var servingQuantity by rememberSaveable(initial) { mutableStateOf("") }
+    var packageSize by rememberSaveable(initial) { mutableStateOf("") }
+    var packageQuantity by rememberSaveable(initial) { mutableStateOf("") }
+    LaunchedEffect(prefilledBarcode) {
+        if (!prefilledBarcode.isNullOrBlank()) {
+            barcode = prefilledBarcode.filter(Char::isDigit)
+        }
+    }
 
     val caloriesValue = parseDecimalInput(calories)
     val proteinValue = parseDecimalInput(protein)
@@ -100,14 +116,48 @@ fun CreateCustomFoodBottomSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
             )
+            if (onScanNutrition != null) {
+                Button(
+                    onClick = onScanNutrition,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null
+                    )
+                    Text(
+                        text = "Naehrwert-Tabelle scannen",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
 
             ProductField(name, "Name", onValueChange = { name = it })
             ProductField(brand, "Marke optional", onValueChange = { brand = it })
-            ProductField(
-                barcode,
-                "Barcode optional",
-                keyboardType = KeyboardType.Number,
-                onValueChange = { barcode = it.filter(Char::isDigit) }
+            OutlinedTextField(
+                value = barcode,
+                onValueChange = { barcode = it.filter(Char::isDigit) },
+                label = { Text("Barcode optional") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                trailingIcon = if (onScanBarcode != null) {
+                    {
+                        IconButton(onClick = onScanBarcode) {
+                            Icon(
+                                imageVector = Icons.Default.QrCodeScanner,
+                                contentDescription = "Barcode scannen"
+                            )
+                        }
+                    }
+                } else {
+                    null
+                },
+                modifier = Modifier
+                    .bringIntoViewOnFocus()
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp)
             )
             ProductField(
                 calories,
@@ -303,4 +353,8 @@ internal fun parseDecimalInput(value: String): Double? {
         .replace(" ", "")
     if (normalized.isBlank()) return null
     return normalized.toDoubleOrNull()
+}
+
+private fun formatDraftNumber(value: Double): String {
+    return NutritionLabelParser.formatValue(value)
 }

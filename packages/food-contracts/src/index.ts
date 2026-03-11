@@ -59,6 +59,26 @@ export const createCustomFoodResponseSchema = z.object({
   item: foodItemSchema
 });
 
+export const visionNutritionParseRequestSchema = z.object({
+  imageBase64: z.string().trim().min(1),
+  locale: z.string().trim().min(2).max(10).default("de")
+});
+
+const nutritionValueSchema = numberField.nonnegative().max(2000);
+
+export const visionNutritionParseResponseSchema = z.object({
+  name: z.string().trim().nullable().optional(),
+  brand: z.string().trim().nullable().optional(),
+  caloriesPer100g: nutritionValueSchema.nullable().optional(),
+  proteinPer100g: nutritionValueSchema.nullable().optional(),
+  carbsPer100g: nutritionValueSchema.nullable().optional(),
+  fatPer100g: nutritionValueSchema.nullable().optional(),
+  sugarPer100g: nutritionValueSchema.nullable().optional(),
+  confidence: z.number().min(0).max(1),
+  model: z.string().min(1),
+  warnings: z.array(z.string().min(1)).default([])
+});
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().min(1),
@@ -92,6 +112,8 @@ export type FoodSearchResponse = z.infer<typeof foodSearchResponseSchema>;
 export type FoodBarcodeResponse = z.infer<typeof foodBarcodeResponseSchema>;
 export type CreateCustomFoodRequest = z.infer<typeof createCustomFoodRequestSchema>;
 export type CreateCustomFoodResponse = z.infer<typeof createCustomFoodResponseSchema>;
+export type VisionNutritionParseRequest = z.infer<typeof visionNutritionParseRequestSchema>;
+export type VisionNutritionParseResponse = z.infer<typeof visionNutritionParseResponseSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
 export type ImportInput = z.infer<typeof importInputSchema>;
 export type MeiliFoodDocument = z.infer<typeof meiliFoodDocumentSchema>;

@@ -12,6 +12,8 @@ import de.ingomc.nozio.data.remote.CreateCustomFoodResponseDto
 import de.ingomc.nozio.data.remote.FoodApi
 import de.ingomc.nozio.data.remote.FoodBarcodeResponseDto
 import de.ingomc.nozio.data.remote.FoodSearchResponseDto
+import de.ingomc.nozio.data.remote.VisionNutritionParseRequestDto
+import de.ingomc.nozio.data.remote.VisionNutritionParseResponseDto
 import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.FoodRepository
 import kotlinx.coroutines.Dispatchers
@@ -181,6 +183,108 @@ class SearchViewModelTest {
         assertEquals(emptyList<Long>(), diaryDao.deletedEntryIds)
     }
 
+    @Test
+    fun onNutritionTextScanned_opensReviewWhenValuesWereParsed() = runTest(dispatcher) {
+        val viewModel = SearchViewModel(
+            foodRepository = FoodRepository(FakeFoodApi(), FakeFoodDao()),
+            diaryRepository = DiaryRepository(FakeDiaryDao(foodLookup = { null })),
+            widgetRefreshDelegate = WidgetRefreshDelegate {}
+        )
+        val raw = """
+            Nährwerte pro 100 g
+            Energie 420 kcal
+            Fett 10 g
+            Kohlenhydrate 52 g
+            Davon Zucker 8 g
+            Eiweiss 19 g
+        """.trimIndent()
+
+        viewModel.onNutritionTextScanned(raw)
+
+        val state = viewModel.uiState.value
+        assertEquals(true, state.showNutritionReviewSheet)
+        assertNotNull(state.nutritionScanResult)
+        assertEquals(420.0, state.nutritionScanResult?.fields?.get(NutritionFieldKey.CALORIES)?.value)
+    }
+
+    @Test
+    fun applyNutritionDraft_opensPrefilledCreateSheet() = runTest(dispatcher) {
+        val viewModel = SearchViewModel(
+            foodRepository = FoodRepository(FakeFoodApi(), FakeFoodDao()),
+            diaryRepository = DiaryRepository(FakeDiaryDao(foodLookup = { null })),
+            widgetRefreshDelegate = WidgetRefreshDelegate {}
+        )
+        val draft = CustomFoodDraft(
+            name = "Riegel",
+            caloriesPer100g = 410.0,
+            proteinPer100g = 18.0,
+            carbsPer100g = 40.0,
+            fatPer100g = 12.0,
+            sugarPer100g = 7.0
+        )
+
+        viewModel.applyNutritionDraft(draft)
+
+        val state = viewModel.uiState.value
+        assertEquals(true, state.showCreateCustomFoodSheet)
+        assertEquals(false, state.showNutritionReviewSheet)
+        assertEquals(draft, state.prefillCustomFoodDraft)
+    }
+
+    @Test
+    fun applyNutritionDraft_withQuickAddTarget_opensPrefilledQuickAddSheet() = runTest(dispatcher) {
+        val viewModel = SearchViewModel(
+            foodRepository = FoodRepository(FakeFoodApi(), FakeFoodDao()),
+            diaryRepository = DiaryRepository(FakeDiaryDao(foodLookup = { null })),
+            widgetRefreshDelegate = WidgetRefreshDelegate {}
+        )
+        val raw = """
+            Nährwerte pro 100 g
+            Energie 300 kcal
+            Eiweiss 20 g
+            Fett 8 g
+            Kohlenhydrate 30 g
+        """.trimIndent()
+
+        viewModel.showNutritionScannerSheet(NutritionApplyTarget.QUICK_ADD)
+        viewModel.onNutritionTextScanned(raw)
+        viewModel.applyNutritionDraft(
+            CustomFoodDraft(
+                name = "Bar",
+                caloriesPer100g = 300.0,
+                proteinPer100g = 20.0,
+                fatPer100g = 8.0,
+                carbsPer100g = 30.0
+            )
+        )
+
+        val state = viewModel.uiState.value
+        assertEquals(true, state.showQuickAddSheet)
+        assertEquals(false, state.showCreateCustomFoodSheet)
+        assertEquals("Bar", state.prefillQuickAddDraft?.name)
+        assertEquals(300.0, state.prefillQuickAddDraft?.calories)
+        assertEquals(20.0, state.prefillQuickAddDraft?.protein)
+    }
+
+    @Test
+    fun onNutritionImageCaptured_opensReviewFromVisionResult() = runTest(dispatcher) {
+        val viewModel = SearchViewModel(
+            foodRepository = FoodRepository(FakeFoodApi(), FakeFoodDao()),
+            diaryRepository = DiaryRepository(FakeDiaryDao(foodLookup = { null })),
+            widgetRefreshDelegate = WidgetRefreshDelegate {}
+        )
+
+        viewModel.showNutritionScannerSheet(NutritionApplyTarget.CUSTOM_FOOD)
+        viewModel.onNutritionImageCaptured("dGVzdA==")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(false, state.showNutritionScannerSheet)
+        assertEquals(true, state.showNutritionReviewSheet)
+        assertNotNull(state.nutritionScanResult)
+        assertEquals(420.0, state.nutritionScanResult?.fields?.get(NutritionFieldKey.CALORIES)?.value)
+    }
+
     private data class RefreshCounter(var count: Int = 0)
 
     private class FakeFoodApi : FoodApi {
@@ -192,6 +296,20 @@ class SearchViewModelTest {
 
         override suspend fun createCustomFood(request: CreateCustomFoodRequestDto): CreateCustomFoodResponseDto {
             throw IllegalStateException("Not needed for this test")
+        }
+
+        override suspend fun parseNutritionFromImage(request: VisionNutritionParseRequestDto): VisionNutritionParseResponseDto {
+            return VisionNutritionParseResponseDto(
+                name = "Vision Food",
+                caloriesPer100g = 420.0,
+                proteinPer100g = 24.0,
+                carbsPer100g = 38.0,
+                fatPer100g = 16.0,
+                sugarPer100g = 6.0,
+                confidence = 0.91,
+                model = "gemini-2.0-flash",
+                warnings = emptyList()
+            )
         }
     }
 
