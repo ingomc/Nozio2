@@ -11,6 +11,7 @@ import de.ingomc.nozio.data.repository.CustomFoodInput
 import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.FoodRepository
 import de.ingomc.nozio.data.repository.NutritionParseResult
+import de.ingomc.nozio.data.repository.VisionScanException
 import de.ingomc.nozio.widget.CalorieWidgetProvider
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,7 +80,8 @@ data class SearchUiState(
     val prefillQuickAddDraft: QuickAddDraft? = null,
     val activeAddConfirmation: AddConfirmationState? = null,
     val showBarcodeResultsSheet: Boolean = false,
-    val isSubmittingCustomFood: Boolean = false
+    val isSubmittingCustomFood: Boolean = false,
+    val isNutritionScanInFlight: Boolean = false
 )
 
 @OptIn(FlowPreview::class)
@@ -162,6 +164,7 @@ class SearchViewModel(
             showQuickAddSheet = true,
             showCreateCustomFoodSheet = false,
             showNutritionReviewSheet = false,
+            isNutritionScanInFlight = false,
             prefillCustomFoodDraft = null
         )
     }
@@ -178,6 +181,7 @@ class SearchViewModel(
             showCreateCustomFoodSheet = true,
             showQuickAddSheet = false,
             showNutritionReviewSheet = false,
+            isNutritionScanInFlight = false,
             prefillQuickAddDraft = null,
             prefillCustomFoodDraft = null
         )
@@ -195,12 +199,17 @@ class SearchViewModel(
             showNutritionScannerSheet = true,
             showQuickAddSheet = false,
             showCreateCustomFoodSheet = false,
+            isNutritionScanInFlight = false,
+            error = null,
             nutritionApplyTarget = target
         )
     }
 
     fun dismissNutritionScannerSheet() {
-        _uiState.value = _uiState.value.copy(showNutritionScannerSheet = false)
+        _uiState.value = _uiState.value.copy(
+            showNutritionScannerSheet = false,
+            isNutritionScanInFlight = false
+        )
     }
 
     fun dismissNutritionReviewSheet() {
@@ -217,6 +226,7 @@ class SearchViewModel(
             _uiState.value.copy(
                 showNutritionScannerSheet = false,
                 showNutritionReviewSheet = false,
+                isNutritionScanInFlight = false,
                 nutritionScanResult = null,
                 nutritionApplyTarget = null,
                 error = "Keine Naehrwerte pro 100g/100ml erkannt."
@@ -225,6 +235,7 @@ class SearchViewModel(
             _uiState.value.copy(
                 showNutritionScannerSheet = false,
                 showNutritionReviewSheet = true,
+                isNutritionScanInFlight = false,
                 nutritionScanResult = scanResult,
                 error = null
             )
@@ -234,14 +245,17 @@ class SearchViewModel(
     fun onNutritionImageCaptured(imageBase64: String, locale: String = "de") {
         if (imageBase64.isBlank()) {
             _uiState.value = _uiState.value.copy(
-                showNutritionScannerSheet = false,
+                isNutritionScanInFlight = false,
                 error = "Scanbild war leer. Bitte erneut versuchen."
             )
             return
         }
 
+        if (_uiState.value.isNutritionScanInFlight) return
+
         _uiState.value = _uiState.value.copy(
-            showNutritionScannerSheet = false,
+            showNutritionScannerSheet = true,
+            isNutritionScanInFlight = true,
             error = null
         )
 
@@ -254,22 +268,33 @@ class SearchViewModel(
                 val scanResult = parsed.toNutritionScanResult()
                 if (scanResult.fields.isEmpty()) {
                     _uiState.value = _uiState.value.copy(
+                        showNutritionScannerSheet = false,
                         showNutritionReviewSheet = false,
+                        isNutritionScanInFlight = false,
                         nutritionScanResult = null,
                         error = "Keine verwertbaren Naehrwerte erkannt. Bitte manuell pruefen."
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(
+                        showNutritionScannerSheet = false,
                         showNutritionReviewSheet = true,
+                        isNutritionScanInFlight = false,
                         nutritionScanResult = scanResult,
                         error = null
                     )
                 }
-            } catch (_: Exception) {
+            } catch (exception: Exception) {
+                val message = if (exception is VisionScanException) {
+                    exception.message ?: "Vision-Scan fehlgeschlagen."
+                } else {
+                    "Vision-Scan fehlgeschlagen. Bitte erneut versuchen."
+                }
                 _uiState.value = _uiState.value.copy(
+                    showNutritionScannerSheet = true,
                     showNutritionReviewSheet = false,
+                    isNutritionScanInFlight = false,
                     nutritionScanResult = null,
-                    error = "Vision-Scan fehlgeschlagen. Bitte erneut versuchen."
+                    error = message
                 )
             }
         }

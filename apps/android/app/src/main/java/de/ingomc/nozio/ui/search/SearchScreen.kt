@@ -178,7 +178,7 @@ fun SearchScreen(
     ) {
         when {
             showBarcodeScannerSheet -> showBarcodeScannerSheet = false
-            state.showNutritionScannerSheet -> viewModel.dismissNutritionScannerSheet()
+            state.showNutritionScannerSheet && !state.isNutritionScanInFlight -> viewModel.dismissNutritionScannerSheet()
             state.showNutritionReviewSheet -> viewModel.dismissNutritionReviewSheet()
             state.showBarcodeResultsSheet -> viewModel.dismissBarcodeResultsSheet()
             state.showBottomSheet -> viewModel.dismissBottomSheet()
@@ -439,7 +439,12 @@ fun SearchScreen(
 
     if (state.showNutritionScannerSheet) {
         NutritionScannerBottomSheet(
-            onDismiss = viewModel::dismissNutritionScannerSheet,
+            isAnalyzing = state.isNutritionScanInFlight,
+            onDismiss = {
+                if (!state.isNutritionScanInFlight) {
+                    viewModel.dismissNutritionScannerSheet()
+                }
+            },
             onImageBase64Captured = { imageBase64 ->
                 viewModel.onNutritionImageCaptured(imageBase64)
             }

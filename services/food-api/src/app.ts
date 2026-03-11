@@ -290,7 +290,12 @@ export function buildApp(
         return sendApiError(reply, 422, "VISION_PARSE_FAILED", "Vision response could not be parsed.");
       }
       if (error instanceof VisionUnavailableError) {
-        return sendApiError(reply, 502, "VISION_UNAVAILABLE", "Vision backend is unavailable.");
+        request.log.warn({ err: error }, "vision backend unavailable");
+        const detail = error.message?.trim();
+        const message = detail
+          ? `Vision backend is unavailable. ${detail}`
+          : "Vision backend is unavailable.";
+        return sendApiError(reply, 502, "VISION_UNAVAILABLE", message);
       }
       request.log.error({ err: error }, "vision parse failed");
       return sendApiError(reply, 500, "INTERNAL_ERROR", "Unexpected server error.");

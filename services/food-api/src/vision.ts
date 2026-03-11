@@ -35,6 +35,14 @@ type GeminiGenerateResponse = {
   }>;
 };
 
+type GeminiErrorResponse = {
+  error?: {
+    code?: number;
+    message?: string;
+    status?: string;
+  };
+};
+
 function extractJsonObject(text: string): string | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -142,7 +150,22 @@ export async function parseNutritionWithGemini(
     );
 
     if (!response.ok) {
-      throw new VisionUnavailableError(`Gemini request failed with status ${response.status}`);
+      let detail = "";
+      try {
+        const errorPayload = (await response.json()) as GeminiErrorResponse;
+        const apiMessage = errorPayload.error?.message?.trim();
+        if (apiMessage) {
+          detail = apiMessage;
+        }
+      } catch {
+        // Ignore parse failure and keep generic status text.
+      }
+
+      const statusPart = `HTTP ${response.status}`;
+      const message = detail
+        ? `Gemini request failed (${statusPart}): ${detail}`
+        : `Gemini request failed (${statusPart}).`;
+      throw new VisionUnavailableError(message);
     }
 
     const payload = (await response.json()) as GeminiGenerateResponse;

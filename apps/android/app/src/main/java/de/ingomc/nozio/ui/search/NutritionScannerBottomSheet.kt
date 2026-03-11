@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +50,7 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NutritionScannerBottomSheet(
+    isAnalyzing: Boolean,
     onDismiss: () -> Unit,
     onImageBase64Captured: (String) -> Unit
 ) {
@@ -108,7 +110,11 @@ fun NutritionScannerBottomSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (!isAnalyzing && !isProcessing) {
+                onDismiss()
+            }
+        },
         sheetState = sheetState,
         containerColor = MaterialTheme.nozioColors.surface2,
         shape = MaterialTheme.shapes.extraLarge
@@ -143,7 +149,7 @@ fun NutritionScannerBottomSheet(
                             boundCamera?.cameraControl?.enableTorch(checked)
                             isTorchOn = checked
                         },
-                        enabled = hasFlash
+                        enabled = hasFlash && !isProcessing && !isAnalyzing
                     )
                 }
             }
@@ -171,6 +177,26 @@ fun NutritionScannerBottomSheet(
                         factory = { previewView },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    if (isAnalyzing) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator()
+                                Text(
+                                    text = "Bild wird analysiert...",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    modifier = Modifier.padding(top = 10.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -215,10 +241,16 @@ fun NutritionScannerBottomSheet(
                         }
                     )
                 },
-                enabled = !isProcessing,
+                enabled = !isProcessing && !isAnalyzing,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (isProcessing) "Lade Bild..." else "Foto aufnehmen & analysieren")
+                Text(
+                    when {
+                        isAnalyzing -> "Analyse laeuft..."
+                        isProcessing -> "Lade Bild..."
+                        else -> "Foto aufnehmen & analysieren"
+                    }
+                )
             }
 
             scanMessage?.let { message ->

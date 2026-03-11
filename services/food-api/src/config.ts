@@ -22,7 +22,7 @@ const configSchema = z.object({
   MEILI_SEED_FILE: z.string().min(1).default("/data/seeds/foods.json"),
   MEILI_SEED_FALLBACK_FILE: z.string().min(1).default("data/seed/foods.de.sample.json"),
   GEMINI_API_KEY: z.string().min(1).default("dev-change-me"),
-  GEMINI_MODEL: z.string().min(1).default("gemini-2.0-flash"),
+  GEMINI_MODEL: z.string().min(1).default("gemini-2.5-flash"),
   VISION_TIMEOUT_MS: z.coerce.number().int().positive().default(12000),
   VISION_MAX_IMAGE_MB: z.coerce.number().positive().default(4)
 });
