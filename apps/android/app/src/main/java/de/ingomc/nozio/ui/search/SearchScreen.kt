@@ -382,7 +382,6 @@ fun SearchScreen(
                         listBottomPadding = listBottomPadding,
                         onQuickAddClick = viewModel::showQuickAddSheet,
                         onCreateFoodClick = viewModel::showCreateCustomFoodSheet,
-                        onFoodPhotoClick = launchFoodPhotoUpload,
                         onFoodClick = viewModel::selectFood
                     )
                 } else {
@@ -479,6 +478,25 @@ fun SearchScreen(
                                     Icons.Default.QrCodeScanner,
                                     contentDescription = "Barcode scannen",
                                     tint = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                        }
+
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = CircleShape,
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp
+                        ) {
+                            IconButton(
+                                onClick = { launchFoodPhotoUpload() },
+                                modifier = Modifier.size(56.dp)
+                            ) {
+                                Text(
+                                    text = "KI",
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
@@ -705,7 +723,6 @@ private fun SuggestionsSection(
     listBottomPadding: androidx.compose.ui.unit.Dp,
     onQuickAddClick: () -> Unit,
     onCreateFoodClick: () -> Unit,
-    onFoodPhotoClick: () -> Unit,
     onFoodClick: (FoodItem) -> Unit
 ) {
     val tabs = remember { SuggestionTab.entries }
@@ -717,8 +734,7 @@ private fun SuggestionsSection(
     ) {
         QuickActionsCard(
             onQuickAddClick = onQuickAddClick,
-            onCreateFoodClick = onCreateFoodClick,
-            onFoodPhotoClick = onFoodPhotoClick
+            onCreateFoodClick = onCreateFoodClick
         )
         HorizontalDivider()
 
@@ -899,8 +915,7 @@ private fun FoodSearchItem(
 @Composable
 private fun QuickActionsCard(
     onQuickAddClick: () -> Unit,
-    onCreateFoodClick: () -> Unit,
-    onFoodPhotoClick: () -> Unit
+    onCreateFoodClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -956,27 +971,6 @@ private fun QuickActionsCard(
                     style = MaterialTheme.typography.labelLarge
                 )
             }
-        }
-        OutlinedButton(
-            onClick = onFoodPhotoClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-                .height(40.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "Essen per Foto erkennen",
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelLarge
-            )
         }
     }
 }
