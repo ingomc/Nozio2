@@ -86,7 +86,9 @@ import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.theme.nozioColors
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +111,7 @@ fun SearchScreen(
     val searchFocusRequester = remember { FocusRequester() }
     var showBarcodeScannerSheet by remember { mutableStateOf(false) }
     var pendingCameraAction by remember { mutableStateOf<CameraAction?>(null) }
+    var pendingUploadTarget by remember { mutableStateOf<NutritionApplyTarget?>(null) }
     var barcodeScanTarget by remember { mutableStateOf(BarcodeScanTarget.SEARCH) }
     var customFoodScannedBarcode by remember { mutableStateOf<String?>(null) }
     var errorDetailsDialog by remember { mutableStateOf<String?>(null) }
@@ -143,6 +146,26 @@ fun SearchScreen(
         }
         pendingCameraAction = null
     }
+    val nutritionImagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        val target = pendingUploadTarget
+        pendingUploadTarget = null
+        if (uri == null || target == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val imageBase64 = withContext(Dispatchers.IO) {
+                prepareNutritionImageFromUri(context, uri)
+            }
+            if (imageBase64.isNullOrBlank()) {
+                snackbarHostState.showSnackbar("Bild konnte nicht gelesen werden.")
+                return@launch
+            }
+            viewModel.onNutritionImageCaptured(
+                imageBase64 = imageBase64,
+                showScannerSheet = false
+            )
+        }
+    }
     val launchCameraFlow: (CameraAction) -> Unit = { action ->
         pendingCameraAction = action
         val hasPermission = ContextCompat.checkSelfPermission(
@@ -170,6 +193,16 @@ fun SearchScreen(
     val launchCustomFoodBarcodeScanner: () -> Unit = { launchCameraFlow(CameraAction.BARCODE_CUSTOM) }
     val launchQuickAddNutritionScanner: () -> Unit = { launchCameraFlow(CameraAction.NUTRITION_QUICK) }
     val launchCustomFoodNutritionScanner: () -> Unit = { launchCameraFlow(CameraAction.NUTRITION_CUSTOM) }
+    val launchQuickAddNutritionUpload: () -> Unit = {
+        pendingUploadTarget = NutritionApplyTarget.QUICK_ADD
+        viewModel.prepareNutritionImageUpload(NutritionApplyTarget.QUICK_ADD)
+        nutritionImagePickerLauncher.launch("image/*")
+    }
+    val launchCustomFoodNutritionUpload: () -> Unit = {
+        pendingUploadTarget = NutritionApplyTarget.CUSTOM_FOOD
+        viewModel.prepareNutritionImageUpload(NutritionApplyTarget.CUSTOM_FOOD)
+        nutritionImagePickerLauncher.launch("image/*")
+    }
 
     BackHandler(
         enabled = showBarcodeScannerSheet ||
@@ -492,6 +525,7 @@ fun SearchScreen(
             preselectedMealType = preselectedMealType,
             initial = state.prefillQuickAddDraft,
             onScanNutrition = launchQuickAddNutritionScanner,
+            onUploadNutritionImage = launchQuickAddNutritionUpload,
             onDismiss = viewModel::dismissQuickAddSheet,
             onAdd = viewModel::addQuickEntry
         )
@@ -503,6 +537,7 @@ fun SearchScreen(
             initial = state.prefillCustomFoodDraft,
             prefilledBarcode = customFoodScannedBarcode,
             onScanNutrition = launchCustomFoodNutritionScanner,
+            onUploadNutritionImage = launchCustomFoodNutritionUpload,
             onScanBarcode = launchCustomFoodBarcodeScanner,
             onDismiss = viewModel::dismissCreateCustomFoodSheet,
             onSave = viewModel::createCustomFood

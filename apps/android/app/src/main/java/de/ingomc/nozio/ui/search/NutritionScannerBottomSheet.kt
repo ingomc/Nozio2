@@ -1,8 +1,6 @@
 package de.ingomc.nozio.ui.search
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.util.Base64
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -16,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -49,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import de.ingomc.nozio.ui.theme.nozioColors
-import java.io.ByteArrayOutputStream
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -199,30 +197,30 @@ fun NutritionScannerBottomSheet(
                 shape = MaterialTheme.shapes.large
             ) {
                 Box(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     AndroidView(
                         factory = { previewView },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxSize()
                     )
 
                     frozenPreview?.let { bitmap ->
                         Image(
                             bitmap = bitmap.asImageBitmap(),
                             contentDescription = "Aufgenommenes Standbild",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxWidth()
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
                         )
                     }
 
                     if (isAnalyzing) {
                         Surface(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxSize(),
                             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
                         ) {
                             Column(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxSize(),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
@@ -252,27 +250,20 @@ fun NutritionScannerBottomSheet(
                         object : ImageCapture.OnImageSavedCallback {
                             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
                                 try {
-                                    val decoded = BitmapFactory.decodeFile(outputFile.absolutePath)
-                                    if (decoded == null) {
+                                    val prepared = prepareNutritionImageFromFile(outputFile.absolutePath)
+                                    if (prepared == null) {
                                         scanMessage = "Foto konnte nicht gelesen werden."
                                         isProcessing = false
                                         return
                                     }
-                                    val prepared = decoded.limitMaxSide(1800)
-                                    val stream = ByteArrayOutputStream()
-                                    prepared.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, stream)
-                                    val imageBase64 = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
-                                    if (prepared !== decoded) {
-                                        decoded.recycle()
-                                    }
                                     frozenPreview?.recycle()
-                                    frozenPreview = prepared
+                                    frozenPreview = prepared.bitmap
                                     cameraProvider?.unbindAll()
                                     boundCamera = null
                                     imageCapture = null
                                     awaitingAnalysisResult = true
                                     isProcessing = false
-                                    onImageBase64Captured(imageBase64)
+                                    onImageBase64Captured(prepared.base64)
                                 } catch (_: Exception) {
                                     scanMessage = "Foto-Verarbeitung fehlgeschlagen."
                                     isProcessing = false
@@ -315,13 +306,4 @@ fun NutritionScannerBottomSheet(
             )
         }
     }
-}
-
-private fun android.graphics.Bitmap.limitMaxSide(maxSide: Int): android.graphics.Bitmap {
-    val currentMax = maxOf(width, height)
-    if (currentMax <= maxSide) return this
-    val factor = maxSide.toFloat() / currentMax.toFloat()
-    val targetW = (width * factor).toInt().coerceAtLeast(1)
-    val targetH = (height * factor).toInt().coerceAtLeast(1)
-    return android.graphics.Bitmap.createScaledBitmap(this, targetW, targetH, true)
 }

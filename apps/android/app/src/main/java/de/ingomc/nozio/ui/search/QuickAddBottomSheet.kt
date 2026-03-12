@@ -20,6 +20,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Upload
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
 import de.ingomc.nozio.ui.theme.nozioColors
@@ -58,6 +60,7 @@ fun QuickAddBottomSheet(
     preselectedMealType: MealType?,
     initial: QuickAddDraft? = null,
     onScanNutrition: (() -> Unit)? = null,
+    onUploadNutritionImage: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onAdd: (MealType, Double, Double, Double, Double, String?) -> Unit
 ) {
@@ -147,6 +150,20 @@ fun QuickAddBottomSheet(
                         contentDescription = null
                     )
                     Text(text = "Naehrwert-Tabelle scannen", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+            if (onUploadNutritionImage != null) {
+                OutlinedButton(
+                    onClick = onUploadNutritionImage,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Upload,
+                        contentDescription = null
+                    )
+                    Text(text = "Bild hochladen", modifier = Modifier.padding(start = 8.dp))
                 }
             }
 

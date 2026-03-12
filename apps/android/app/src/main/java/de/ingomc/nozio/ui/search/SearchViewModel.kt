@@ -210,6 +210,16 @@ class SearchViewModel(
         )
     }
 
+    fun prepareNutritionImageUpload(target: NutritionApplyTarget) {
+        _uiState.value = _uiState.value.copy(
+            nutritionApplyTarget = target,
+            showNutritionScannerSheet = false,
+            showQuickAddSheet = false,
+            showCreateCustomFoodSheet = false,
+            error = null
+        )
+    }
+
     fun dismissNutritionScannerSheet() {
         _uiState.value = _uiState.value.copy(
             showNutritionScannerSheet = false,
@@ -247,7 +257,11 @@ class SearchViewModel(
         }
     }
 
-    fun onNutritionImageCaptured(imageBase64: String, locale: String = "de") {
+    fun onNutritionImageCaptured(
+        imageBase64: String,
+        locale: String = "de",
+        showScannerSheet: Boolean = true
+    ) {
         if (imageBase64.isBlank()) {
             _uiState.value = _uiState.value.copy(
                 isNutritionScanInFlight = false,
@@ -259,7 +273,7 @@ class SearchViewModel(
         if (_uiState.value.isNutritionScanInFlight) return
 
         _uiState.value = _uiState.value.copy(
-            showNutritionScannerSheet = true,
+            showNutritionScannerSheet = showScannerSheet,
             isNutritionScanInFlight = true,
             error = null
         )
@@ -280,9 +294,9 @@ class SearchViewModel(
                         error = "Keine verwertbaren Naehrwerte erkannt. Bitte manuell pruefen."
                     )
                 } else {
-                    _uiState.value = _uiState.value.copy(
-                        showNutritionScannerSheet = false,
-                        showNutritionReviewSheet = true,
+                _uiState.value = _uiState.value.copy(
+                    showNutritionScannerSheet = false,
+                    showNutritionReviewSheet = true,
                         isNutritionScanInFlight = false,
                         nutritionScanResult = scanResult,
                         error = null
@@ -295,7 +309,7 @@ class SearchViewModel(
                     "Vision-Scan fehlgeschlagen. Bitte erneut versuchen."
                 }
                 _uiState.value = _uiState.value.copy(
-                    showNutritionScannerSheet = true,
+                    showNutritionScannerSheet = showScannerSheet,
                     showNutritionReviewSheet = false,
                     isNutritionScanInFlight = false,
                     nutritionScanResult = null,

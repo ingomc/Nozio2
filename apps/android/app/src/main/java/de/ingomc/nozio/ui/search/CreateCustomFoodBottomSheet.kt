@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Upload
 import de.ingomc.nozio.data.repository.CustomFoodInput
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
 import de.ingomc.nozio.ui.theme.nozioColors
@@ -49,6 +51,7 @@ fun CreateCustomFoodBottomSheet(
     initial: CustomFoodDraft? = null,
     prefilledBarcode: String? = null,
     onScanNutrition: (() -> Unit)? = null,
+    onUploadNutritionImage: (() -> Unit)? = null,
     onScanBarcode: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onSave: (CustomFoodInput) -> Unit
@@ -130,6 +133,23 @@ fun CreateCustomFoodBottomSheet(
                     )
                     Text(
                         text = "Naehrwert-Tabelle scannen",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+            if (onUploadNutritionImage != null) {
+                OutlinedButton(
+                    onClick = onUploadNutritionImage,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Upload,
+                        contentDescription = null
+                    )
+                    Text(
+                        text = "Bild hochladen",
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
