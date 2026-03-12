@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
@@ -127,6 +128,7 @@ fun NutritionReviewBottomSheet(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Name optional") },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -138,6 +140,7 @@ fun NutritionReviewBottomSheet(
                 value = brand,
                 onValueChange = { brand = it },
                 label = { Text("Marke optional") },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()

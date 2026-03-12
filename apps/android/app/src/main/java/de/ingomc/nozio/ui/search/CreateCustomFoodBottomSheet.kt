@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
@@ -134,8 +135,18 @@ fun CreateCustomFoodBottomSheet(
                 }
             }
 
-            ProductField(name, "Name", onValueChange = { name = it })
-            ProductField(brand, "Marke optional", onValueChange = { brand = it })
+            ProductField(
+                value = name,
+                label = "Name",
+                capitalization = KeyboardCapitalization.Words,
+                onValueChange = { name = it }
+            )
+            ProductField(
+                value = brand,
+                label = "Marke optional",
+                capitalization = KeyboardCapitalization.Words,
+                onValueChange = { brand = it }
+            )
             OutlinedTextField(
                 value = barcode,
                 onValueChange = { barcode = it.filter(Char::isDigit) },
@@ -224,6 +235,7 @@ fun CreateCustomFoodBottomSheet(
                 "Portionsname (optional)",
                 placeholder = "z. B. 1 Riegel",
                 enabled = hasServingQuantity,
+                capitalization = KeyboardCapitalization.Words,
                 supportingText = if (!hasServingQuantity) {
                     "Wird nur gespeichert, wenn eine Portionsmenge gesetzt ist."
                 } else {
@@ -250,6 +262,7 @@ fun CreateCustomFoodBottomSheet(
                 "Packungsname (optional)",
                 placeholder = "z. B. 1 Packung",
                 enabled = hasPackageQuantity,
+                capitalization = KeyboardCapitalization.Words,
                 supportingText = if (!hasPackageQuantity) {
                     "Wird nur gespeichert, wenn eine Packungsmenge gesetzt ist."
                 } else {
@@ -323,6 +336,7 @@ private fun ProductField(
     placeholder: String? = null,
     suffix: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.None,
     enabled: Boolean = true,
     isError: Boolean = false,
     supportingText: String? = null,
@@ -337,7 +351,10 @@ private fun ProductField(
         suffix = suffix?.let { { Text(it) } },
         isError = isError,
         supportingText = supportingText?.let { text -> { Text(text) } },
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            capitalization = capitalization
+        ),
         singleLine = true,
         modifier = Modifier
             .bringIntoViewOnFocus()
