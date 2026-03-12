@@ -46,8 +46,8 @@ android {
         applicationId = "de.ingomc.nozio"
         minSdk = 26
         targetSdk = 35
-        versionCode = 32
-        versionName = "0.25.0"
+        versionCode = 33
+        versionName = "0.25.1"
         buildConfigField("String", "FOOD_API_BASE_URL", "\"${localProps.getProperty("FOOD_API_BASE_URL", "http://10.0.2.2:3000/")}\"")
         buildConfigField("String", "FOOD_API_KEY", "\"${localProps.getProperty("FOOD_API_KEY", "dev-change-me")}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${propOrEnv("GOOGLE_WEB_CLIENT_ID") ?: "dev-change-me"}\"")
