@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -41,6 +42,16 @@ import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.ui.common.bringIntoViewOnFocus
 import de.ingomc.nozio.ui.theme.nozioColors
 
+private enum class QuickAddAmountUnit(val label: String) {
+    GRAM("g"),
+    MILLILITER("ml")
+}
+
+private enum class QuickAddInputMode {
+    FINAL_VALUES,
+    PER_100
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun QuickAddBottomSheet(
@@ -57,15 +68,38 @@ fun QuickAddBottomSheet(
     var protein by rememberSaveable(initial) { mutableStateOf(initial?.protein?.let(NutritionLabelParser::formatValue).orEmpty()) }
     var fat by rememberSaveable(initial) { mutableStateOf(initial?.fat?.let(NutritionLabelParser::formatValue).orEmpty()) }
     var carbs by rememberSaveable(initial) { mutableStateOf(initial?.carbs?.let(NutritionLabelParser::formatValue).orEmpty()) }
+    var amount by rememberSaveable { mutableStateOf("100") }
+    var amountUnit by rememberSaveable { mutableStateOf(QuickAddAmountUnit.GRAM) }
+    var inputMode by rememberSaveable(initial) {
+        mutableStateOf(
+            if (initial != null) QuickAddInputMode.PER_100 else QuickAddInputMode.FINAL_VALUES
+        )
+    }
     var selectedMealType by remember { mutableStateOf(resolveInitialMealType(preselectedMealType)) }
     LaunchedEffect(preselectedMealType) {
         selectedMealType = resolveInitialMealType(preselectedMealType)
     }
 
-    val caloriesValue = parseDecimalInput(calories)
-    val proteinValue = parseDecimalInput(protein) ?: 0.0
-    val fatValue = parseDecimalInput(fat) ?: 0.0
-    val carbsValue = parseDecimalInput(carbs) ?: 0.0
+    val caloriesInput = parseDecimalInput(calories)
+    val proteinInput = parseDecimalInput(protein) ?: 0.0
+    val fatInput = parseDecimalInput(fat) ?: 0.0
+    val carbsInput = parseDecimalInput(carbs) ?: 0.0
+    val amountValue = parseDecimalInput(amount)
+    val multiplier = if (inputMode == QuickAddInputMode.PER_100) {
+        (amountValue ?: 0.0) / 100.0
+    } else {
+        1.0
+    }
+    val caloriesValue = caloriesInput?.times(multiplier)
+    val proteinValue = proteinInput * multiplier
+    val fatValue = fatInput * multiplier
+    val carbsValue = carbsInput * multiplier
+    val amountUnitLabel = if (amountUnit == QuickAddAmountUnit.GRAM) "100g" else "100ml"
+    val amountLabel = if (amountValue != null && amountValue > 0) {
+        "${NutritionLabelParser.formatValue(amountValue)} ${amountUnit.label}"
+    } else {
+        null
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -88,7 +122,7 @@ fun QuickAddBottomSheet(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Trage nur die Gesamtwerte ein. Eiweiss, Fett und Kohlenhydrate sind optional.",
+                text = "Waehle zwischen finalen Werten oder pro-100-Werten mit Menge.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
@@ -108,6 +142,35 @@ fun QuickAddBottomSheet(
                 }
             }
 
+            Text(
+                text = "Eingabe-Modus",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                FilterChip(
+                    selected = inputMode == QuickAddInputMode.FINAL_VALUES,
+                    onClick = { inputMode = QuickAddInputMode.FINAL_VALUES },
+                    colors = solidSelectionChipColors(),
+                    label = { Text("Finale Werte") }
+                )
+                FilterChip(
+                    selected = inputMode == QuickAddInputMode.PER_100,
+                    onClick = { inputMode = QuickAddInputMode.PER_100 },
+                    colors = solidSelectionChipColors(),
+                    label = { Text("Pro 100 + Menge") }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -123,7 +186,11 @@ fun QuickAddBottomSheet(
 
             MacroField(
                 value = calories,
-                label = "Kalorien",
+                label = if (inputMode == QuickAddInputMode.PER_100) {
+                    "Kalorien pro $amountUnitLabel"
+                } else {
+                    "Kalorien"
+                },
                 suffix = "kcal",
                 onValueChange = { calories = it }
             )
@@ -132,7 +199,11 @@ fun QuickAddBottomSheet(
 
             MacroField(
                 value = protein,
-                label = "Eiweiss optional",
+                label = if (inputMode == QuickAddInputMode.PER_100) {
+                    "Eiweiss pro $amountUnitLabel (optional)"
+                } else {
+                    "Eiweiss optional"
+                },
                 suffix = "g",
                 onValueChange = { protein = it }
             )
@@ -141,7 +212,11 @@ fun QuickAddBottomSheet(
 
             MacroField(
                 value = carbs,
-                label = "Kohlenhydrate optional",
+                label = if (inputMode == QuickAddInputMode.PER_100) {
+                    "Kohlenhydrate pro $amountUnitLabel (optional)"
+                } else {
+                    "Kohlenhydrate optional"
+                },
                 suffix = "g",
                 onValueChange = { carbs = it }
             )
@@ -150,12 +225,66 @@ fun QuickAddBottomSheet(
 
             MacroField(
                 value = fat,
-                label = "Fett optional",
+                label = if (inputMode == QuickAddInputMode.PER_100) {
+                    "Fett pro $amountUnitLabel (optional)"
+                } else {
+                    "Fett optional"
+                },
                 suffix = "g",
                 onValueChange = { fat = it }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            if (inputMode == QuickAddInputMode.PER_100) {
+                Text(
+                    text = "Menge",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("Wert") },
+                    suffix = { Text(amountUnit.label) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    isError = amount.isNotBlank() && amountValue == null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bringIntoViewOnFocus()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    QuickAddAmountUnit.entries.forEach { unit ->
+                        FilterChip(
+                            selected = amountUnit == unit,
+                            onClick = { amountUnit = unit },
+                            colors = solidSelectionChipColors(),
+                            label = { Text(unit.label) }
+                        )
+                    }
+                }
+
+                if (amountValue != null && amountValue > 0 && caloriesValue != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Fuer $amountLabel: ${caloriesValue.toInt()} kcal · E ${proteinValue.toInt()}g · F ${fatValue.toInt()}g · K ${carbsValue.toInt()}g",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             Text(
                 text = "Mahlzeit",
@@ -173,6 +302,7 @@ fun QuickAddBottomSheet(
                     FilterChip(
                         selected = selectedMealType == mealType,
                         onClick = { selectedMealType = mealType },
+                        colors = solidSelectionChipColors(),
                         label = { Text(mealType.displayName) }
                     )
                 }
@@ -191,7 +321,13 @@ fun QuickAddBottomSheet(
                         name.ifBlank { null }
                     )
                 },
-                enabled = caloriesValue != null && caloriesValue > 0,
+                enabled = caloriesInput != null &&
+                    caloriesInput >= 0 &&
+                    (
+                        inputMode == QuickAddInputMode.FINAL_VALUES ||
+                            (amountValue != null && amountValue > 0)
+                        ) &&
+                    caloriesValue != null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
@@ -221,3 +357,11 @@ private fun MacroField(
             .bringIntoViewOnFocus()
     )
 }
+
+@Composable
+private fun solidSelectionChipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primary,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
+    selectedTrailingIconColor = MaterialTheme.colorScheme.onPrimary
+)

@@ -16,7 +16,9 @@ object RetrofitInstance {
 
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(45, TimeUnit.SECONDS)
+        .writeTimeout(45, TimeUnit.SECONDS)
+        .callTimeout(60, TimeUnit.SECONDS)
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
                 .header("x-api-key", BuildConfig.FOOD_API_KEY)

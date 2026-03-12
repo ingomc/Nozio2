@@ -7,6 +7,7 @@ import de.ingomc.nozio.data.remote.FoodApi
 import de.ingomc.nozio.data.remote.CreateCustomFoodRequestDto
 import de.ingomc.nozio.data.remote.FoodSearchItemDto
 import de.ingomc.nozio.data.remote.VisionNutritionParseRequestDto
+import java.net.SocketTimeoutException
 import org.json.JSONObject
 import retrofit2.HttpException
 
@@ -188,6 +189,11 @@ class FoodRepository(
             )
         } catch (exception: HttpException) {
             throw mapVisionHttpException(exception)
+        } catch (_: SocketTimeoutException) {
+            throw VisionScanException(
+                backendCode = "TIMEOUT",
+                message = "Vision-Scan hat zu lange gedauert (Timeout). Bitte erneut versuchen."
+            )
         } catch (exception: Exception) {
             throw VisionScanException(
                 backendCode = null,

@@ -47,6 +47,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -54,6 +55,8 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -108,6 +111,7 @@ fun SearchScreen(
     var pendingCameraAction by remember { mutableStateOf<CameraAction?>(null) }
     var barcodeScanTarget by remember { mutableStateOf(BarcodeScanTarget.SEARCH) }
     var customFoodScannedBarcode by remember { mutableStateOf<String?>(null) }
+    var errorDetailsDialog by remember { mutableStateOf<String?>(null) }
     var searchContainerHeightPx by remember { mutableStateOf(0) }
     val density = LocalDensity.current
     val listBottomPadding = with(density) { searchContainerHeightPx.toDp() + 28.dp }
@@ -212,7 +216,16 @@ fun SearchScreen(
     LaunchedEffect(state.error) {
         val error = state.error
         if (error != null) {
-            snackbarHostState.showSnackbar(error)
+            val result = snackbarHostState.showSnackbar(
+                message = error,
+                actionLabel = "Details",
+                withDismissAction = true,
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                errorDetailsDialog = error
+            }
+            viewModel.clearError()
         }
     }
 
@@ -238,16 +251,6 @@ fun SearchScreen(
                     ) {
                         CircularProgressIndicator()
                     }
-                }
-
-                // Error
-                state.error?.let { error ->
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
                 }
 
                 // Empty state
@@ -503,6 +506,19 @@ fun SearchScreen(
             onScanBarcode = launchCustomFoodBarcodeScanner,
             onDismiss = viewModel::dismissCreateCustomFoodSheet,
             onSave = viewModel::createCustomFood
+        )
+    }
+
+    errorDetailsDialog?.let { message ->
+        AlertDialog(
+            onDismissRequest = { errorDetailsDialog = null },
+            confirmButton = {
+                TextButton(onClick = { errorDetailsDialog = null }) {
+                    Text("OK")
+                }
+            },
+            title = { Text("Fehlerdetails") },
+            text = { Text(message) }
         )
     }
 }

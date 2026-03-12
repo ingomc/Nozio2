@@ -1,5 +1,6 @@
 package de.ingomc.nozio.ui.search
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.camera.core.Camera
@@ -9,6 +10,7 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,14 +34,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -66,45 +71,69 @@ fun NutritionScannerBottomSheet(
     }
 
     var boundCamera by remember { mutableStateOf<Camera?>(null) }
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
     var isTorchOn by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
+    var hasAnalysisStarted by remember { mutableStateOf(false) }
+    var awaitingAnalysisResult by remember { mutableStateOf(false) }
+    var frozenPreview by remember { mutableStateOf<Bitmap?>(null) }
     var scanMessage by remember { mutableStateOf<String?>(null) }
     val hasFlash = boundCamera?.cameraInfo?.hasFlashUnit() == true
+    val bindCamera = {
+        val provider = cameraProvider
+        if (provider == null) {
+            Unit
+        } else {
+        val preview = Preview.Builder().build().also {
+            it.surfaceProvider = previewView.surfaceProvider
+        }
+        val capture = ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+            .build()
+        try {
+            provider.unbindAll()
+            boundCamera = provider.bindToLifecycle(
+                lifecycleOwner,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                preview,
+                capture
+            )
+            imageCapture = capture
+        } catch (_: Exception) {
+            // Keep UI operable if camera cannot be bound.
+        }
+        }
+    }
+
+    LaunchedEffect(isAnalyzing) {
+        if (isAnalyzing) {
+            hasAnalysisStarted = true
+        } else if (hasAnalysisStarted && awaitingAnalysisResult) {
+            hasAnalysisStarted = false
+            awaitingAnalysisResult = false
+            frozenPreview?.recycle()
+            frozenPreview = null
+            bindCamera()
+        }
+    }
 
     DisposableEffect(Unit) {
         val providerFuture = ProcessCameraProvider.getInstance(context)
-        var cameraProvider: ProcessCameraProvider? = null
 
         providerFuture.addListener(
             {
                 cameraProvider = providerFuture.get()
-                val preview = Preview.Builder().build().also {
-                    it.surfaceProvider = previewView.surfaceProvider
-                }
-                val capture = ImageCapture.Builder()
-                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-                    .build()
-
-                try {
-                    cameraProvider?.unbindAll()
-                    boundCamera = cameraProvider?.bindToLifecycle(
-                        lifecycleOwner,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview,
-                        capture
-                    )
-                    imageCapture = capture
-                    isTorchOn = false
-                } catch (_: Exception) {
-                    // Ignore binding errors and allow user to dismiss.
-                }
+                bindCamera()
+                isTorchOn = false
             },
             mainExecutor
         )
 
         onDispose {
             boundCamera?.cameraControl?.enableTorch(false)
+            frozenPreview?.recycle()
+            frozenPreview = null
             cameraProvider?.unbindAll()
         }
     }
@@ -178,6 +207,15 @@ fun NutritionScannerBottomSheet(
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    frozenPreview?.let { bitmap ->
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Aufgenommenes Standbild",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
                     if (isAnalyzing) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -224,6 +262,15 @@ fun NutritionScannerBottomSheet(
                                     val stream = ByteArrayOutputStream()
                                     prepared.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, stream)
                                     val imageBase64 = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+                                    if (prepared !== decoded) {
+                                        decoded.recycle()
+                                    }
+                                    frozenPreview?.recycle()
+                                    frozenPreview = prepared
+                                    cameraProvider?.unbindAll()
+                                    boundCamera = null
+                                    imageCapture = null
+                                    awaitingAnalysisResult = true
                                     isProcessing = false
                                     onImageBase64Captured(imageBase64)
                                 } catch (_: Exception) {

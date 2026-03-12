@@ -48,6 +48,10 @@
 - Eigenes Produkt erweitert: Barcode-Scan direkt im Formular möglich, um den Barcode schneller vorzubefüllen.
 - Suche/Quick-Action UX aktualisiert: CTA-Struktur konsolidiert und Buttons in den zentralen Widgets größer für bessere Touchbarkeit.
 - Texteingaben verbessert: in Name-/Marke-Feldern startet die Tastatur jetzt mit Großschreibung am Wortanfang.
+- Quick Add erweitert: neuer Eingabe-Modus-Toggle zwischen `Finale Werte` und `Pro 100 + Menge` (inkl. Mengenfeld `g/ml` und automatischer Umrechnung auf finale Eintragswerte).
+- Quick-Add-Meal-Chips farblich an den restlichen Add-Flow angeglichen (konsistente Selected-State-Optik).
+- Vision-Scanner verbessert: nach Fotoaufnahme wird ein Standbild im Kamera-Frame gezeigt; die Live-Kamera läuft während der Analyse nicht weiter.
+- Fehlerdarstellung im Such-/Add-Flow überarbeitet: keine harte Inline-Fehleranzeige mehr, stattdessen Snackbar mit optionalem `Details`-Dialog.
 
 ## Notes
 - Lokale DB-Migration auf Version 8: neue Tabellen `supplement_plan_items` und `supplement_intakes`.
