@@ -33,6 +33,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
@@ -492,12 +493,23 @@ fun SearchScreen(
                                 onClick = { launchFoodPhotoUpload() },
                                 modifier = Modifier.size(56.dp)
                             ) {
-                                Text(
-                                    text = "KI",
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = "KI",
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
@@ -559,10 +571,10 @@ fun SearchScreen(
     if (state.showNutritionReviewSheet && state.nutritionScanResult != null) {
         NutritionReviewBottomSheet(
             scanResult = state.nutritionScanResult!!,
-            applyButtonLabel = if (state.nutritionApplyTarget == NutritionApplyTarget.QUICK_ADD) {
-                "In Quick Add uebernehmen"
-            } else {
-                "In Eigenes Produkt uebernehmen"
+            applyButtonLabel = when (state.nutritionApplyTarget) {
+                NutritionApplyTarget.QUICK_ADD -> "In Quick Add uebernehmen"
+                NutritionApplyTarget.DIRECT_MEAL -> "Als Mahlzeit eintragen"
+                NutritionApplyTarget.CUSTOM_FOOD, null -> "In Eigenes Produkt uebernehmen"
             },
             onDismiss = viewModel::dismissNutritionReviewSheet,
             onApply = viewModel::applyNutritionDraft

@@ -113,7 +113,7 @@ fun NutritionReviewBottomSheet(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Erkannte Werte anpassen und in Eigenes Produkt uebernehmen.",
+                text = "Erkannte Werte anpassen und uebernehmen.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)

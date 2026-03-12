@@ -47,7 +47,8 @@ data class AddConfirmationState(
 
 enum class NutritionApplyTarget {
     QUICK_ADD,
-    CUSTOM_FOOD
+    CUSTOM_FOOD,
+    DIRECT_MEAL
 }
 
 data class QuickAddDraft(
@@ -287,7 +288,7 @@ class SearchViewModel(
                         isFoodPhotoAnalyzing = false,
                         showNutritionReviewSheet = true,
                         nutritionScanResult = scanResult,
-                        nutritionApplyTarget = NutritionApplyTarget.QUICK_ADD,
+                        nutritionApplyTarget = NutritionApplyTarget.DIRECT_MEAL,
                         error = null
                     )
                 }
@@ -420,6 +421,20 @@ class SearchViewModel(
                     prefillQuickAddDraft = null,
                     showCreateCustomFoodSheet = true,
                     showQuickAddSheet = false
+                )
+            }
+
+            NutritionApplyTarget.DIRECT_MEAL -> {
+                _uiState.value = _uiState.value.copy(
+                    showNutritionReviewSheet = false,
+                    nutritionScanResult = null,
+                    nutritionApplyTarget = null,
+                    prefillCustomFoodDraft = null,
+                    prefillQuickAddDraft = null,
+                    selectedFood = draft.toFoodItemForMealEntry(),
+                    showBottomSheet = true,
+                    showQuickAddSheet = false,
+                    showCreateCustomFoodSheet = false
                 )
             }
         }
@@ -801,5 +816,18 @@ private fun CustomFoodDraft.toQuickAddDraft(): QuickAddDraft {
         isPer100Mode = !hasServingMacros,
         amount = if (!hasServingMacros) servingQuantity ?: 100.0 else null,
         amountUnit = if (!hasServingMacros) "g" else null
+    )
+}
+
+private fun CustomFoodDraft.toFoodItemForMealEntry(): FoodItem {
+    return FoodItem(
+        name = name?.trim()?.ifBlank { null } ?: "KI Scan",
+        caloriesPer100g = caloriesPer100g ?: 0.0,
+        proteinPer100g = proteinPer100g ?: 0.0,
+        fatPer100g = fatPer100g ?: 0.0,
+        carbsPer100g = carbsPer100g ?: 0.0,
+        servingSize = servingSize,
+        servingQuantity = servingQuantity,
+        source = FoodSource.CUSTOM
     )
 }
