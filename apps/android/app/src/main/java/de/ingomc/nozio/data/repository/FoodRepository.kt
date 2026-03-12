@@ -6,6 +6,7 @@ import de.ingomc.nozio.data.local.FoodSource
 import de.ingomc.nozio.data.remote.FoodApi
 import de.ingomc.nozio.data.remote.CreateCustomFoodRequestDto
 import de.ingomc.nozio.data.remote.FoodSearchItemDto
+import de.ingomc.nozio.data.remote.VisionFoodAnalyzeRequestDto
 import de.ingomc.nozio.data.remote.VisionNutritionParseRequestDto
 import java.net.SocketTimeoutException
 import org.json.JSONObject
@@ -212,6 +213,55 @@ class FoodRepository(
             throw VisionScanException(
                 backendCode = null,
                 message = "Vision-Scan fehlgeschlagen (${exception.javaClass.simpleName})."
+            )
+        }
+    }
+
+    suspend fun analyzeFoodFromImage(
+        imageBase64: String,
+        locale: String = "de",
+        portionSize: String? = null,
+        hints: List<String> = emptyList()
+    ): NutritionParseResult {
+        try {
+            val response = api.analyzeFoodFromImage(
+                VisionFoodAnalyzeRequestDto(
+                    imageBase64 = imageBase64,
+                    locale = locale,
+                    portionSize = portionSize,
+                    hints = hints
+                )
+            )
+            return NutritionParseResult(
+                name = response.name,
+                brand = response.brand,
+                caloriesPer100g = response.caloriesPer100g,
+                proteinPer100g = response.proteinPer100g,
+                carbsPer100g = response.carbsPer100g,
+                fatPer100g = response.fatPer100g,
+                sugarPer100g = response.sugarPer100g,
+                servingSize = response.servingSize,
+                servingQuantity = response.servingQuantity,
+                caloriesPerServing = response.caloriesPerServing,
+                proteinPerServing = response.proteinPerServing,
+                carbsPerServing = response.carbsPerServing,
+                fatPerServing = response.fatPerServing,
+                sugarPerServing = response.sugarPerServing,
+                confidence = response.confidence,
+                model = response.model,
+                warnings = response.warnings
+            )
+        } catch (exception: HttpException) {
+            throw mapVisionHttpException(exception)
+        } catch (_: SocketTimeoutException) {
+            throw VisionScanException(
+                backendCode = "TIMEOUT",
+                message = "Essens-Analyse hat zu lange gedauert (Timeout). Bitte erneut versuchen."
+            )
+        } catch (exception: Exception) {
+            throw VisionScanException(
+                backendCode = null,
+                message = "Essens-Analyse fehlgeschlagen (${exception.javaClass.simpleName})."
             )
         }
     }

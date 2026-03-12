@@ -9,6 +9,7 @@ import de.ingomc.nozio.data.remote.CreateCustomFoodResponseDto
 import de.ingomc.nozio.data.remote.FoodBarcodeResponseDto
 import de.ingomc.nozio.data.remote.FoodSearchItemDto
 import de.ingomc.nozio.data.remote.FoodSearchResponseDto
+import de.ingomc.nozio.data.remote.VisionFoodAnalyzeRequestDto
 import de.ingomc.nozio.data.remote.VisionNutritionParseRequestDto
 import de.ingomc.nozio.data.remote.VisionNutritionParseResponseDto
 import kotlinx.coroutines.test.runTest
@@ -116,6 +117,28 @@ class FoodRepositoryTest {
         assertEquals("gemini-2.0-flash", result.model)
     }
 
+    @Test
+    fun analyzeFoodFromImage_mapsVisionResponseWithHints() = runTest {
+        val repository = FoodRepository(
+            api = FakeFoodApi(),
+            foodDao = FakeFoodDao()
+        )
+
+        val result = repository.analyzeFoodFromImage(
+            imageBase64 = "abc123",
+            locale = "de",
+            portionSize = "medium",
+            hints = listOf("Haehnchen")
+        )
+
+        assertEquals(150.0, result.caloriesPer100g)
+        assertEquals(22.0, result.proteinPer100g)
+        assertEquals("1 Teller", result.servingSize)
+        assertEquals(350.0, result.servingQuantity)
+        assertEquals(525.0, result.caloriesPerServing)
+        assertEquals("gemini-2.0-flash", result.model)
+    }
+
     private class FakeFoodApi(
         private val searchResponse: FoodSearchResponseDto = FoodSearchResponseDto(),
         private val barcodeResponse: FoodBarcodeResponseDto? = FoodBarcodeResponseDto(
@@ -168,6 +191,26 @@ class FoodRepositoryTest {
                 confidence = 0.91,
                 model = "gemini-2.0-flash",
                 warnings = emptyList()
+            )
+        }
+
+        override suspend fun analyzeFoodFromImage(request: VisionFoodAnalyzeRequestDto): VisionNutritionParseResponseDto {
+            return VisionNutritionParseResponseDto(
+                name = "Haehnchen mit Reis",
+                caloriesPer100g = 150.0,
+                proteinPer100g = 22.0,
+                carbsPer100g = 15.0,
+                fatPer100g = 3.0,
+                sugarPer100g = 0.0,
+                servingSize = "1 Teller",
+                servingQuantity = 350.0,
+                caloriesPerServing = 525.0,
+                proteinPerServing = 77.0,
+                carbsPerServing = 52.0,
+                fatPerServing = 10.0,
+                confidence = 0.72,
+                model = "gemini-2.0-flash",
+                warnings = listOf("Geschaetzte Werte")
             )
         }
     }

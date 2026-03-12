@@ -63,6 +63,14 @@ data class VisionNutritionParseResponseDto(
 )
 
 @Serializable
+data class VisionFoodAnalyzeRequestDto(
+    val imageBase64: String,
+    val locale: String = "de",
+    val portionSize: String? = null,
+    val hints: List<String> = emptyList()
+)
+
+@Serializable
 data class FoodSearchItemDto(
     val id: String,
     val name: String,
