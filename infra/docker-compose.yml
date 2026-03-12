@@ -23,15 +23,15 @@ services:
     environment:
       PORT: ${PORT:-3000}
       HOST: ${HOST:-0.0.0.0}
-      MEILI_URL: ${MEILI_URL:-http://meilisearch:7700}
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-change-me}
+      MEILI_URL: http://meilisearch:7700
       MEILI_INDEX_NAME: ${MEILI_INDEX_NAME:-foods}
-      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-change-me-admin}
       MAX_SEED_UPLOAD_MB: ${MAX_SEED_UPLOAD_MB:-100}
       MEILI_AUTO_SEED: ${MEILI_AUTO_SEED:-true}
       MEILI_SEED_FILE: ${MEILI_SEED_FILE:-/data/seeds/foods.json}
       MEILI_SEED_FALLBACK_FILE: ${MEILI_SEED_FALLBACK_FILE:-data/seed/foods.de.sample.json}
-      FOOD_API_KEY: ${FOOD_API_KEY:-dev-change-me}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      VISION_TIMEOUT_MS: ${VISION_TIMEOUT_MS:-12000}
+      VISION_MAX_IMAGE_MB: ${VISION_MAX_IMAGE_MB:-4}
     ports:
       - "${FOOD_API_HOST_PORT:-3000}:3000"
     volumes:

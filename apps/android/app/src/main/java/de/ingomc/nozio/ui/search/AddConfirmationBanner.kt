@@ -32,6 +32,7 @@ fun AddConfirmationBanner(
     confirmation: AddConfirmationState,
     progress: Float,
     onUndo: () -> Unit,
+    onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val badgeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
@@ -80,8 +81,16 @@ fun AddConfirmationBanner(
                     }
                 }
 
-                TextButton(onClick = onUndo) {
-                    Text("Rückgängig")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onUndo) {
+                        Text("Rückgängig")
+                    }
+                    TextButton(onClick = onConfirm) {
+                        Text("OK")
+                    }
                 }
             }
 

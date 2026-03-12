@@ -5,7 +5,9 @@ import {
   createCustomFoodResponseSchema,
   foodBarcodeResponseSchema,
   foodItemSchema,
-  foodSearchResponseSchema
+  foodSearchResponseSchema,
+  visionNutritionParseRequestSchema,
+  visionNutritionParseResponseSchema
 } from "@nozio/food-contracts";
 import { z } from "zod";
 
@@ -19,6 +21,11 @@ import {
   saveSeedRecordsToFile,
   waitForMeili
 } from "./seed.js";
+import {
+  parseNutritionWithGemini,
+  VisionParseError,
+  VisionUnavailableError
+} from "./vision.js";
 
 const searchQuerySchema = z.object({
   q: z.string().trim().min(2),
@@ -34,6 +41,8 @@ const seedUploadQuerySchema = z.object({
   resetIndex: z.coerce.boolean().default(false)
 });
 
+type VisionParser = typeof parseNutritionWithGemini;
+
 function isMeiliUnavailable(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
@@ -43,7 +52,13 @@ function isMeiliUnavailable(error: unknown): boolean {
   return message.includes("fetch failed") || message.includes("connect") || message.includes("network");
 }
 
-export function buildApp(config: AppConfig): FastifyInstance {
+export function buildApp(
+  config: AppConfig,
+  dependencies: {
+    parseNutrition?: VisionParser;
+  } = {}
+): FastifyInstance {
+  const parseNutrition = dependencies.parseNutrition ?? parseNutritionWithGemini;
   const app = Fastify({
     logger: true,
     bodyLimit: config.MAX_SEED_UPLOAD_MB * 1024 * 1024
@@ -241,5 +256,90 @@ export function buildApp(config: AppConfig): FastifyInstance {
     }
   });
 
+  app.post("/v1/vision/nutrition/parse", async (request, reply) => {
+    const parsedBody = visionNutritionParseRequestSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendApiError(reply, 400, "INVALID_BODY", "Vision payload is invalid.");
+    }
+
+    const stripped = stripDataUrlPrefix(parsedBody.data.imageBase64);
+    const imageBuffer = decodeBase64Image(stripped);
+    if (!imageBuffer) {
+      return sendApiError(reply, 400, "INVALID_BODY", "Image payload must be valid base64.");
+    }
+
+    const maxBytes = Math.floor(config.VISION_MAX_IMAGE_MB * 1024 * 1024);
+    if (imageBuffer.length > maxBytes) {
+      return sendApiError(reply, 413, "IMAGE_TOO_LARGE", "Image exceeds configured size limit.");
+    }
+
+    const mimeType = detectImageMimeType(imageBuffer);
+    if (!mimeType) {
+      return sendApiError(reply, 400, "INVALID_BODY", "Only JPEG and PNG images are supported.");
+    }
+
+    try {
+      const parsed = await parseNutrition(config, {
+        imageBase64: stripped,
+        mimeType,
+        locale: parsedBody.data.locale
+      });
+      return visionNutritionParseResponseSchema.parse(parsed);
+    } catch (error) {
+      if (error instanceof VisionParseError) {
+        return sendApiError(reply, 422, "VISION_PARSE_FAILED", "Vision response could not be parsed.");
+      }
+      if (error instanceof VisionUnavailableError) {
+        request.log.warn({ err: error }, "vision backend unavailable");
+        const detail = error.message?.trim();
+        const message = detail
+          ? `Vision backend is unavailable. ${detail}`
+          : "Vision backend is unavailable.";
+        return sendApiError(reply, 502, "VISION_UNAVAILABLE", message);
+      }
+      request.log.error({ err: error }, "vision parse failed");
+      return sendApiError(reply, 500, "INTERNAL_ERROR", "Unexpected server error.");
+    }
+  });
+
   return app;
+}
+
+function stripDataUrlPrefix(value: string): string {
+  const marker = ";base64,";
+  const markerIndex = value.indexOf(marker);
+  if (markerIndex < 0) return value.trim();
+  return value.slice(markerIndex + marker.length).trim();
+}
+
+function decodeBase64Image(value: string): Buffer | null {
+  try {
+    const normalized = value.replace(/\s+/g, "");
+    if (!normalized) return null;
+    const decoded = Buffer.from(normalized, "base64");
+    if (decoded.length === 0) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+function detectImageMimeType(buffer: Buffer): string | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  return null;
 }

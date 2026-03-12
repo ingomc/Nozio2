@@ -22,4 +22,9 @@ interface FoodApi {
     suspend fun createCustomFood(
         @Body request: CreateCustomFoodRequestDto
     ): CreateCustomFoodResponseDto
+
+    @POST("v1/vision/nutrition/parse")
+    suspend fun parseNutritionFromImage(
+        @Body request: VisionNutritionParseRequestDto
+    ): VisionNutritionParseResponseDto
 }

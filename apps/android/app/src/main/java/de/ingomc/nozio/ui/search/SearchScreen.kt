@@ -5,20 +5,6 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,11 +26,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
@@ -90,7 +78,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import de.ingomc.nozio.data.local.FoodItem
@@ -117,10 +104,10 @@ fun SearchScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val searchFocusRequester = remember { FocusRequester() }
-    val addConfirmationProgress = remember { Animatable(0f) }
-    val addBannerVisibilityState = remember { MutableTransitionState(false) }
-    var displayedAddConfirmation by remember { mutableStateOf<AddConfirmationState?>(null) }
-    var showScannerSheet by remember { mutableStateOf(false) }
+    var showBarcodeScannerSheet by remember { mutableStateOf(false) }
+    var pendingCameraAction by remember { mutableStateOf<CameraAction?>(null) }
+    var barcodeScanTarget by remember { mutableStateOf(BarcodeScanTarget.SEARCH) }
+    var customFoodScannedBarcode by remember { mutableStateOf<String?>(null) }
     var searchContainerHeightPx by remember { mutableStateOf(0) }
     val density = LocalDensity.current
     val listBottomPadding = with(density) { searchContainerHeightPx.toDp() + 28.dp }
@@ -132,34 +119,67 @@ fun SearchScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            showScannerSheet = true
+            when (pendingCameraAction) {
+                CameraAction.BARCODE_SEARCH -> {
+                    barcodeScanTarget = BarcodeScanTarget.SEARCH
+                    showBarcodeScannerSheet = true
+                }
+                CameraAction.BARCODE_CUSTOM -> {
+                    barcodeScanTarget = BarcodeScanTarget.CUSTOM_FOOD
+                    showBarcodeScannerSheet = true
+                }
+                CameraAction.NUTRITION_QUICK -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.QUICK_ADD)
+                CameraAction.NUTRITION_CUSTOM -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.CUSTOM_FOOD)
+                null -> Unit
+            }
         } else {
             coroutineScope.launch {
                 snackbarHostState.showSnackbar("Kamera-Berechtigung benötigt")
             }
         }
+        pendingCameraAction = null
     }
-    val launchBarcodeScanner: () -> Unit = {
+    val launchCameraFlow: (CameraAction) -> Unit = { action ->
+        pendingCameraAction = action
         val hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
         if (hasPermission) {
-            showScannerSheet = true
+            when (action) {
+                CameraAction.BARCODE_SEARCH -> {
+                    barcodeScanTarget = BarcodeScanTarget.SEARCH
+                    showBarcodeScannerSheet = true
+                }
+                CameraAction.BARCODE_CUSTOM -> {
+                    barcodeScanTarget = BarcodeScanTarget.CUSTOM_FOOD
+                    showBarcodeScannerSheet = true
+                }
+                CameraAction.NUTRITION_QUICK -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.QUICK_ADD)
+                CameraAction.NUTRITION_CUSTOM -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.CUSTOM_FOOD)
+            }
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
+    val launchBarcodeScanner: () -> Unit = { launchCameraFlow(CameraAction.BARCODE_SEARCH) }
+    val launchCustomFoodBarcodeScanner: () -> Unit = { launchCameraFlow(CameraAction.BARCODE_CUSTOM) }
+    val launchQuickAddNutritionScanner: () -> Unit = { launchCameraFlow(CameraAction.NUTRITION_QUICK) }
+    val launchCustomFoodNutritionScanner: () -> Unit = { launchCameraFlow(CameraAction.NUTRITION_CUSTOM) }
 
     BackHandler(
-        enabled = showScannerSheet ||
+        enabled = showBarcodeScannerSheet ||
+            state.showNutritionScannerSheet ||
+            state.showNutritionReviewSheet ||
             state.showBarcodeResultsSheet ||
             state.showBottomSheet ||
             state.showQuickAddSheet ||
             state.showCreateCustomFoodSheet
     ) {
         when {
-            showScannerSheet -> showScannerSheet = false
+            showBarcodeScannerSheet -> showBarcodeScannerSheet = false
+            state.showNutritionScannerSheet && !state.isNutritionScanInFlight -> viewModel.dismissNutritionScannerSheet()
+            state.showNutritionReviewSheet -> viewModel.dismissNutritionReviewSheet()
             state.showBarcodeResultsSheet -> viewModel.dismissBarcodeResultsSheet()
             state.showBottomSheet -> viewModel.dismissBottomSheet()
             state.showQuickAddSheet -> viewModel.dismissQuickAddSheet()
@@ -189,43 +209,10 @@ fun SearchScreen(
         }
     }
 
-    LaunchedEffect(state.activeAddConfirmation?.bannerId) {
-        val confirmation = state.activeAddConfirmation
-        if (confirmation == null) {
-            addConfirmationProgress.snapTo(0f)
-        } else {
-            addConfirmationProgress.snapTo(1f)
-            addConfirmationProgress.animateTo(
-                targetValue = 0f,
-                animationSpec = tween(durationMillis = 5000, easing = LinearEasing)
-            )
-            viewModel.dismissAddConfirmation()
-        }
-    }
-
-    LaunchedEffect(state.activeAddConfirmation) {
-        val confirmation = state.activeAddConfirmation
-        if (confirmation != null) {
-            displayedAddConfirmation = confirmation
-            addBannerVisibilityState.targetState = true
-        } else {
-            addBannerVisibilityState.targetState = false
-        }
-    }
-
-    LaunchedEffect(
-        addBannerVisibilityState.currentState,
-        addBannerVisibilityState.targetState,
-        addBannerVisibilityState.isIdle,
-        state.activeAddConfirmation
-    ) {
-        if (
-            state.activeAddConfirmation == null &&
-            addBannerVisibilityState.isIdle &&
-            !addBannerVisibilityState.currentState &&
-            !addBannerVisibilityState.targetState
-        ) {
-            displayedAddConfirmation = null
+    LaunchedEffect(state.error) {
+        val error = state.error
+        if (error != null) {
+            snackbarHostState.showSnackbar(error)
         }
     }
 
@@ -430,61 +417,47 @@ fun SearchScreen(
                     .statusBarsPadding()
                     .padding(top = 72.dp)
             )
-
-            AnimatedVisibility(
-                visibleState = addBannerVisibilityState,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 8.dp, start = 16.dp, end = 16.dp),
-                enter = fadeIn(animationSpec = tween(durationMillis = 180)) +
-                    slideInVertically(
-                        animationSpec = spring(
-                            dampingRatio = 0.8f,
-                            stiffness = Spring.StiffnessMediumLow
-                        ),
-                        initialOffsetY = { -it }
-                    ) +
-                    scaleIn(
-                        initialScale = 0.96f,
-                        transformOrigin = TransformOrigin(0.5f, 0f),
-                        animationSpec = spring(
-                            dampingRatio = 0.88f,
-                            stiffness = Spring.StiffnessMedium
-                        )
-                    ),
-                exit = fadeOut(animationSpec = tween(durationMillis = 140)) +
-                    slideOutVertically(
-                        animationSpec = tween(
-                            durationMillis = 180,
-                            easing = FastOutLinearInEasing
-                        ),
-                        targetOffsetY = { -it / 2 }
-                    ) +
-                    scaleOut(
-                        targetScale = 0.98f,
-                        transformOrigin = TransformOrigin(0.5f, 0f),
-                        animationSpec = tween(durationMillis = 140)
-                    )
-            ) {
-                displayedAddConfirmation?.let { confirmation ->
-                    AddConfirmationBanner(
-                        confirmation = confirmation,
-                        progress = addConfirmationProgress.value,
-                        onUndo = viewModel::undoLastAddedFood
-                    )
-                }
-            }
         }
     }
 
-    if (showScannerSheet) {
+    if (showBarcodeScannerSheet) {
         BarcodeScannerBottomSheet(
-            onDismiss = { showScannerSheet = false },
+            onDismiss = { showBarcodeScannerSheet = false },
             onBarcodeDetected = { barcode ->
-                showScannerSheet = false
-                viewModel.onBarcodeScanned(barcode)
+                showBarcodeScannerSheet = false
+                val normalizedBarcode = barcode.filter(Char::isDigit)
+                when (barcodeScanTarget) {
+                    BarcodeScanTarget.SEARCH -> viewModel.onBarcodeScanned(normalizedBarcode)
+                    BarcodeScanTarget.CUSTOM_FOOD -> customFoodScannedBarcode = normalizedBarcode
+                }
             }
+        )
+    }
+
+    if (state.showNutritionScannerSheet) {
+        NutritionScannerBottomSheet(
+            isAnalyzing = state.isNutritionScanInFlight,
+            onDismiss = {
+                if (!state.isNutritionScanInFlight) {
+                    viewModel.dismissNutritionScannerSheet()
+                }
+            },
+            onImageBase64Captured = { imageBase64 ->
+                viewModel.onNutritionImageCaptured(imageBase64)
+            }
+        )
+    }
+
+    if (state.showNutritionReviewSheet && state.nutritionScanResult != null) {
+        NutritionReviewBottomSheet(
+            scanResult = state.nutritionScanResult!!,
+            applyButtonLabel = if (state.nutritionApplyTarget == NutritionApplyTarget.QUICK_ADD) {
+                "In Quick Add uebernehmen"
+            } else {
+                "In Eigenes Produkt uebernehmen"
+            },
+            onDismiss = viewModel::dismissNutritionReviewSheet,
+            onApply = viewModel::applyNutritionDraft
         )
     }
 
@@ -514,6 +487,8 @@ fun SearchScreen(
     if (state.showQuickAddSheet) {
         QuickAddBottomSheet(
             preselectedMealType = preselectedMealType,
+            initial = state.prefillQuickAddDraft,
+            onScanNutrition = launchQuickAddNutritionScanner,
             onDismiss = viewModel::dismissQuickAddSheet,
             onAdd = viewModel::addQuickEntry
         )
@@ -522,10 +497,26 @@ fun SearchScreen(
     if (state.showCreateCustomFoodSheet) {
         CreateCustomFoodBottomSheet(
             isSubmitting = state.isSubmittingCustomFood,
+            initial = state.prefillCustomFoodDraft,
+            prefilledBarcode = customFoodScannedBarcode,
+            onScanNutrition = launchCustomFoodNutritionScanner,
+            onScanBarcode = launchCustomFoodBarcodeScanner,
             onDismiss = viewModel::dismissCreateCustomFoodSheet,
             onSave = viewModel::createCustomFood
         )
     }
+}
+
+private enum class CameraAction {
+    BARCODE_SEARCH,
+    BARCODE_CUSTOM,
+    NUTRITION_QUICK,
+    NUTRITION_CUSTOM
+}
+
+private enum class BarcodeScanTarget {
+    SEARCH,
+    CUSTOM_FOOD
 }
 
 private enum class SuggestionTab(
@@ -753,26 +744,48 @@ private fun QuickActionsCard(
             fontWeight = FontWeight.SemiBold
         )
         Text(
-            text = "Kalorien direkt loggen oder ein eigenes Produkt anlegen.",
+            text = "Kalorien loggen oder ein eigenes Produkt anlegen.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Button(
                 onClick = onQuickAddClick,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                Text("Quick Add")
+                Text(
+                    text = "Quick Add",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
             OutlinedButton(
                 onClick = onCreateFoodClick,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                Text("Eigenes Produkt")
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Produkt",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
     }

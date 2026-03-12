@@ -6,6 +6,27 @@ import de.ingomc.nozio.data.local.FoodSource
 import de.ingomc.nozio.data.remote.FoodApi
 import de.ingomc.nozio.data.remote.CreateCustomFoodRequestDto
 import de.ingomc.nozio.data.remote.FoodSearchItemDto
+import de.ingomc.nozio.data.remote.VisionNutritionParseRequestDto
+import org.json.JSONObject
+import retrofit2.HttpException
+
+data class NutritionParseResult(
+    val name: String? = null,
+    val brand: String? = null,
+    val caloriesPer100g: Double? = null,
+    val proteinPer100g: Double? = null,
+    val carbsPer100g: Double? = null,
+    val fatPer100g: Double? = null,
+    val sugarPer100g: Double? = null,
+    val confidence: Double,
+    val model: String,
+    val warnings: List<String> = emptyList()
+)
+
+class VisionScanException(
+    val backendCode: String?,
+    override val message: String
+) : Exception(message)
 
 data class CustomFoodInput(
     val name: String,
@@ -142,6 +163,39 @@ class FoodRepository(
         return foodDao.getById(foodId)
     }
 
+    suspend fun parseNutritionFromImage(
+        imageBase64: String,
+        locale: String = "de"
+    ): NutritionParseResult {
+        try {
+            val response = api.parseNutritionFromImage(
+                VisionNutritionParseRequestDto(
+                    imageBase64 = imageBase64,
+                    locale = locale
+                )
+            )
+            return NutritionParseResult(
+                name = response.name,
+                brand = response.brand,
+                caloriesPer100g = response.caloriesPer100g,
+                proteinPer100g = response.proteinPer100g,
+                carbsPer100g = response.carbsPer100g,
+                fatPer100g = response.fatPer100g,
+                sugarPer100g = response.sugarPer100g,
+                confidence = response.confidence,
+                model = response.model,
+                warnings = response.warnings
+            )
+        } catch (exception: HttpException) {
+            throw mapVisionHttpException(exception)
+        } catch (exception: Exception) {
+            throw VisionScanException(
+                backendCode = null,
+                message = "Vision-Scan fehlgeschlagen (${exception.javaClass.simpleName})."
+            )
+        }
+    }
+
     private fun FoodSearchItemDto.hasValidData(): Boolean {
         return displayName.isNotBlank() && caloriesPer100g >= 0
     }
@@ -168,6 +222,58 @@ class FoodRepository(
             "CUSTOM" -> FoodSource.CUSTOM
             "SELF_HOSTED_OFF" -> FoodSource.SELF_HOSTED_OFF
             else -> FoodSource.OPEN_FOOD_FACTS
+        }
+    }
+
+    private fun mapVisionHttpException(exception: HttpException): VisionScanException {
+        val status = exception.code()
+        val errorBody = exception.response()?.errorBody()?.string().orEmpty()
+        val backendCode = extractApiErrorCode(errorBody)
+        val backendMessage = extractApiErrorMessage(errorBody)
+
+        val message = when (backendCode) {
+            "VISION_UNAVAILABLE" -> {
+                val detail = backendMessage?.takeIf { it.isNotBlank() }
+                if (detail != null) {
+                    "Vision-Service aktuell nicht erreichbar: $detail (VISION_UNAVAILABLE)."
+                } else {
+                    "Vision-Service aktuell nicht erreichbar (VISION_UNAVAILABLE)."
+                }
+            }
+            "VISION_PARSE_FAILED" -> "Vision konnte das Bild nicht auswerten (VISION_PARSE_FAILED)."
+            "IMAGE_TOO_LARGE" -> "Bild ist zu groß fuer Vision-Scan (IMAGE_TOO_LARGE)."
+            "INVALID_BODY" -> "Scan-Bild war ungueltig fuer Vision-Scan (INVALID_BODY)."
+            "UNAUTHORIZED" -> "API-Key abgelehnt (UNAUTHORIZED)."
+            else -> {
+                val suffix = if (!backendCode.isNullOrBlank()) " ($backendCode)" else ""
+                val detail = backendMessage?.takeIf { it.isNotBlank() }
+                if (detail != null) {
+                    "Vision-Request fehlgeschlagen: $detail$suffix [HTTP $status]."
+                } else {
+                    "Vision-Request fehlgeschlagen [HTTP $status]$suffix."
+                }
+            }
+        }
+
+        return VisionScanException(
+            backendCode = backendCode,
+            message = message
+        )
+    }
+
+    private fun extractApiErrorCode(errorBody: String): String? {
+        return try {
+            JSONObject(errorBody).optJSONObject("error")?.optString("code")?.ifBlank { null }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun extractApiErrorMessage(errorBody: String): String? {
+        return try {
+            JSONObject(errorBody).optJSONObject("error")?.optString("message")?.ifBlank { null }
+        } catch (_: Exception) {
+            null
         }
     }
 }
