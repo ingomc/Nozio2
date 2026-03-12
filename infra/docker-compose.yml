@@ -30,6 +30,7 @@ services:
       MEILI_SEED_FILE: ${MEILI_SEED_FILE:-/data/seeds/foods.json}
       MEILI_SEED_FALLBACK_FILE: ${MEILI_SEED_FALLBACK_FILE:-data/seed/foods.de.sample.json}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      GEMINI_FALLBACK_MODELS: ${GEMINI_FALLBACK_MODELS:-}
       VISION_TIMEOUT_MS: ${VISION_TIMEOUT_MS:-25000}
       VISION_MAX_IMAGE_MB: ${VISION_MAX_IMAGE_MB:-4}
     ports:

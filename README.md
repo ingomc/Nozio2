@@ -152,6 +152,11 @@ MEILI_SEED_FILE=data/seed/runtime/foods.json
 MEILI_SEED_FALLBACK_FILE=data/seed/foods.de.sample.json
 FOOD_API_KEY=dev-change-me
 FOOD_API_HOST_PORT=3000
+GEMINI_API_KEY=change-me-gemini
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_FALLBACK_MODELS=gemini-3.1-flash-lite-preview,gemini-3-flash-preview
+VISION_TIMEOUT_MS=25000
+VISION_MAX_IMAGE_MB=4
 ```
 
 Fuer Docker Compose wird `MEILI_URL` automatisch auf `http://meilisearch:7700` gesetzt. Der Wert in `food-api.env` ist fuer den lokalen Non-Docker-Start per `pnpm dev:food-api`.

@@ -51,11 +51,45 @@ type GeminiErrorResponse = {
   };
 };
 
+class GeminiRequestError extends Error {
+  constructor(
+    readonly model: string,
+    readonly httpStatus: number,
+    readonly apiStatus: string | undefined,
+    readonly detail: string | undefined
+  ) {
+    const statusPart = `HTTP ${httpStatus}`;
+    const message = detail
+      ? `Gemini request failed (${statusPart}): ${detail}`
+      : `Gemini request failed (${statusPart}).`;
+    super(message);
+  }
+}
+
 function extractJsonObject(text: string): string | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return null;
   return text.slice(start, end + 1);
+}
+
+function getConfiguredModels(config: AppConfig): string[] {
+  const ordered = [config.GEMINI_MODEL, ...config.GEMINI_FALLBACK_MODELS];
+  const unique = new Set<string>();
+  for (const model of ordered) {
+    const trimmed = model.trim();
+    if (!trimmed || unique.has(trimmed)) continue;
+    unique.add(trimmed);
+  }
+  return [...unique];
+}
+
+function isRateLimited(error: GeminiRequestError): boolean {
+  if (error.httpStatus === 429) return true;
+  const apiStatus = (error.apiStatus ?? "").toUpperCase();
+  if (apiStatus === "RESOURCE_EXHAUSTED") return true;
+  const detail = (error.detail ?? "").toLowerCase();
+  return detail.includes("quota") || detail.includes("rate limit") || detail.includes("resource exhausted");
 }
 
 function normalizeParsedResponse(
@@ -119,6 +153,120 @@ function normalizeParsedResponse(
 export class VisionUnavailableError extends Error {}
 export class VisionParseError extends Error {}
 
+async function generateWithModel(
+  config: AppConfig,
+  input: {
+    imageBase64: string;
+    mimeType: string;
+  },
+  prompt: string,
+  model: string,
+  signal: AbortSignal
+): Promise<VisionNutritionParseResponse> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(config.GEMINI_API_KEY)}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: input.mimeType,
+                  data: input.imageBase64
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0,
+          responseMimeType: "application/json",
+          responseSchema: geminiPayloadSchema
+        }
+      }),
+      signal
+    }
+  );
+
+  if (!response.ok) {
+    let detail: string | undefined;
+    let apiStatus: string | undefined;
+    try {
+      const errorPayload = (await response.json()) as GeminiErrorResponse;
+      detail = errorPayload.error?.message?.trim() || undefined;
+      apiStatus = errorPayload.error?.status?.trim() || undefined;
+    } catch {
+      // Ignore parse failure and keep generic status text.
+    }
+
+    throw new GeminiRequestError(model, response.status, apiStatus, detail);
+  }
+
+  const payload = (await response.json()) as GeminiGenerateResponse;
+  const rawText = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("\n")?.trim() ?? "";
+
+  if (!rawText) {
+    throw new VisionParseError("Gemini returned empty response.");
+  }
+
+  const jsonText = extractJsonObject(rawText);
+  if (!jsonText) {
+    throw new VisionParseError("Gemini response did not contain JSON object.");
+  }
+
+  let parsedUnknown: unknown;
+  try {
+    parsedUnknown = JSON.parse(jsonText);
+  } catch {
+    throw new VisionParseError("Gemini JSON could not be parsed.");
+  }
+
+  const parsed = visionNutritionParseResponseSchema.parse(parsedUnknown);
+  return normalizeParsedResponse(parsed, model);
+}
+
+async function generateWithRateLimitFallback(
+  config: AppConfig,
+  input: {
+    imageBase64: string;
+    mimeType: string;
+  },
+  prompt: string,
+  signal: AbortSignal
+): Promise<VisionNutritionParseResponse> {
+  const models = getConfiguredModels(config);
+  let lastRateLimitError: GeminiRequestError | null = null;
+
+  for (const model of models) {
+    try {
+      return await generateWithModel(config, input, prompt, model, signal);
+    } catch (error) {
+      if (error instanceof GeminiRequestError && isRateLimited(error)) {
+        lastRateLimitError = error;
+        continue;
+      }
+      if (error instanceof GeminiRequestError) {
+        throw new VisionUnavailableError(error.message);
+      }
+      throw error;
+    }
+  }
+
+  if (lastRateLimitError) {
+    throw new VisionUnavailableError(
+      `All configured Gemini models are rate-limited (${models.join(", ")}). Last error: ${lastRateLimitError.message}`
+    );
+  }
+
+  throw new VisionUnavailableError("Gemini unavailable");
+}
+
 export async function parseNutritionWithGemini(
   config: AppConfig,
   input: {
@@ -144,77 +292,15 @@ export async function parseNutritionWithGemini(
       "- warnings als Liste von knappen Hinweisen."
     ].join("\n");
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(config.GEMINI_API_KEY)}`,
+    return await generateWithRateLimitFallback(
+      config,
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    mimeType: input.mimeType,
-                    data: input.imageBase64
-                  }
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0,
-            responseMimeType: "application/json",
-            responseSchema: geminiPayloadSchema
-          }
-        }),
-        signal: controller.signal
-      }
+        imageBase64: input.imageBase64,
+        mimeType: input.mimeType
+      },
+      prompt,
+      controller.signal
     );
-
-    if (!response.ok) {
-      let detail = "";
-      try {
-        const errorPayload = (await response.json()) as GeminiErrorResponse;
-        const apiMessage = errorPayload.error?.message?.trim();
-        if (apiMessage) {
-          detail = apiMessage;
-        }
-      } catch {
-        // Ignore parse failure and keep generic status text.
-      }
-
-      const statusPart = `HTTP ${response.status}`;
-      const message = detail
-        ? `Gemini request failed (${statusPart}): ${detail}`
-        : `Gemini request failed (${statusPart}).`;
-      throw new VisionUnavailableError(message);
-    }
-
-    const payload = (await response.json()) as GeminiGenerateResponse;
-    const rawText = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("\n")?.trim() ?? "";
-
-    if (!rawText) {
-      throw new VisionParseError("Gemini returned empty response.");
-    }
-
-    const jsonText = extractJsonObject(rawText);
-    if (!jsonText) {
-      throw new VisionParseError("Gemini response did not contain JSON object.");
-    }
-
-    let parsedUnknown: unknown;
-    try {
-      parsedUnknown = JSON.parse(jsonText);
-    } catch {
-      throw new VisionParseError("Gemini JSON could not be parsed.");
-    }
-
-    const parsed = visionNutritionParseResponseSchema.parse(parsedUnknown);
-    return normalizeParsedResponse(parsed, config.GEMINI_MODEL);
   } catch (error) {
     if (error instanceof VisionParseError || error instanceof VisionUnavailableError) {
       throw error;
@@ -263,77 +349,15 @@ export async function analyzeFoodWithGemini(
       "- warnings als Liste von knappen Hinweisen."
     ].join("\n");
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(config.GEMINI_API_KEY)}`,
+    return await generateWithRateLimitFallback(
+      config,
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    mimeType: input.mimeType,
-                    data: input.imageBase64
-                  }
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0,
-            responseMimeType: "application/json",
-            responseSchema: geminiPayloadSchema
-          }
-        }),
-        signal: controller.signal
-      }
+        imageBase64: input.imageBase64,
+        mimeType: input.mimeType
+      },
+      prompt,
+      controller.signal
     );
-
-    if (!response.ok) {
-      let detail = "";
-      try {
-        const errorPayload = (await response.json()) as GeminiErrorResponse;
-        const apiMessage = errorPayload.error?.message?.trim();
-        if (apiMessage) {
-          detail = apiMessage;
-        }
-      } catch {
-        // Ignore parse failure and keep generic status text.
-      }
-
-      const statusPart = `HTTP ${response.status}`;
-      const message = detail
-        ? `Gemini request failed (${statusPart}): ${detail}`
-        : `Gemini request failed (${statusPart}).`;
-      throw new VisionUnavailableError(message);
-    }
-
-    const payload = (await response.json()) as GeminiGenerateResponse;
-    const rawText = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("\n")?.trim() ?? "";
-
-    if (!rawText) {
-      throw new VisionParseError("Gemini returned empty response.");
-    }
-
-    const jsonText = extractJsonObject(rawText);
-    if (!jsonText) {
-      throw new VisionParseError("Gemini response did not contain JSON object.");
-    }
-
-    let parsedUnknown: unknown;
-    try {
-      parsedUnknown = JSON.parse(jsonText);
-    } catch {
-      throw new VisionParseError("Gemini JSON could not be parsed.");
-    }
-
-    const parsed = visionNutritionParseResponseSchema.parse(parsedUnknown);
-    return normalizeParsedResponse(parsed, config.GEMINI_MODEL);
   } catch (error) {
     if (error instanceof VisionParseError || error instanceof VisionUnavailableError) {
       throw error;

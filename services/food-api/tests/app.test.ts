@@ -18,6 +18,7 @@ const baseConfig = {
   MEILI_SEED_FALLBACK_FILE: "data/seed/foods.de.sample.json",
   GEMINI_API_KEY: "gemini-test-key",
   GEMINI_MODEL: "gemini-2.0-flash",
+  GEMINI_FALLBACK_MODELS: [],
   VISION_TIMEOUT_MS: 12000,
   VISION_MAX_IMAGE_MB: 4
 };

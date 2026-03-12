@@ -8,7 +8,8 @@ app.log.info(
   {
     host: config.HOST,
     port: config.PORT,
-    geminiModel: config.GEMINI_MODEL
+    geminiModel: config.GEMINI_MODEL,
+    geminiFallbackModels: config.GEMINI_FALLBACK_MODELS
   },
   "Starting food-api"
 );
