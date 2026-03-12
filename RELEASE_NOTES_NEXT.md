@@ -42,8 +42,15 @@
 - Swipe-Actions in Mahlzeitzeilen weiter verfeinert: groesserer Reveal-Bereich fuer Gesten sowie klarere Copy/Delete-Button-Farben fuer bessere Erkennbarkeit.
 - Swipe/Drag-Layering in Mahlzeiten weiter verfeinert: gezogenes Item liegt per erhoehtem z-index sichtbar ueber Nachbarinhalten.
 - Einstellungen visuell entschlackt: Row-Hierarchie klarer, weniger "Kachel-Overload", besserer Fit zum restlichen App-Chrome.
+- Nährwert-Scan deutlich erweitert: eigener Foto-Scan-Flow (separat vom Barcode-Scanner) mit serverseitiger Vision-Erkennung und Review vor der Übernahme in Quick Add oder Eigenes Produkt.
+- Scanner-Transparenz verbessert: nach Fotoaufnahme bleibt das Scanner-BottomSheet sichtbar, Eingaben werden deaktiviert und ein klarer Analyse-Loading-State wird angezeigt.
+- Fehlerkommunikation verbessert: Scan- und Save-Fehler werden als Snackbar angezeigt, inklusive konkreterer Gründe aus Backend/API (z. B. `UNAUTHORIZED`, `VISION_UNAVAILABLE`, `MEILI_UNAVAILABLE`).
+- Eigenes Produkt erweitert: Barcode-Scan direkt im Formular möglich, um den Barcode schneller vorzubefüllen.
+- Suche/Quick-Action UX aktualisiert: CTA-Struktur konsolidiert und Buttons in den zentralen Widgets größer für bessere Touchbarkeit.
+- Texteingaben verbessert: in Name-/Marke-Feldern startet die Tastatur jetzt mit Großschreibung am Wortanfang.
 
 ## Notes
 - Lokale DB-Migration auf Version 8: neue Tabellen `supplement_plan_items` und `supplement_intakes`.
 - Backup/Restore auf Schema-Version 2 erweitert (Supplements inklusive), Restore alter Schema-Version 1 bleibt kompatibel.
 - Zusaetzlicher Android-Smoke-Test fuer Dashboard->Supplements-Navigation ergaenzt.
+- Neuer Vision-Endpoint im `food-api`: `POST /v1/vision/nutrition/parse` (Gemini-basiert, Bilder nur transient verarbeitet, keine Persistenz).
