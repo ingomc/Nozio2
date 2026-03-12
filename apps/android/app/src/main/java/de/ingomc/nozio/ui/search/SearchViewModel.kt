@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import retrofit2.HttpException
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
@@ -436,10 +438,10 @@ class SearchViewModel(
                     selectedFood = createdFood,
                     showBottomSheet = true
                 )
-            } catch (_: Exception) {
+            } catch (exception: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSubmittingCustomFood = false,
-                    error = "Eigenes Produkt konnte nicht gespeichert werden."
+                    error = mapCreateCustomFoodError(exception)
                 )
             }
         }
@@ -545,6 +547,46 @@ class SearchViewModel(
             frequent = diaryRepository.getFrequentlyAddedFoods(),
             favorites = foodRepository.getFavoriteFoods()
         )
+    }
+
+    private fun mapCreateCustomFoodError(exception: Exception): String {
+        if (exception is HttpException) {
+            val status = exception.code()
+            val errorBody = exception.response()?.errorBody()?.string().orEmpty()
+            val backendCode = extractApiErrorCode(errorBody)
+            val backendMessage = extractApiErrorMessage(errorBody)
+
+            return when (backendCode) {
+                "INVALID_BODY" -> "Eigenes Produkt konnte nicht gespeichert werden: Eingaben ungueltig (INVALID_BODY)."
+                "UNAUTHORIZED" -> "Eigenes Produkt konnte nicht gespeichert werden: API-Key abgelehnt (UNAUTHORIZED)."
+                "MEILI_UNAVAILABLE" -> "Eigenes Produkt konnte nicht gespeichert werden: Such-Backend nicht erreichbar (MEILI_UNAVAILABLE)."
+                "INTERNAL_ERROR" -> "Eigenes Produkt konnte nicht gespeichert werden: Serverfehler (INTERNAL_ERROR)."
+                else -> {
+                    val detail = backendMessage?.takeIf { it.isNotBlank() } ?: "Unbekannter Fehler"
+                    val suffix = if (!backendCode.isNullOrBlank()) " ($backendCode)" else ""
+                    "Eigenes Produkt konnte nicht gespeichert werden: $detail$suffix [HTTP $status]."
+                }
+            }
+        }
+
+        val reason = exception.message?.takeIf { it.isNotBlank() } ?: exception.javaClass.simpleName
+        return "Eigenes Produkt konnte nicht gespeichert werden: $reason."
+    }
+
+    private fun extractApiErrorCode(errorBody: String): String? {
+        return try {
+            JSONObject(errorBody).optJSONObject("error")?.optString("code")?.ifBlank { null }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun extractApiErrorMessage(errorBody: String): String? {
+        return try {
+            JSONObject(errorBody).optJSONObject("error")?.optString("message")?.ifBlank { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private data class SuggestionLists(

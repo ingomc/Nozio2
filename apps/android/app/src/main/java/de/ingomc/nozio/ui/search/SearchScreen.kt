@@ -211,9 +211,8 @@ fun SearchScreen(
 
     LaunchedEffect(state.error) {
         val error = state.error
-        if (error != null && isVisionScanErrorMessage(error)) {
+        if (error != null) {
             snackbarHostState.showSnackbar(error)
-            viewModel.clearError()
         }
     }
 
@@ -243,14 +242,12 @@ fun SearchScreen(
 
                 // Error
                 state.error?.let { error ->
-                    if (!isVisionScanErrorMessage(error)) {
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                    }
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
                 }
 
                 // Empty state
@@ -801,11 +798,4 @@ private fun buildFoodSubtitle(food: FoodItem): String {
         food.packageSize?.takeIf { it.isNotBlank() }?.let { add("Packung $it") }
     }
     return if (sizeParts.isEmpty()) macroLine else "$macroLine · ${sizeParts.joinToString(" · ")}"
-}
-
-private fun isVisionScanErrorMessage(message: String): Boolean {
-    val normalized = message.lowercase()
-    return normalized.contains("vision") ||
-        normalized.contains("scan") ||
-        normalized.contains("naehrwert")
 }
