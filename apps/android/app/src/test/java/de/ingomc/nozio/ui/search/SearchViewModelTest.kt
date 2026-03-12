@@ -12,6 +12,7 @@ import de.ingomc.nozio.data.remote.CreateCustomFoodResponseDto
 import de.ingomc.nozio.data.remote.FoodApi
 import de.ingomc.nozio.data.remote.FoodBarcodeResponseDto
 import de.ingomc.nozio.data.remote.FoodSearchResponseDto
+import de.ingomc.nozio.data.remote.VisionFoodAnalyzeRequestDto
 import de.ingomc.nozio.data.remote.VisionNutritionParseRequestDto
 import de.ingomc.nozio.data.remote.VisionNutritionParseResponseDto
 import de.ingomc.nozio.data.repository.DiaryRepository
@@ -285,6 +286,52 @@ class SearchViewModelTest {
         assertEquals(420.0, state.nutritionScanResult?.fields?.get(NutritionFieldKey.CALORIES)?.value)
     }
 
+    @Test
+    fun submitFoodPhotoAnalysis_opensReviewFromFoodAnalysis() = runTest(dispatcher) {
+        val viewModel = SearchViewModel(
+            foodRepository = FoodRepository(FakeFoodApi(), FakeFoodDao()),
+            diaryRepository = DiaryRepository(FakeDiaryDao(foodLookup = { null })),
+            widgetRefreshDelegate = WidgetRefreshDelegate {}
+        )
+
+        advanceUntilIdle()
+        viewModel.onFoodPhotoReady("dGVzdA==")
+
+        assertEquals(true, viewModel.uiState.value.showFoodPhotoSheet)
+        assertEquals("dGVzdA==", viewModel.uiState.value.foodPhotoImageBase64)
+
+        viewModel.submitFoodPhotoAnalysis(portionSize = "medium", hints = listOf("Haehnchen"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(false, state.showFoodPhotoSheet)
+        assertEquals(true, state.showNutritionReviewSheet)
+        assertNotNull(state.nutritionScanResult)
+        assertEquals(150.0, state.nutritionScanResult?.fields?.get(NutritionFieldKey.CALORIES)?.value)
+        assertEquals("Haehnchen mit Reis", state.nutritionScanResult?.productName)
+        assertEquals(NutritionApplyTarget.QUICK_ADD, state.nutritionApplyTarget)
+    }
+
+    @Test
+    fun dismissFoodPhotoSheet_clearsState() = runTest(dispatcher) {
+        val viewModel = SearchViewModel(
+            foodRepository = FoodRepository(FakeFoodApi(), FakeFoodDao()),
+            diaryRepository = DiaryRepository(FakeDiaryDao(foodLookup = { null })),
+            widgetRefreshDelegate = WidgetRefreshDelegate {}
+        )
+
+        advanceUntilIdle()
+        viewModel.onFoodPhotoReady("dGVzdA==")
+        assertEquals(true, viewModel.uiState.value.showFoodPhotoSheet)
+
+        viewModel.dismissFoodPhotoSheet()
+
+        val state = viewModel.uiState.value
+        assertEquals(false, state.showFoodPhotoSheet)
+        assertNull(state.foodPhotoImageBase64)
+        assertEquals(false, state.isFoodPhotoAnalyzing)
+    }
+
     private data class RefreshCounter(var count: Int = 0)
 
     private class FakeFoodApi : FoodApi {
@@ -309,6 +356,26 @@ class SearchViewModelTest {
                 confidence = 0.91,
                 model = "gemini-2.0-flash",
                 warnings = emptyList()
+            )
+        }
+
+        override suspend fun analyzeFoodFromImage(request: VisionFoodAnalyzeRequestDto): VisionNutritionParseResponseDto {
+            return VisionNutritionParseResponseDto(
+                name = "Haehnchen mit Reis",
+                caloriesPer100g = 150.0,
+                proteinPer100g = 22.0,
+                carbsPer100g = 15.0,
+                fatPer100g = 3.0,
+                sugarPer100g = 0.0,
+                servingSize = "1 Teller",
+                servingQuantity = 350.0,
+                caloriesPerServing = 525.0,
+                proteinPerServing = 77.0,
+                carbsPerServing = 52.0,
+                fatPerServing = 10.0,
+                confidence = 0.72,
+                model = "gemini-2.0-flash",
+                warnings = listOf("Geschaetzte Werte")
             )
         }
     }

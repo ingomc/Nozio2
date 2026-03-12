@@ -166,6 +166,23 @@ fun SearchScreen(
             )
         }
     }
+    var pendingFoodPhotoUpload by remember { mutableStateOf(false) }
+    val foodPhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        pendingFoodPhotoUpload = false
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val imageBase64 = withContext(Dispatchers.IO) {
+                prepareNutritionImageFromUri(context, uri)
+            }
+            if (imageBase64.isNullOrBlank()) {
+                snackbarHostState.showSnackbar("Bild konnte nicht gelesen werden.")
+                return@launch
+            }
+            viewModel.onFoodPhotoReady(imageBase64)
+        }
+    }
     val launchCameraFlow: (CameraAction) -> Unit = { action ->
         pendingCameraAction = action
         val hasPermission = ContextCompat.checkSelfPermission(
@@ -203,6 +220,10 @@ fun SearchScreen(
         viewModel.prepareNutritionImageUpload(NutritionApplyTarget.CUSTOM_FOOD)
         nutritionImagePickerLauncher.launch("image/*")
     }
+    val launchFoodPhotoUpload: () -> Unit = {
+        pendingFoodPhotoUpload = true
+        foodPhotoPickerLauncher.launch("image/*")
+    }
 
     BackHandler(
         enabled = showBarcodeScannerSheet ||
@@ -211,10 +232,12 @@ fun SearchScreen(
             state.showBarcodeResultsSheet ||
             state.showBottomSheet ||
             state.showQuickAddSheet ||
-            state.showCreateCustomFoodSheet
+            state.showCreateCustomFoodSheet ||
+            state.showFoodPhotoSheet
     ) {
         when {
             showBarcodeScannerSheet -> showBarcodeScannerSheet = false
+            state.showFoodPhotoSheet && !state.isFoodPhotoAnalyzing -> viewModel.dismissFoodPhotoSheet()
             state.showNutritionScannerSheet && !state.isNutritionScanInFlight -> viewModel.dismissNutritionScannerSheet()
             state.showNutritionReviewSheet -> viewModel.dismissNutritionReviewSheet()
             state.showBarcodeResultsSheet -> viewModel.dismissBarcodeResultsSheet()
@@ -343,6 +366,7 @@ fun SearchScreen(
                         listBottomPadding = listBottomPadding,
                         onQuickAddClick = viewModel::showQuickAddSheet,
                         onCreateFoodClick = viewModel::showCreateCustomFoodSheet,
+                        onFoodPhotoClick = launchFoodPhotoUpload,
                         onFoodClick = viewModel::selectFood
                     )
                 } else {
@@ -484,6 +508,20 @@ fun SearchScreen(
         )
     }
 
+    if (state.showFoodPhotoSheet) {
+        FoodPhotoAnalysisBottomSheet(
+            isAnalyzing = state.isFoodPhotoAnalyzing,
+            onDismiss = {
+                if (!state.isFoodPhotoAnalyzing) {
+                    viewModel.dismissFoodPhotoSheet()
+                }
+            },
+            onSubmit = { portionSize, hints ->
+                viewModel.submitFoodPhotoAnalysis(portionSize = portionSize, hints = hints)
+            }
+        )
+    }
+
     if (state.showNutritionReviewSheet && state.nutritionScanResult != null) {
         NutritionReviewBottomSheet(
             scanResult = state.nutritionScanResult!!,
@@ -590,6 +628,7 @@ private fun SuggestionsSection(
     listBottomPadding: androidx.compose.ui.unit.Dp,
     onQuickAddClick: () -> Unit,
     onCreateFoodClick: () -> Unit,
+    onFoodPhotoClick: () -> Unit,
     onFoodClick: (FoodItem) -> Unit
 ) {
     val tabs = remember { SuggestionTab.entries }
@@ -601,7 +640,8 @@ private fun SuggestionsSection(
     ) {
         QuickActionsCard(
             onQuickAddClick = onQuickAddClick,
-            onCreateFoodClick = onCreateFoodClick
+            onCreateFoodClick = onCreateFoodClick,
+            onFoodPhotoClick = onFoodPhotoClick
         )
         HorizontalDivider()
 
@@ -782,7 +822,8 @@ private fun FoodSearchItem(
 @Composable
 private fun QuickActionsCard(
     onQuickAddClick: () -> Unit,
-    onCreateFoodClick: () -> Unit
+    onCreateFoodClick: () -> Unit,
+    onFoodPhotoClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -838,6 +879,27 @@ private fun QuickActionsCard(
                     style = MaterialTheme.typography.labelLarge
                 )
             }
+        }
+        OutlinedButton(
+            onClick = onFoodPhotoClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .height(40.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Essen per Foto erkennen",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelLarge
+            )
         }
     }
 }

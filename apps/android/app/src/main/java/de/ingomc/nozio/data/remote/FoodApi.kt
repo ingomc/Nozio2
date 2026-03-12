@@ -27,4 +27,9 @@ interface FoodApi {
     suspend fun parseNutritionFromImage(
         @Body request: VisionNutritionParseRequestDto
     ): VisionNutritionParseResponseDto
+
+    @POST("v1/vision/food/analyze")
+    suspend fun analyzeFoodFromImage(
+        @Body request: VisionFoodAnalyzeRequestDto
+    ): VisionNutritionParseResponseDto
 }

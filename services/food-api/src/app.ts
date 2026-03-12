@@ -7,7 +7,8 @@ import {
   foodItemSchema,
   foodSearchResponseSchema,
   visionNutritionParseRequestSchema,
-  visionNutritionParseResponseSchema
+  visionNutritionParseResponseSchema,
+  visionFoodAnalyzeRequestSchema
 } from "@nozio/food-contracts";
 import { z } from "zod";
 
@@ -22,6 +23,7 @@ import {
   waitForMeili
 } from "./seed.js";
 import {
+  analyzeFoodWithGemini,
   parseNutritionWithGemini,
   VisionParseError,
   VisionUnavailableError
@@ -42,6 +44,7 @@ const seedUploadQuerySchema = z.object({
 });
 
 type VisionParser = typeof parseNutritionWithGemini;
+type FoodAnalyzer = typeof analyzeFoodWithGemini;
 
 function isMeiliUnavailable(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -56,9 +59,11 @@ export function buildApp(
   config: AppConfig,
   dependencies: {
     parseNutrition?: VisionParser;
+    analyzeFood?: FoodAnalyzer;
   } = {}
 ): FastifyInstance {
   const parseNutrition = dependencies.parseNutrition ?? parseNutritionWithGemini;
+  const analyzeFood = dependencies.analyzeFood ?? analyzeFoodWithGemini;
   const app = Fastify({
     logger: true,
     bodyLimit: config.MAX_SEED_UPLOAD_MB * 1024 * 1024
@@ -298,6 +303,54 @@ export function buildApp(
         return sendApiError(reply, 502, "VISION_UNAVAILABLE", message);
       }
       request.log.error({ err: error }, "vision parse failed");
+      return sendApiError(reply, 500, "INTERNAL_ERROR", "Unexpected server error.");
+    }
+  });
+
+  app.post("/v1/vision/food/analyze", async (request, reply) => {
+    const parsedBody = visionFoodAnalyzeRequestSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return sendApiError(reply, 400, "INVALID_BODY", "Food analyze payload is invalid.");
+    }
+
+    const stripped = stripDataUrlPrefix(parsedBody.data.imageBase64);
+    const imageBuffer = decodeBase64Image(stripped);
+    if (!imageBuffer) {
+      return sendApiError(reply, 400, "INVALID_BODY", "Image payload must be valid base64.");
+    }
+
+    const maxBytes = Math.floor(config.VISION_MAX_IMAGE_MB * 1024 * 1024);
+    if (imageBuffer.length > maxBytes) {
+      return sendApiError(reply, 413, "IMAGE_TOO_LARGE", "Image exceeds configured size limit.");
+    }
+
+    const mimeType = detectImageMimeType(imageBuffer);
+    if (!mimeType) {
+      return sendApiError(reply, 400, "INVALID_BODY", "Only JPEG and PNG images are supported.");
+    }
+
+    try {
+      const result = await analyzeFood(config, {
+        imageBase64: stripped,
+        mimeType,
+        locale: parsedBody.data.locale,
+        portionSize: parsedBody.data.portionSize,
+        hints: parsedBody.data.hints
+      });
+      return visionNutritionParseResponseSchema.parse(result);
+    } catch (error) {
+      if (error instanceof VisionParseError) {
+        return sendApiError(reply, 422, "VISION_PARSE_FAILED", "Food analysis could not be parsed.");
+      }
+      if (error instanceof VisionUnavailableError) {
+        request.log.warn({ err: error }, "vision backend unavailable");
+        const detail = error.message?.trim();
+        const message = detail
+          ? `Vision backend is unavailable. ${detail}`
+          : "Vision backend is unavailable.";
+        return sendApiError(reply, 502, "VISION_UNAVAILABLE", message);
+      }
+      request.log.error({ err: error }, "food analyze failed");
       return sendApiError(reply, 500, "INTERNAL_ERROR", "Unexpected server error.");
     }
   });

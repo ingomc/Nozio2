@@ -86,7 +86,10 @@ data class SearchUiState(
     val activeAddConfirmation: AddConfirmationState? = null,
     val showBarcodeResultsSheet: Boolean = false,
     val isSubmittingCustomFood: Boolean = false,
-    val isNutritionScanInFlight: Boolean = false
+    val isNutritionScanInFlight: Boolean = false,
+    val showFoodPhotoSheet: Boolean = false,
+    val isFoodPhotoAnalyzing: Boolean = false,
+    val foodPhotoImageBase64: String? = null
 )
 
 @OptIn(FlowPreview::class)
@@ -232,6 +235,81 @@ class SearchViewModel(
             showNutritionReviewSheet = false,
             nutritionScanResult = null,
             nutritionApplyTarget = null
+        )
+    }
+
+    fun onFoodPhotoReady(imageBase64: String) {
+        if (imageBase64.isBlank()) return
+        _uiState.value = _uiState.value.copy(
+            showFoodPhotoSheet = true,
+            foodPhotoImageBase64 = imageBase64,
+            isFoodPhotoAnalyzing = false,
+            error = null
+        )
+    }
+
+    fun submitFoodPhotoAnalysis(
+        portionSize: String,
+        hints: List<String>,
+        locale: String = "de"
+    ) {
+        val imageBase64 = _uiState.value.foodPhotoImageBase64 ?: return
+        if (_uiState.value.isFoodPhotoAnalyzing) return
+
+        _uiState.value = _uiState.value.copy(
+            isFoodPhotoAnalyzing = true,
+            error = null
+        )
+
+        viewModelScope.launch {
+            try {
+                val parsed = foodRepository.analyzeFoodFromImage(
+                    imageBase64 = imageBase64,
+                    locale = locale,
+                    portionSize = portionSize,
+                    hints = hints
+                )
+                val scanResult = parsed.toNutritionScanResult()
+                if (scanResult.fields.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        showFoodPhotoSheet = false,
+                        foodPhotoImageBase64 = null,
+                        isFoodPhotoAnalyzing = false,
+                        showNutritionReviewSheet = false,
+                        nutritionScanResult = null,
+                        nutritionApplyTarget = null,
+                        error = "Keine verwertbaren Naehrwerte erkannt. Bitte manuell pruefen."
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        showFoodPhotoSheet = false,
+                        foodPhotoImageBase64 = null,
+                        isFoodPhotoAnalyzing = false,
+                        showNutritionReviewSheet = true,
+                        nutritionScanResult = scanResult,
+                        nutritionApplyTarget = NutritionApplyTarget.QUICK_ADD,
+                        error = null
+                    )
+                }
+            } catch (exception: Exception) {
+                val message = if (exception is VisionScanException) {
+                    exception.message ?: "Essens-Analyse fehlgeschlagen."
+                } else {
+                    "Essens-Analyse fehlgeschlagen. Bitte erneut versuchen."
+                }
+                _uiState.value = _uiState.value.copy(
+                    isFoodPhotoAnalyzing = false,
+                    error = message
+                )
+            }
+        }
+    }
+
+    fun dismissFoodPhotoSheet() {
+        _uiState.value = _uiState.value.copy(
+            showFoodPhotoSheet = false,
+            foodPhotoImageBase64 = null,
+            isFoodPhotoAnalyzing = false
         )
     }
 
