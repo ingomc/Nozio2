@@ -242,23 +242,23 @@ export async function analyzeFoodWithGemini(
     const portionLabel = input.portionSize ?? "medium";
     const hintsBlock =
       input.hints && input.hints.length > 0
-        ? `Zusaetzliche Hinweise vom Nutzer: ${input.hints.join(", ")}.`
+        ? `Zusätzliche Hinweise vom Nutzer: ${input.hints.join(", ")}.`
         : "";
 
     const prompt = [
-      "Analysiere das Essen auf dem Foto und schaetze die Naehrwerte.",
+      "Analysiere das Essen auf dem Foto und schätze die Nährwerte.",
       `Sprache/Locale: ${input.locale}`,
-      `Portionsgroesse laut Nutzer: ${portionLabel}`,
+      `Portionsgröße laut Nutzer: ${portionLabel}`,
       hintsBlock,
       "Regeln:",
       "- Identifiziere die sichtbaren Lebensmittel im Bild.",
-      "- Schaetze Kalorien und Makronaehrstoffe pro 100g.",
-      "- Schaetze zusaetzlich Portionswerte fuer die sichtbare Menge.",
+      "- Schätze Kalorien und Makronährstoffe pro 100g.",
+      "- Schätze zusätzlich Portionswerte für die sichtbare Menge.",
       "- servingSize als kurze Beschreibung der Portion (z.B. '1 Teller', '1 Schale').",
-      "- servingQuantity als geschaetzte Portionsmenge in Gramm.",
+      "- servingQuantity als geschätzte Portionsmenge in Gramm.",
       "- name als erkannter Speisename.",
-      "- Felder ohne klaren Wert als null zurueckgeben.",
-      "- Keine zusaetzlichen Texte ausserhalb von JSON.",
+      "- Felder ohne klaren Wert als null zurückgeben.",
+      "- Keine zusätzlichen Texte außerhalb von JSON.",
       "- confidence zwischen 0 und 1.",
       "- warnings als Liste von knappen Hinweisen."
     ].join("\n");

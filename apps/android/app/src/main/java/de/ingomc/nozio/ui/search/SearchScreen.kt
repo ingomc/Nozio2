@@ -137,7 +137,6 @@ fun SearchScreen(
                 }
                 CameraAction.NUTRITION_QUICK -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.QUICK_ADD)
                 CameraAction.NUTRITION_CUSTOM -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.CUSTOM_FOOD)
-                CameraAction.FOOD_PHOTO -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.QUICK_ADD)
                 null -> Unit
             }
         } else {
@@ -202,7 +201,6 @@ fun SearchScreen(
                 }
                 CameraAction.NUTRITION_QUICK -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.QUICK_ADD)
                 CameraAction.NUTRITION_CUSTOM -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.CUSTOM_FOOD)
-                CameraAction.FOOD_PHOTO -> viewModel.showNutritionScannerSheet(NutritionApplyTarget.QUICK_ADD)
             }
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
@@ -602,8 +600,7 @@ private enum class CameraAction {
     BARCODE_SEARCH,
     BARCODE_CUSTOM,
     NUTRITION_QUICK,
-    NUTRITION_CUSTOM,
-    FOOD_PHOTO
+    NUTRITION_CUSTOM
 }
 
 private enum class BarcodeScanTarget {
