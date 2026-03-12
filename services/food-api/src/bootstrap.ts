@@ -36,6 +36,14 @@ async function main() {
   await seedIndexIfEmpty();
 
   const app = buildApp(config);
+  app.log.info(
+    {
+      host: config.HOST,
+      port: config.PORT,
+      geminiModel: config.GEMINI_MODEL
+    },
+    "Starting food-api"
+  );
   await app.listen({
     host: config.HOST,
     port: config.PORT
