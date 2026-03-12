@@ -56,6 +56,21 @@ internal fun prepareNutritionImageFromUri(
     return base64
 }
 
+internal fun prepareNutritionImageFromBitmap(
+    bitmap: Bitmap,
+    maxSide: Int = 1800
+): String? {
+    val workingBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: return null
+    val prepared = prepareNutritionImage(
+        decoded = workingBitmap,
+        orientation = ExifInterface.ORIENTATION_NORMAL,
+        maxSide = maxSide
+    ) ?: return null
+    val base64 = prepared.base64
+    prepared.bitmap.recycle()
+    return base64
+}
+
 private fun prepareNutritionImage(
     decoded: Bitmap,
     orientation: Int,

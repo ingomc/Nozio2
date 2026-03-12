@@ -33,9 +33,11 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
@@ -111,7 +113,8 @@ fun SearchScreen(
     val searchFocusRequester = remember { FocusRequester() }
     var showBarcodeScannerSheet by remember { mutableStateOf(false) }
     var pendingCameraAction by remember { mutableStateOf<CameraAction?>(null) }
-    var pendingUploadTarget by remember { mutableStateOf<NutritionApplyTarget?>(null) }
+    var pendingImageInputTarget by remember { mutableStateOf<ImageInputTarget?>(null) }
+    var showImageSourceDialog by remember { mutableStateOf(false) }
     var barcodeScanTarget by remember { mutableStateOf(BarcodeScanTarget.SEARCH) }
     var customFoodScannedBarcode by remember { mutableStateOf<String?>(null) }
     var errorDetailsDialog by remember { mutableStateOf<String?>(null) }
@@ -146,11 +149,12 @@ fun SearchScreen(
         }
         pendingCameraAction = null
     }
-    val nutritionImagePickerLauncher = rememberLauncherForActivityResult(
+    val uploadImageFromGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        val target = pendingUploadTarget
-        pendingUploadTarget = null
+        val target = pendingImageInputTarget
+        pendingImageInputTarget = null
+        showImageSourceDialog = false
         if (uri == null || target == null) return@rememberLauncherForActivityResult
         coroutineScope.launch {
             val imageBase64 = withContext(Dispatchers.IO) {
@@ -160,27 +164,39 @@ fun SearchScreen(
                 snackbarHostState.showSnackbar("Bild konnte nicht gelesen werden.")
                 return@launch
             }
-            viewModel.onNutritionImageCaptured(
-                imageBase64 = imageBase64,
-                showScannerSheet = false
-            )
+            when (target) {
+                ImageInputTarget.NUTRITION_QUICK,
+                ImageInputTarget.NUTRITION_CUSTOM -> viewModel.onNutritionImageCaptured(
+                    imageBase64 = imageBase64,
+                    showScannerSheet = false
+                )
+                ImageInputTarget.FOOD_PHOTO -> viewModel.onFoodPhotoReady(imageBase64)
+            }
         }
     }
-    var pendingFoodPhotoUpload by remember { mutableStateOf(false) }
-    val foodPhotoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        pendingFoodPhotoUpload = false
-        if (uri == null) return@rememberLauncherForActivityResult
+    val uploadImageFromCameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        val target = pendingImageInputTarget
+        pendingImageInputTarget = null
+        showImageSourceDialog = false
+        if (bitmap == null || target == null) return@rememberLauncherForActivityResult
         coroutineScope.launch {
             val imageBase64 = withContext(Dispatchers.IO) {
-                prepareNutritionImageFromUri(context, uri)
+                prepareNutritionImageFromBitmap(bitmap)
             }
             if (imageBase64.isNullOrBlank()) {
                 snackbarHostState.showSnackbar("Bild konnte nicht gelesen werden.")
                 return@launch
             }
-            viewModel.onFoodPhotoReady(imageBase64)
+            when (target) {
+                ImageInputTarget.NUTRITION_QUICK,
+                ImageInputTarget.NUTRITION_CUSTOM -> viewModel.onNutritionImageCaptured(
+                    imageBase64 = imageBase64,
+                    showScannerSheet = false
+                )
+                ImageInputTarget.FOOD_PHOTO -> viewModel.onFoodPhotoReady(imageBase64)
+            }
         }
     }
     val launchCameraFlow: (CameraAction) -> Unit = { action ->
@@ -211,18 +227,18 @@ fun SearchScreen(
     val launchQuickAddNutritionScanner: () -> Unit = { launchCameraFlow(CameraAction.NUTRITION_QUICK) }
     val launchCustomFoodNutritionScanner: () -> Unit = { launchCameraFlow(CameraAction.NUTRITION_CUSTOM) }
     val launchQuickAddNutritionUpload: () -> Unit = {
-        pendingUploadTarget = NutritionApplyTarget.QUICK_ADD
         viewModel.prepareNutritionImageUpload(NutritionApplyTarget.QUICK_ADD)
-        nutritionImagePickerLauncher.launch("image/*")
+        pendingImageInputTarget = ImageInputTarget.NUTRITION_QUICK
+        showImageSourceDialog = true
     }
     val launchCustomFoodNutritionUpload: () -> Unit = {
-        pendingUploadTarget = NutritionApplyTarget.CUSTOM_FOOD
         viewModel.prepareNutritionImageUpload(NutritionApplyTarget.CUSTOM_FOOD)
-        nutritionImagePickerLauncher.launch("image/*")
+        pendingImageInputTarget = ImageInputTarget.NUTRITION_CUSTOM
+        showImageSourceDialog = true
     }
     val launchFoodPhotoUpload: () -> Unit = {
-        pendingFoodPhotoUpload = true
-        foodPhotoPickerLauncher.launch("image/*")
+        pendingImageInputTarget = ImageInputTarget.FOOD_PHOTO
+        showImageSourceDialog = true
     }
 
     BackHandler(
@@ -594,6 +610,61 @@ fun SearchScreen(
             text = { Text(message) }
         )
     }
+
+    if (showImageSourceDialog && pendingImageInputTarget != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showImageSourceDialog = false
+                pendingImageInputTarget = null
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.PhotoLibrary,
+                    contentDescription = null
+                )
+            },
+            title = { Text("Bildquelle auswaehlen") },
+            text = { Text("Moechtest du ein neues Foto machen oder eines aus der Galerie verwenden?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        try {
+                            uploadImageFromCameraLauncher.launch(null)
+                        } catch (_: Exception) {
+                            showImageSourceDialog = false
+                            pendingImageInputTarget = null
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "Kamera konnte nicht gestartet werden. Bitte Galerie verwenden oder erneut versuchen."
+                                )
+                            }
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Kamera")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        uploadImageFromGalleryLauncher.launch("image/*")
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhotoLibrary,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Galerie")
+                }
+            }
+        )
+    }
 }
 
 private enum class CameraAction {
@@ -606,6 +677,12 @@ private enum class CameraAction {
 private enum class BarcodeScanTarget {
     SEARCH,
     CUSTOM_FOOD
+}
+
+private enum class ImageInputTarget {
+    NUTRITION_QUICK,
+    NUTRITION_CUSTOM,
+    FOOD_PHOTO
 }
 
 private enum class SuggestionTab(
