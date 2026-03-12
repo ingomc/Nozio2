@@ -231,3 +231,81 @@ test("vision endpoint maps parser format errors to VISION_PARSE_FAILED", async (
   assert.equal(response.statusCode, 422);
   assert.equal(response.json().error.code, "VISION_PARSE_FAILED");
 });
+
+test("food analyze endpoint requires api key", async () => {
+  const app = buildApp(baseConfig);
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/vision/food/analyze",
+    payload: { imageBase64: "abc" }
+  });
+
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.json().error.code, "UNAUTHORIZED");
+});
+
+test("food analyze endpoint validates payload and mime", async () => {
+  const app = buildApp(baseConfig);
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/vision/food/analyze",
+    headers: { "x-api-key": "secret" },
+    payload: { imageBase64: "bm90LWFuLWltYWdl" }
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error.code, "INVALID_BODY");
+});
+
+test("food analyze endpoint returns parsed payload from analyzer dependency", async () => {
+  const app = buildApp(baseConfig, {
+    analyzeFood: async () => ({
+      name: "Haehnchenbrust mit Reis",
+      caloriesPer100g: 150,
+      proteinPer100g: 22,
+      carbsPer100g: 15,
+      fatPer100g: 3,
+      sugarPer100g: 0,
+      servingSize: "1 Teller",
+      servingQuantity: 350,
+      caloriesPerServing: 525,
+      proteinPerServing: 77,
+      carbsPerServing: 52,
+      fatPerServing: 10,
+      confidence: 0.72,
+      model: "gemini-2.0-flash",
+      warnings: ["Geschaetzte Werte basierend auf Bilderkennung"]
+    })
+  });
+  const jpegHeader = Buffer.from([0xff, 0xd8, 0xff, 0xdb]).toString("base64");
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/vision/food/analyze",
+    headers: { "x-api-key": "secret" },
+    payload: { imageBase64: jpegHeader, locale: "de", portionSize: "medium", hints: ["Haehnchen"] }
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().name, "Haehnchenbrust mit Reis");
+  assert.equal(response.json().confidence, 0.72);
+  assert.equal(response.json().servingSize, "1 Teller");
+  assert.equal(response.json().warnings.length, 1);
+});
+
+test("food analyze endpoint maps parse errors to VISION_PARSE_FAILED", async () => {
+  const app = buildApp(baseConfig, {
+    analyzeFood: async () => {
+      throw new VisionParseError("bad payload");
+    }
+  });
+  const jpegHeader = Buffer.from([0xff, 0xd8, 0xff, 0xdb]).toString("base64");
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/vision/food/analyze",
+    headers: { "x-api-key": "secret" },
+    payload: { imageBase64: jpegHeader }
+  });
+
+  assert.equal(response.statusCode, 422);
+  assert.equal(response.json().error.code, "VISION_PARSE_FAILED");
+});

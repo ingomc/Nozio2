@@ -86,6 +86,13 @@ export const visionNutritionParseResponseSchema = z.object({
   warnings: z.array(z.string().min(1)).default([])
 });
 
+export const visionFoodAnalyzeRequestSchema = z.object({
+  imageBase64: z.string().trim().min(1),
+  locale: z.string().trim().min(2).max(10).default("de"),
+  portionSize: z.enum(["small", "medium", "large"]).optional(),
+  hints: z.array(z.string().trim().min(1)).default([])
+});
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string().min(1),
@@ -121,6 +128,7 @@ export type CreateCustomFoodRequest = z.infer<typeof createCustomFoodRequestSche
 export type CreateCustomFoodResponse = z.infer<typeof createCustomFoodResponseSchema>;
 export type VisionNutritionParseRequest = z.infer<typeof visionNutritionParseRequestSchema>;
 export type VisionNutritionParseResponse = z.infer<typeof visionNutritionParseResponseSchema>;
+export type VisionFoodAnalyzeRequest = z.infer<typeof visionFoodAnalyzeRequestSchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
 export type ImportInput = z.infer<typeof importInputSchema>;
 export type MeiliFoodDocument = z.infer<typeof meiliFoodDocumentSchema>;

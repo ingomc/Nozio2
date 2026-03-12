@@ -1,6 +1,7 @@
 import {
   visionNutritionParseResponseSchema,
-  type VisionNutritionParseResponse
+  type VisionNutritionParseResponse,
+  type VisionFoodAnalyzeRequest
 } from "@nozio/food-contracts";
 
 import type { AppConfig } from "./config.js";
@@ -139,6 +140,125 @@ export async function parseNutritionWithGemini(
       "- servingQuantity nur als numerischen Wert (g/ml) zurückgeben.",
       "- Felder ohne klaren Wert als null zurückgeben.",
       "- Keine zusätzlichen Texte außerhalb von JSON.",
+      "- confidence zwischen 0 und 1.",
+      "- warnings als Liste von knappen Hinweisen."
+    ].join("\n");
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(config.GEMINI_API_KEY)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inlineData: {
+                    mimeType: input.mimeType,
+                    data: input.imageBase64
+                  }
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0,
+            responseMimeType: "application/json",
+            responseSchema: geminiPayloadSchema
+          }
+        }),
+        signal: controller.signal
+      }
+    );
+
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const errorPayload = (await response.json()) as GeminiErrorResponse;
+        const apiMessage = errorPayload.error?.message?.trim();
+        if (apiMessage) {
+          detail = apiMessage;
+        }
+      } catch {
+        // Ignore parse failure and keep generic status text.
+      }
+
+      const statusPart = `HTTP ${response.status}`;
+      const message = detail
+        ? `Gemini request failed (${statusPart}): ${detail}`
+        : `Gemini request failed (${statusPart}).`;
+      throw new VisionUnavailableError(message);
+    }
+
+    const payload = (await response.json()) as GeminiGenerateResponse;
+    const rawText = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("\n")?.trim() ?? "";
+
+    if (!rawText) {
+      throw new VisionParseError("Gemini returned empty response.");
+    }
+
+    const jsonText = extractJsonObject(rawText);
+    if (!jsonText) {
+      throw new VisionParseError("Gemini response did not contain JSON object.");
+    }
+
+    let parsedUnknown: unknown;
+    try {
+      parsedUnknown = JSON.parse(jsonText);
+    } catch {
+      throw new VisionParseError("Gemini JSON could not be parsed.");
+    }
+
+    const parsed = visionNutritionParseResponseSchema.parse(parsedUnknown);
+    return normalizeParsedResponse(parsed, config.GEMINI_MODEL);
+  } catch (error) {
+    if (error instanceof VisionParseError || error instanceof VisionUnavailableError) {
+      throw error;
+    }
+    throw new VisionUnavailableError(error instanceof Error ? error.message : "Gemini unavailable");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function analyzeFoodWithGemini(
+  config: AppConfig,
+  input: {
+    imageBase64: string;
+    mimeType: string;
+    locale: string;
+    portionSize?: string;
+    hints?: string[];
+  }
+): Promise<VisionNutritionParseResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.VISION_TIMEOUT_MS);
+
+  try {
+    const portionLabel = input.portionSize ?? "medium";
+    const hintsBlock =
+      input.hints && input.hints.length > 0
+        ? `Zusaetzliche Hinweise vom Nutzer: ${input.hints.join(", ")}.`
+        : "";
+
+    const prompt = [
+      "Analysiere das Essen auf dem Foto und schaetze die Naehrwerte.",
+      `Sprache/Locale: ${input.locale}`,
+      `Portionsgroesse laut Nutzer: ${portionLabel}`,
+      hintsBlock,
+      "Regeln:",
+      "- Identifiziere die sichtbaren Lebensmittel im Bild.",
+      "- Schaetze Kalorien und Makronaehrstoffe pro 100g.",
+      "- Schaetze zusaetzlich Portionswerte fuer die sichtbare Menge.",
+      "- servingSize als kurze Beschreibung der Portion (z.B. '1 Teller', '1 Schale').",
+      "- servingQuantity als geschaetzte Portionsmenge in Gramm.",
+      "- name als erkannter Speisename.",
+      "- Felder ohne klaren Wert als null zurueckgeben.",
+      "- Keine zusaetzlichen Texte ausserhalb von JSON.",
       "- confidence zwischen 0 und 1.",
       "- warnings als Liste von knappen Hinweisen."
     ].join("\n");
