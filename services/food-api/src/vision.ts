@@ -15,6 +15,13 @@ const geminiPayloadSchema = {
     carbsPer100g: { type: "number", nullable: true },
     fatPer100g: { type: "number", nullable: true },
     sugarPer100g: { type: "number", nullable: true },
+    servingSize: { type: "string", nullable: true },
+    servingQuantity: { type: "number", nullable: true },
+    caloriesPerServing: { type: "number", nullable: true },
+    proteinPerServing: { type: "number", nullable: true },
+    carbsPerServing: { type: "number", nullable: true },
+    fatPerServing: { type: "number", nullable: true },
+    sugarPerServing: { type: "number", nullable: true },
     confidence: { type: "number" },
     model: { type: "string" },
     warnings: {
@@ -55,15 +62,25 @@ function normalizeParsedResponse(
   model: string
 ): VisionNutritionParseResponse {
   const warnings = [...(parsed.warnings ?? [])];
-  let sugar = parsed.sugarPer100g ?? null;
+  let sugarPer100 = parsed.sugarPer100g ?? null;
+  let sugarPerServing = parsed.sugarPerServing ?? null;
 
   if (
-    sugar != null &&
+    sugarPer100 != null &&
     parsed.carbsPer100g != null &&
-    sugar > parsed.carbsPer100g
+    sugarPer100 > parsed.carbsPer100g
   ) {
-    sugar = null;
+    sugarPer100 = null;
     warnings.push("Zuckerwert war höher als Kohlenhydrate und wurde verworfen.");
+  }
+
+  if (
+    sugarPerServing != null &&
+    parsed.carbsPerServing != null &&
+    sugarPerServing > parsed.carbsPerServing
+  ) {
+    sugarPerServing = null;
+    warnings.push("Portions-Zuckerwert war höher als Portions-Kohlenhydrate und wurde verworfen.");
   }
 
   if (
@@ -84,7 +101,14 @@ function normalizeParsedResponse(
     proteinPer100g: parsed.proteinPer100g ?? null,
     carbsPer100g: parsed.carbsPer100g ?? null,
     fatPer100g: parsed.fatPer100g ?? null,
-    sugarPer100g: sugar,
+    sugarPer100g: sugarPer100,
+    servingSize: parsed.servingSize ?? null,
+    servingQuantity: parsed.servingQuantity ?? null,
+    caloriesPerServing: parsed.caloriesPerServing ?? null,
+    proteinPerServing: parsed.proteinPerServing ?? null,
+    carbsPerServing: parsed.carbsPerServing ?? null,
+    fatPerServing: parsed.fatPerServing ?? null,
+    sugarPerServing: sugarPerServing,
     confidence: parsed.confidence,
     model,
     warnings
@@ -110,8 +134,9 @@ export async function parseNutritionWithGemini(
       "Extrahiere Nährwerte aus dem Bild als JSON.",
       `Sprache/Locale: ${input.locale}`,
       "Regeln:",
-      "- Nur Werte pro 100g oder 100ml verwenden.",
-      "- Portionswerte ignorieren.",
+      "- Primär Werte pro 100g oder 100ml extrahieren.",
+      "- Wenn vorhanden, zusätzlich Portionswerte und Portionsmenge extrahieren.",
+      "- servingQuantity nur als numerischen Wert (g/ml) zurückgeben.",
       "- Felder ohne klaren Wert als null zurückgeben.",
       "- Keine zusätzlichen Texte außerhalb von JSON.",
       "- confidence zwischen 0 und 1.",

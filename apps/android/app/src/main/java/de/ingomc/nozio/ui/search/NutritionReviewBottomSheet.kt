@@ -52,6 +52,10 @@ fun NutritionReviewBottomSheet(
 
     var name by rememberSaveable(scanResult.rawText) { mutableStateOf(scanResult.productName.orEmpty()) }
     var brand by rememberSaveable(scanResult.rawText) { mutableStateOf(scanResult.brand.orEmpty()) }
+    var servingSize by rememberSaveable(scanResult.rawText) { mutableStateOf(scanResult.servingSize.orEmpty()) }
+    var servingQuantity by rememberSaveable(scanResult.rawText) {
+        mutableStateOf(scanResult.servingQuantity?.let { NutritionLabelParser.formatValue(it) }.orEmpty())
+    }
 
     var includeCalories by rememberSaveable(scanResult.rawText) { mutableStateOf(caloriesDetected != null) }
     var includeProtein by rememberSaveable(scanResult.rawText) { mutableStateOf(proteinDetected != null) }
@@ -80,6 +84,7 @@ fun NutritionReviewBottomSheet(
     val carbsValue = parseDecimalInput(carbs)
     val fatValue = parseDecimalInput(fat)
     val sugarValue = parseDecimalInput(sugar)
+    val servingQuantityValue = parseDecimalInput(servingQuantity)
 
     val canApply = (!includeCalories || (caloriesValue != null && caloriesValue >= 0)) &&
         (!includeProtein || (proteinValue != null && proteinValue >= 0)) &&
@@ -148,6 +153,52 @@ fun NutritionReviewBottomSheet(
                     .padding(bottom = 12.dp)
             )
 
+            OutlinedTextField(
+                value = servingQuantity,
+                onValueChange = { servingQuantity = it },
+                label = { Text("Portionsmenge (optional)") },
+                suffix = { Text("g/ml") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewOnFocus()
+                    .padding(bottom = 10.dp)
+            )
+
+            OutlinedTextField(
+                value = servingSize,
+                onValueChange = { servingSize = it },
+                label = { Text("Portionsname (optional)") },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewOnFocus()
+                    .padding(bottom = 12.dp)
+            )
+
+            if (
+                scanResult.servingCalories != null ||
+                    scanResult.servingProtein != null ||
+                    scanResult.servingCarbs != null ||
+                    scanResult.servingFat != null
+            ) {
+                val servingLabel = servingSize.ifBlank { "Portion" }
+                val servingMacros = buildList {
+                    scanResult.servingCalories?.let { add("${it.toInt()} kcal") }
+                    scanResult.servingProtein?.let { add("E ${it.toInt()}g") }
+                    scanResult.servingFat?.let { add("F ${it.toInt()}g") }
+                    scanResult.servingCarbs?.let { add("K ${it.toInt()}g") }
+                }.joinToString(" · ")
+                Text(
+                    text = "$servingLabel erkannt: $servingMacros",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+            }
+
             ReviewValueField(
                 label = "Kalorien pro 100g",
                 unit = "kcal",
@@ -204,7 +255,14 @@ fun NutritionReviewBottomSheet(
                             proteinPer100g = proteinValue.takeIf { includeProtein },
                             carbsPer100g = carbsValue.takeIf { includeCarbs },
                             fatPer100g = fatValue.takeIf { includeFat },
-                            sugarPer100g = sugarValue.takeIf { includeSugar }
+                            sugarPer100g = sugarValue.takeIf { includeSugar },
+                            servingSize = servingSize.ifBlank { null },
+                            servingQuantity = servingQuantityValue,
+                            caloriesPerServing = scanResult.servingCalories,
+                            proteinPerServing = scanResult.servingProtein,
+                            carbsPerServing = scanResult.servingCarbs,
+                            fatPerServing = scanResult.servingFat,
+                            sugarPerServing = scanResult.servingSugar
                         )
                     )
                 },

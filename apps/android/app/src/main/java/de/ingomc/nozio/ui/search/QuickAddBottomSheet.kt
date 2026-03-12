@@ -68,12 +68,20 @@ fun QuickAddBottomSheet(
     var protein by rememberSaveable(initial) { mutableStateOf(initial?.protein?.let(NutritionLabelParser::formatValue).orEmpty()) }
     var fat by rememberSaveable(initial) { mutableStateOf(initial?.fat?.let(NutritionLabelParser::formatValue).orEmpty()) }
     var carbs by rememberSaveable(initial) { mutableStateOf(initial?.carbs?.let(NutritionLabelParser::formatValue).orEmpty()) }
-    var amount by rememberSaveable { mutableStateOf("100") }
-    var amountUnit by rememberSaveable { mutableStateOf(QuickAddAmountUnit.GRAM) }
-    var inputMode by rememberSaveable(initial) {
+    var amount by rememberSaveable(initial) {
+        mutableStateOf(initial?.amount?.let(NutritionLabelParser::formatValue) ?: "100")
+    }
+    var amountUnit by rememberSaveable(initial) {
         mutableStateOf(
-            if (initial != null) QuickAddInputMode.PER_100 else QuickAddInputMode.FINAL_VALUES
+            if (initial?.amountUnit == QuickAddAmountUnit.MILLILITER.label) {
+                QuickAddAmountUnit.MILLILITER
+            } else {
+                QuickAddAmountUnit.GRAM
+            }
         )
+    }
+    var inputMode by rememberSaveable(initial) {
+        mutableStateOf(if (initial?.isPer100Mode == true) QuickAddInputMode.PER_100 else QuickAddInputMode.FINAL_VALUES)
     }
     var selectedMealType by remember { mutableStateOf(resolveInitialMealType(preselectedMealType)) }
     LaunchedEffect(preselectedMealType) {

@@ -50,6 +50,13 @@ data class VisionNutritionParseResponseDto(
     val carbsPer100g: Double? = null,
     val fatPer100g: Double? = null,
     val sugarPer100g: Double? = null,
+    val servingSize: String? = null,
+    val servingQuantity: Double? = null,
+    val caloriesPerServing: Double? = null,
+    val proteinPerServing: Double? = null,
+    val carbsPerServing: Double? = null,
+    val fatPerServing: Double? = null,
+    val sugarPerServing: Double? = null,
     val confidence: Double,
     val model: String,
     val warnings: List<String> = emptyList()

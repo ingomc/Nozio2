@@ -74,6 +74,13 @@ export const visionNutritionParseResponseSchema = z.object({
   carbsPer100g: nutritionValueSchema.nullable().optional(),
   fatPer100g: nutritionValueSchema.nullable().optional(),
   sugarPer100g: nutritionValueSchema.nullable().optional(),
+  servingSize: z.string().trim().nullable().optional(),
+  servingQuantity: nutritionValueSchema.nullable().optional(),
+  caloriesPerServing: nutritionValueSchema.nullable().optional(),
+  proteinPerServing: nutritionValueSchema.nullable().optional(),
+  carbsPerServing: nutritionValueSchema.nullable().optional(),
+  fatPerServing: nutritionValueSchema.nullable().optional(),
+  sugarPerServing: nutritionValueSchema.nullable().optional(),
   confidence: z.number().min(0).max(1),
   model: z.string().min(1),
   warnings: z.array(z.string().min(1)).default([])

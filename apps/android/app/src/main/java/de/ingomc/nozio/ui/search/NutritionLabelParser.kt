@@ -21,6 +21,13 @@ data class NutritionScanResult(
     val rawText: String,
     val productName: String? = null,
     val brand: String? = null,
+    val servingSize: String? = null,
+    val servingQuantity: Double? = null,
+    val servingCalories: Double? = null,
+    val servingProtein: Double? = null,
+    val servingCarbs: Double? = null,
+    val servingFat: Double? = null,
+    val servingSugar: Double? = null,
     val warnings: List<String> = emptyList()
 )
 
@@ -31,7 +38,14 @@ data class CustomFoodDraft(
     val proteinPer100g: Double? = null,
     val carbsPer100g: Double? = null,
     val fatPer100g: Double? = null,
-    val sugarPer100g: Double? = null
+    val sugarPer100g: Double? = null,
+    val servingSize: String? = null,
+    val servingQuantity: Double? = null,
+    val caloriesPerServing: Double? = null,
+    val proteinPerServing: Double? = null,
+    val carbsPerServing: Double? = null,
+    val fatPerServing: Double? = null,
+    val sugarPerServing: Double? = null
 )
 
 object NutritionLabelParser {

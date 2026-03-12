@@ -63,8 +63,8 @@ fun CreateCustomFoodBottomSheet(
     var fat by rememberSaveable(initial) { mutableStateOf(initial?.fatPer100g?.let(::formatDraftNumber).orEmpty()) }
     var carbs by rememberSaveable(initial) { mutableStateOf(initial?.carbsPer100g?.let(::formatDraftNumber).orEmpty()) }
     var sugar by rememberSaveable(initial) { mutableStateOf(initial?.sugarPer100g?.let(::formatDraftNumber).orEmpty()) }
-    var servingSize by rememberSaveable(initial) { mutableStateOf("") }
-    var servingQuantity by rememberSaveable(initial) { mutableStateOf("") }
+    var servingSize by rememberSaveable(initial) { mutableStateOf(initial?.servingSize.orEmpty()) }
+    var servingQuantity by rememberSaveable(initial) { mutableStateOf(initial?.servingQuantity?.let(::formatDraftNumber).orEmpty()) }
     var packageSize by rememberSaveable(initial) { mutableStateOf("") }
     var packageQuantity by rememberSaveable(initial) { mutableStateOf("") }
     LaunchedEffect(prefilledBarcode) {

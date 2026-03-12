@@ -55,7 +55,10 @@ data class QuickAddDraft(
     val calories: Double? = null,
     val protein: Double? = null,
     val fat: Double? = null,
-    val carbs: Double? = null
+    val carbs: Double? = null,
+    val isPer100Mode: Boolean = false,
+    val amount: Double? = null,
+    val amountUnit: String? = null
 )
 
 fun interface WidgetRefreshDelegate {
@@ -679,16 +682,32 @@ private fun NutritionParseResult.toNutritionScanResult(): NutritionScanResult {
         rawText = "gemini:$model",
         productName = name,
         brand = brand,
+        servingSize = servingSize,
+        servingQuantity = servingQuantity,
+        servingCalories = caloriesPerServing,
+        servingProtein = proteinPerServing,
+        servingCarbs = carbsPerServing,
+        servingFat = fatPerServing,
+        servingSugar = sugarPerServing,
         warnings = warnings
     )
 }
 
 private fun CustomFoodDraft.toQuickAddDraft(): QuickAddDraft {
+    val hasServingMacros =
+        caloriesPerServing != null ||
+            proteinPerServing != null ||
+            carbsPerServing != null ||
+            fatPerServing != null
+
     return QuickAddDraft(
         name = name,
-        calories = caloriesPer100g,
-        protein = proteinPer100g,
-        fat = fatPer100g,
-        carbs = carbsPer100g
+        calories = if (hasServingMacros) caloriesPerServing else caloriesPer100g,
+        protein = if (hasServingMacros) proteinPerServing else proteinPer100g,
+        fat = if (hasServingMacros) fatPerServing else fatPer100g,
+        carbs = if (hasServingMacros) carbsPerServing else carbsPer100g,
+        isPer100Mode = !hasServingMacros,
+        amount = if (!hasServingMacros) servingQuantity ?: 100.0 else null,
+        amountUnit = if (!hasServingMacros) "g" else null
     )
 }
