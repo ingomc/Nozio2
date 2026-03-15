@@ -93,12 +93,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+enum class SearchMode {
+    DEFAULT,
+    INGREDIENT_PICKER
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
     preselectedMealType: MealType?,
     modifier: Modifier = Modifier,
+    mode: SearchMode = SearchMode.DEFAULT,
+    onFoodPicked: ((FoodItem) -> Unit)? = null,
     openQuickAddOnStart: Boolean = false,
     openBarcodeScannerOnStart: Boolean = false,
     focusSearchOnStart: Boolean = false,
@@ -108,6 +115,7 @@ fun SearchScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
+    val isIngredientPickerMode = mode == SearchMode.INGREDIENT_PICKER
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -126,6 +134,13 @@ fun SearchScreen(
     val hasAnySuggestions = state.recentSuggestions.isNotEmpty() ||
         state.frequentSuggestions.isNotEmpty() ||
         state.favoriteSuggestions.isNotEmpty()
+    val onFoodSelection: (FoodItem) -> Unit = { food ->
+        if (isIngredientPickerMode) {
+            onFoodPicked?.invoke(food)
+        } else {
+            viewModel.selectFood(food)
+        }
+    }
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -242,25 +257,26 @@ fun SearchScreen(
         showImageSourceDialog = true
     }
 
+    val supportsEntryBottomSheets = !isIngredientPickerMode
     BackHandler(
         enabled = showBarcodeScannerSheet ||
-            state.showNutritionScannerSheet ||
-            state.showNutritionReviewSheet ||
             state.showBarcodeResultsSheet ||
-            state.showBottomSheet ||
-            state.showQuickAddSheet ||
-            state.showCreateCustomFoodSheet ||
-            state.showFoodPhotoSheet
+            (supportsEntryBottomSheets && state.showNutritionScannerSheet) ||
+            (supportsEntryBottomSheets && state.showNutritionReviewSheet) ||
+            (supportsEntryBottomSheets && state.showBottomSheet) ||
+            (supportsEntryBottomSheets && state.showQuickAddSheet) ||
+            (supportsEntryBottomSheets && state.showCreateCustomFoodSheet) ||
+            (supportsEntryBottomSheets && state.showFoodPhotoSheet)
     ) {
         when {
             showBarcodeScannerSheet -> showBarcodeScannerSheet = false
-            state.showFoodPhotoSheet && !state.isFoodPhotoAnalyzing -> viewModel.dismissFoodPhotoSheet()
-            state.showNutritionScannerSheet && !state.isNutritionScanInFlight -> viewModel.dismissNutritionScannerSheet()
-            state.showNutritionReviewSheet -> viewModel.dismissNutritionReviewSheet()
+            supportsEntryBottomSheets && state.showFoodPhotoSheet && !state.isFoodPhotoAnalyzing -> viewModel.dismissFoodPhotoSheet()
+            supportsEntryBottomSheets && state.showNutritionScannerSheet && !state.isNutritionScanInFlight -> viewModel.dismissNutritionScannerSheet()
+            supportsEntryBottomSheets && state.showNutritionReviewSheet -> viewModel.dismissNutritionReviewSheet()
             state.showBarcodeResultsSheet -> viewModel.dismissBarcodeResultsSheet()
-            state.showBottomSheet -> viewModel.dismissBottomSheet()
-            state.showQuickAddSheet -> viewModel.dismissQuickAddSheet()
-            state.showCreateCustomFoodSheet -> viewModel.dismissCreateCustomFoodSheet()
+            supportsEntryBottomSheets && state.showBottomSheet -> viewModel.dismissBottomSheet()
+            supportsEntryBottomSheets && state.showQuickAddSheet -> viewModel.dismissQuickAddSheet()
+            supportsEntryBottomSheets && state.showCreateCustomFoodSheet -> viewModel.dismissCreateCustomFoodSheet()
         }
     }
 
@@ -314,6 +330,25 @@ fun SearchScreen(
                 .padding(innerPadding)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
+                if (isIngredientPickerMode) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "Zutat auswaehlen",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Suche oder Barcode nutzen, dann Lebensmittel antippen.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 // Loading
                 if (state.isLoading) {
                     Box(
@@ -380,10 +415,11 @@ fun SearchScreen(
                         frequentSuggestions = state.frequentSuggestions,
                         favoriteSuggestions = state.favoriteSuggestions,
                         hasAnySuggestions = hasAnySuggestions,
+                        showQuickActions = !isIngredientPickerMode,
                         listBottomPadding = listBottomPadding,
                         onQuickAddClick = viewModel::showQuickAddSheet,
                         onCreateFoodClick = viewModel::showCreateCustomFoodSheet,
-                        onFoodClick = viewModel::selectFood
+                        onFoodClick = onFoodSelection
                     )
                 } else {
                     LazyColumn(
@@ -395,7 +431,7 @@ fun SearchScreen(
                         items(state.results) { food ->
                             FoodSearchItem(
                                 food = food,
-                                onClick = { viewModel.selectFood(food) }
+                                onClick = { onFoodSelection(food) }
                             )
                             HorizontalDivider()
                         }
@@ -417,12 +453,12 @@ fun SearchScreen(
                     color = MaterialTheme.nozioColors.surface2,
                     shape = CircleShape,
                     tonalElevation = 2.dp,
-                    shadowElevation = 0.dp
+                    shadowElevation = 2.dp
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -483,32 +519,34 @@ fun SearchScreen(
                             }
                         }
 
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = CircleShape,
-                            tonalElevation = 0.dp,
-                            shadowElevation = 0.dp
-                        ) {
-                            IconButton(
-                                onClick = { launchFoodPhotoUpload() },
-                                modifier = Modifier.size(56.dp)
+                        if (!isIngredientPickerMode) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = CircleShape,
+                                tonalElevation = 0.dp,
+                                shadowElevation = 0.dp
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                IconButton(
+                                    onClick = { launchFoodPhotoUpload() },
+                                    modifier = Modifier.size(56.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Text(
-                                        text = "KI",
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Text(
+                                            text = "KI",
+                                            color = MaterialTheme.colorScheme.onPrimary,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -540,7 +578,7 @@ fun SearchScreen(
         )
     }
 
-    if (state.showNutritionScannerSheet) {
+    if (!isIngredientPickerMode && state.showNutritionScannerSheet) {
         NutritionScannerBottomSheet(
             isAnalyzing = state.isNutritionScanInFlight,
             onDismiss = {
@@ -554,7 +592,7 @@ fun SearchScreen(
         )
     }
 
-    if (state.showFoodPhotoSheet) {
+    if (!isIngredientPickerMode && state.showFoodPhotoSheet) {
         FoodPhotoAnalysisBottomSheet(
             isAnalyzing = state.isFoodPhotoAnalyzing,
             onDismiss = {
@@ -568,7 +606,7 @@ fun SearchScreen(
         )
     }
 
-    if (state.showNutritionReviewSheet && state.nutritionScanResult != null) {
+    if (!isIngredientPickerMode && state.showNutritionReviewSheet && state.nutritionScanResult != null) {
         NutritionReviewBottomSheet(
             scanResult = state.nutritionScanResult!!,
             applyButtonLabel = when (state.nutritionApplyTarget) {
@@ -586,13 +624,13 @@ fun SearchScreen(
             results = state.results,
             maxPreviewItems = 4,
             onDismiss = viewModel::dismissBarcodeResultsSheet,
-            onResultClick = { food -> viewModel.selectFood(food) },
+            onResultClick = { food -> onFoodSelection(food) },
             onShowAllResults = viewModel::dismissBarcodeResultsSheet
         )
     }
 
     // Bottom Sheet
-    if (state.showBottomSheet && state.selectedFood != null) {
+    if (!isIngredientPickerMode && state.showBottomSheet && state.selectedFood != null) {
         AddFoodBottomSheet(
             food = state.selectedFood!!,
             preselectedMealType = preselectedMealType,
@@ -604,7 +642,7 @@ fun SearchScreen(
         )
     }
 
-    if (state.showQuickAddSheet) {
+    if (!isIngredientPickerMode && state.showQuickAddSheet) {
         QuickAddBottomSheet(
             preselectedMealType = preselectedMealType,
             initial = state.prefillQuickAddDraft,
@@ -615,7 +653,7 @@ fun SearchScreen(
         )
     }
 
-    if (state.showCreateCustomFoodSheet) {
+    if (!isIngredientPickerMode && state.showCreateCustomFoodSheet) {
         CreateCustomFoodBottomSheet(
             isSubmitting = state.isSubmittingCustomFood,
             initial = state.prefillCustomFoodDraft,
@@ -732,6 +770,7 @@ private fun SuggestionsSection(
     frequentSuggestions: List<FoodItem>,
     favoriteSuggestions: List<FoodItem>,
     hasAnySuggestions: Boolean,
+    showQuickActions: Boolean,
     listBottomPadding: androidx.compose.ui.unit.Dp,
     onQuickAddClick: () -> Unit,
     onCreateFoodClick: () -> Unit,
@@ -744,11 +783,13 @@ private fun SuggestionsSection(
     Column(
         modifier = modifier
     ) {
-        QuickActionsCard(
-            onQuickAddClick = onQuickAddClick,
-            onCreateFoodClick = onCreateFoodClick
-        )
-        HorizontalDivider()
+        if (showQuickActions) {
+            QuickActionsCard(
+                onQuickAddClick = onQuickAddClick,
+                onCreateFoodClick = onCreateFoodClick
+            )
+            HorizontalDivider()
+        }
 
         if (!hasAnySuggestions) {
             return@Column

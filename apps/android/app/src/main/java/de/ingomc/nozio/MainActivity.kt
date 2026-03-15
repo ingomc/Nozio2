@@ -33,7 +33,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -76,6 +76,9 @@ import de.ingomc.nozio.data.repository.AppThemeMode
 import de.ingomc.nozio.notifications.MealReminderScheduler
 import de.ingomc.nozio.ui.dashboard.DashboardScreen
 import de.ingomc.nozio.ui.dashboard.DashboardViewModel
+import de.ingomc.nozio.ui.meals.MealsIngredientPickerTarget
+import de.ingomc.nozio.ui.meals.MealsScreen
+import de.ingomc.nozio.ui.meals.MealsViewModel
 import de.ingomc.nozio.ui.profile.LegalInfoScreen
 import de.ingomc.nozio.ui.profile.ProfileEditGoalsScreen
 import de.ingomc.nozio.ui.profile.ProfileScreen
@@ -83,6 +86,7 @@ import de.ingomc.nozio.ui.profile.ProfileViewModel
 import de.ingomc.nozio.ui.search.AddConfirmationBanner
 import de.ingomc.nozio.ui.search.AddConfirmationState
 import de.ingomc.nozio.ui.search.SearchScreen
+import de.ingomc.nozio.ui.search.SearchMode
 import de.ingomc.nozio.ui.search.SearchViewModel
 import de.ingomc.nozio.ui.settings.SettingsScreen
 import de.ingomc.nozio.ui.settings.SettingsSection
@@ -145,7 +149,10 @@ class MainActivity : ComponentActivity() {
 
 private object AppRoute {
     const val HOME = "home"
+    const val MEALS = "meals"
     const val SEARCH = "search"
+    const val SEARCH_PICK_EDITOR = "search/pickIngredient/editor"
+    const val SEARCH_PICK_TRACKER = "search/pickIngredient/tracker"
     const val PROFILE = "profile"
     const val PROFILE_EDIT = "profile/edit"
     const val SETTINGS_LEGAL = "settings/legal"
@@ -180,6 +187,10 @@ fun NozioApp(
         )
     )
     val searchViewModel: SearchViewModel = viewModel(
+        factory = SearchViewModel.Factory(app.applicationContext, app.foodRepository, app.diaryRepository)
+    )
+    val ingredientPickerSearchViewModel: SearchViewModel = viewModel(
+        key = "ingredient_picker_search_vm",
         factory = SearchViewModel.Factory(app.applicationContext, app.foodRepository, app.diaryRepository)
     )
     val profileViewModel: ProfileViewModel = viewModel(
@@ -220,6 +231,13 @@ fun NozioApp(
             supplementRepository = app.supplementRepository
         )
     )
+    val mealsViewModel: MealsViewModel = viewModel(
+        factory = MealsViewModel.Factory(
+            appContext = app.applicationContext,
+            mealTemplateRepository = app.mealTemplateRepository,
+            foodRepository = app.foodRepository
+        )
+    )
     val dashboardState by dashboardViewModel.uiState.collectAsState()
     val searchState by searchViewModel.uiState.collectAsState()
     val addConfirmationProgress = remember { Animatable(0f) }
@@ -234,6 +252,7 @@ fun NozioApp(
 
     LaunchedEffect(dashboardState.selectedDate) {
         searchViewModel.setSelectedDate(dashboardState.selectedDate)
+        mealsViewModel.setSelectedDate(dashboardState.selectedDate)
     }
 
     LaunchedEffect(searchState.activeAddConfirmation?.bannerId) {
@@ -283,7 +302,7 @@ fun NozioApp(
                 focusSearchOnStart = true
                 openQuickAddOnStart = false
                 openBarcodeScannerOnStart = false
-                navController.navigateToBottomDestination(AppRoute.SEARCH)
+                navController.navigate(AppRoute.SEARCH)
                 onLaunchActionHandled()
             }
 
@@ -291,7 +310,7 @@ fun NozioApp(
                 openBarcodeScannerOnStart = true
                 openQuickAddOnStart = false
                 focusSearchOnStart = false
-                navController.navigateToBottomDestination(AppRoute.SEARCH)
+                navController.navigate(AppRoute.SEARCH)
                 onLaunchActionHandled()
             }
         }
@@ -307,6 +326,14 @@ fun NozioApp(
 
     val density = LocalDensity.current
     val isKeyboardOpen = WindowInsets.ime.getBottom(density) > 0
+    val hideBottomNavigationRoutes = remember {
+        setOf(
+            AppRoute.SEARCH,
+            AppRoute.SEARCH_PICK_EDITOR,
+            AppRoute.SEARCH_PICK_TRACKER
+        )
+    }
+    val shouldShowBottomNavigation = !isKeyboardOpen && currentRoute !in hideBottomNavigationRoutes
     val resolvedDarkTheme = darkTheme ?: isSystemInDarkTheme()
 
     SyncSystemBarsWithTheme(darkTheme = resolvedDarkTheme)
@@ -315,7 +342,7 @@ fun NozioApp(
         Scaffold(
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
-                if (!isKeyboardOpen) {
+                if (shouldShowBottomNavigation) {
                     NavigationBar(
                         containerColor = MaterialTheme.nozioColors.baseBgElevated,
                         tonalElevation = 0.dp
@@ -378,9 +405,22 @@ fun NozioApp(
                             onAddFood = { mealType ->
                                 searchViewModel.setSelectedDate(dashboardState.selectedDate)
                                 preselectedMealType = mealType
-                                navController.navigateToBottomDestination(AppRoute.SEARCH)
+                                navController.navigate(AppRoute.SEARCH)
                             },
                             onEditSupplements = { navController.navigate(AppRoute.SUPPLEMENTS_EDIT) }
+                        )
+                    }
+
+                    composable(AppRoute.MEALS) {
+                        MealsScreen(
+                            viewModel = mealsViewModel,
+                            onOpenIngredientPicker = { target ->
+                                val route = when (target) {
+                                    MealsIngredientPickerTarget.EDITOR -> AppRoute.SEARCH_PICK_EDITOR
+                                    MealsIngredientPickerTarget.TRACKER -> AppRoute.SEARCH_PICK_TRACKER
+                                }
+                                navController.navigate(route)
+                            }
                         )
                     }
 
@@ -394,6 +434,30 @@ fun NozioApp(
                             onQuickAddOpened = { openQuickAddOnStart = false },
                             onBarcodeScannerOpened = { openBarcodeScannerOnStart = false },
                             onSearchFocused = { focusSearchOnStart = false }
+                        )
+                    }
+
+                    composable(AppRoute.SEARCH_PICK_EDITOR) {
+                        SearchScreen(
+                            viewModel = ingredientPickerSearchViewModel,
+                            preselectedMealType = null,
+                            mode = SearchMode.INGREDIENT_PICKER,
+                            onFoodPicked = { food ->
+                                mealsViewModel.addPickedIngredient(food, MealsIngredientPickerTarget.EDITOR)
+                                navController.navigateUp()
+                            }
+                        )
+                    }
+
+                    composable(AppRoute.SEARCH_PICK_TRACKER) {
+                        SearchScreen(
+                            viewModel = ingredientPickerSearchViewModel,
+                            preselectedMealType = null,
+                            mode = SearchMode.INGREDIENT_PICKER,
+                            onFoodPicked = { food ->
+                                mealsViewModel.addPickedIngredient(food, MealsIngredientPickerTarget.TRACKER)
+                                navController.navigateUp()
+                            }
                         )
                     }
 
@@ -540,14 +604,17 @@ private fun routeRank(route: String?): Int {
     return when (route) {
         AppRoute.HOME -> 0
         AppRoute.SUPPLEMENTS_EDIT -> 1
-        AppRoute.SEARCH -> 2
+        AppRoute.MEALS -> 2
+        AppRoute.SEARCH,
+        AppRoute.SEARCH_PICK_EDITOR,
+        AppRoute.SEARCH_PICK_TRACKER -> 3
         AppRoute.PROFILE,
-        AppRoute.PROFILE_EDIT -> 3
+        AppRoute.PROFILE_EDIT -> 4
 
         AppRoute.SETTINGS_MAIN,
         AppRoute.SETTINGS_REMINDER,
         AppRoute.SETTINGS_BACKUP,
-        AppRoute.SETTINGS_LEGAL -> 4
+        AppRoute.SETTINGS_LEGAL -> 5
 
         else -> 0
     }
@@ -607,14 +674,14 @@ enum class AppDestination(
     val icon: ImageVector,
 ) {
     HOME(AppRoute.HOME, "Home", Icons.Default.Home),
-    SEARCH(AppRoute.SEARCH, "Suche", Icons.Default.Search),
+    MEALS(AppRoute.MEALS, "Meals", Icons.Default.Restaurant),
     PROFILE(AppRoute.PROFILE, "Profil", Icons.Default.Person),
     SETTINGS(AppRoute.SETTINGS_MAIN, "Einstellungen", Icons.Default.Settings);
 
     fun matches(currentRoute: String?): Boolean {
         return when (this) {
             HOME -> currentRoute == AppRoute.HOME || currentRoute == AppRoute.SUPPLEMENTS_EDIT
-            SEARCH -> currentRoute == AppRoute.SEARCH
+            MEALS -> currentRoute == AppRoute.MEALS
             PROFILE -> currentRoute == AppRoute.PROFILE ||
                 currentRoute == AppRoute.PROFILE_EDIT
             SETTINGS -> currentRoute?.startsWith("settings/") == true

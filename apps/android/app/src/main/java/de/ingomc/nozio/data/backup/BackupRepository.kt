@@ -4,7 +4,10 @@ import de.ingomc.nozio.data.local.DailyActivity
 import de.ingomc.nozio.data.local.DiaryEntry
 import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.FoodSource
+import de.ingomc.nozio.data.local.MealTemplateEntity
+import de.ingomc.nozio.data.local.MealTemplateIngredientEntity
 import de.ingomc.nozio.data.local.MealType
+import de.ingomc.nozio.data.local.RecipeAmountUnit
 import de.ingomc.nozio.data.local.SupplementAmountUnit
 import de.ingomc.nozio.data.local.SupplementDayPart
 import de.ingomc.nozio.data.local.SupplementIntakeEntity
@@ -22,7 +25,9 @@ sealed interface RestoreResult {
         val dailyActivityCount: Int,
         val restoredFromEpochMs: Long,
         val supplementPlanCount: Int = 0,
-        val supplementIntakeCount: Int = 0
+        val supplementIntakeCount: Int = 0,
+        val mealTemplateCount: Int = 0,
+        val mealTemplateIngredientCount: Int = 0
     ) : RestoreResult
 
     data class Error(val message: String) : RestoreResult
@@ -44,16 +49,18 @@ class BackupRepositoryImpl(
     }
 ) : BackupRepository {
     override suspend fun createBackupJson(): String {
-        val payload = BackupPayloadV2(
+        val payload = BackupPayloadV3(
             createdAtEpochMs = System.currentTimeMillis(),
             appVersionName = appVersionName,
             foodItems = dataStore.getAllFoods().map { it.toDto() },
             diaryEntries = dataStore.getAllDiaryEntries().map { it.toDto() },
             dailyActivities = dataStore.getAllDailyActivities().map { it.toDto() },
             supplementPlanItems = dataStore.getAllSupplementPlanItems().map { it.toDto() },
-            supplementIntakes = dataStore.getAllSupplementIntakes().map { it.toDto() }
+            supplementIntakes = dataStore.getAllSupplementIntakes().map { it.toDto() },
+            mealTemplates = dataStore.getAllMealTemplates().map { it.toDto() },
+            mealTemplateIngredients = dataStore.getAllMealTemplateIngredients().map { it.toDto() }
         )
-        return json.encodeToString(BackupPayloadV2.serializer(), payload)
+        return json.encodeToString(BackupPayloadV3.serializer(), payload)
     }
 
     override suspend fun restoreFromBackupJson(json: String): RestoreResult {
@@ -62,6 +69,7 @@ class BackupRepositoryImpl(
         val payload = when (schemaVersion) {
             SchemaVersions.V1 -> decodePayloadV1(json) ?: return RestoreResult.Error("Backup-Datei ist ungueltig.")
             SchemaVersions.V2 -> decodePayloadV2(json) ?: return RestoreResult.Error("Backup-Datei ist ungueltig.")
+            SchemaVersions.V3 -> decodePayloadV3(json) ?: return RestoreResult.Error("Backup-Datei ist ungueltig.")
             else -> return RestoreResult.Error("Backup-Version wird nicht unterstuetzt.")
         }
 
@@ -90,6 +98,16 @@ class BackupRepositoryImpl(
         } catch (_: IllegalArgumentException) {
             return RestoreResult.Error("Backup-Datei enthaelt ungueltige Supplement-Intake-Daten.")
         }
+        val mealTemplates = try {
+            payload.mealTemplates.map { it.toEntity() }
+        } catch (_: IllegalArgumentException) {
+            return RestoreResult.Error("Backup-Datei enthaelt ungueltige Rezept-Daten.")
+        }
+        val mealTemplateIngredients = try {
+            payload.mealTemplateIngredients.map { it.toEntity() }
+        } catch (_: IllegalArgumentException) {
+            return RestoreResult.Error("Backup-Datei enthaelt ungueltige Rezept-Zutaten-Daten.")
+        }
 
         return runCatching {
             dataStore.replaceTrackingData(
@@ -97,7 +115,9 @@ class BackupRepositoryImpl(
                 diaryEntries = diaryEntries,
                 dailyActivities = dailyActivities,
                 supplementPlanItems = supplementPlanItems,
-                supplementIntakes = supplementIntakes
+                supplementIntakes = supplementIntakes,
+                mealTemplates = mealTemplates,
+                mealTemplateIngredients = mealTemplateIngredients
             )
             RestoreResult.Success(
                 foodCount = foodItems.size,
@@ -105,7 +125,9 @@ class BackupRepositoryImpl(
                 dailyActivityCount = dailyActivities.size,
                 restoredFromEpochMs = payload.createdAtEpochMs,
                 supplementPlanCount = supplementPlanItems.size,
-                supplementIntakeCount = supplementIntakes.size
+                supplementIntakeCount = supplementIntakes.size,
+                mealTemplateCount = mealTemplates.size,
+                mealTemplateIngredientCount = mealTemplateIngredients.size
             )
         }.getOrElse {
             RestoreResult.Error("Wiederherstellung fehlgeschlagen.")
@@ -130,7 +152,9 @@ class BackupRepositoryImpl(
                 diaryEntries = payload.diaryEntries,
                 dailyActivities = payload.dailyActivities,
                 supplementPlanItems = emptyList(),
-                supplementIntakes = emptyList()
+                supplementIntakes = emptyList(),
+                mealTemplates = emptyList(),
+                mealTemplateIngredients = emptyList()
             )
         }.getOrNull()
     }
@@ -144,7 +168,25 @@ class BackupRepositoryImpl(
                 diaryEntries = payload.diaryEntries,
                 dailyActivities = payload.dailyActivities,
                 supplementPlanItems = payload.supplementPlanItems,
-                supplementIntakes = payload.supplementIntakes
+                supplementIntakes = payload.supplementIntakes,
+                mealTemplates = emptyList(),
+                mealTemplateIngredients = emptyList()
+            )
+        }.getOrNull()
+    }
+
+    private fun decodePayloadV3(rawJson: String): NormalizedBackupPayload? {
+        return runCatching {
+            val payload = json.decodeFromString(BackupPayloadV3.serializer(), rawJson)
+            NormalizedBackupPayload(
+                createdAtEpochMs = payload.createdAtEpochMs,
+                foodItems = payload.foodItems,
+                diaryEntries = payload.diaryEntries,
+                dailyActivities = payload.dailyActivities,
+                supplementPlanItems = payload.supplementPlanItems,
+                supplementIntakes = payload.supplementIntakes,
+                mealTemplates = payload.mealTemplates,
+                mealTemplateIngredients = payload.mealTemplateIngredients
             )
         }.getOrNull()
     }
@@ -156,7 +198,9 @@ private data class NormalizedBackupPayload(
     val diaryEntries: List<DiaryEntryBackupDto>,
     val dailyActivities: List<DailyActivityBackupDto>,
     val supplementPlanItems: List<SupplementPlanItemBackupDto>,
-    val supplementIntakes: List<SupplementIntakeBackupDto>
+    val supplementIntakes: List<SupplementIntakeBackupDto>,
+    val mealTemplates: List<MealTemplateBackupDto>,
+    val mealTemplateIngredients: List<MealTemplateIngredientBackupDto>
 )
 
 private fun FoodItem.toDto(): FoodItemBackupDto = FoodItemBackupDto(
@@ -256,4 +300,41 @@ private fun SupplementIntakeBackupDto.toEntity(): SupplementIntakeEntity = Suppl
     date = LocalDate.parse(dateIso),
     supplementId = supplementId,
     takenAtEpochMs = takenAtEpochMs
+)
+
+private fun MealTemplateEntity.toDto(): MealTemplateBackupDto = MealTemplateBackupDto(
+    id = id,
+    name = name,
+    defaultMealType = defaultMealType.name,
+    createdAtEpochMs = createdAtEpochMs,
+    updatedAtEpochMs = updatedAtEpochMs
+)
+
+private fun MealTemplateBackupDto.toEntity(): MealTemplateEntity {
+    require(name.isNotBlank()) { "Meal template name cannot be blank" }
+    return MealTemplateEntity(
+        id = id,
+        name = name.trim(),
+        defaultMealType = MealType.valueOf(defaultMealType),
+        createdAtEpochMs = createdAtEpochMs,
+        updatedAtEpochMs = updatedAtEpochMs
+    )
+}
+
+private fun MealTemplateIngredientEntity.toDto(): MealTemplateIngredientBackupDto = MealTemplateIngredientBackupDto(
+    id = id,
+    templateId = templateId,
+    foodItemId = foodItemId,
+    position = position,
+    defaultAmountValue = defaultAmountValue,
+    amountUnit = amountUnit.name
+)
+
+private fun MealTemplateIngredientBackupDto.toEntity(): MealTemplateIngredientEntity = MealTemplateIngredientEntity(
+    id = id,
+    templateId = templateId,
+    foodItemId = foodItemId,
+    position = position,
+    defaultAmountValue = defaultAmountValue,
+    amountUnit = RecipeAmountUnit.valueOf(amountUnit)
 )

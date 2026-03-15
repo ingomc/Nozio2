@@ -16,6 +16,7 @@ import de.ingomc.nozio.data.repository.AppUpdateRepository
 import de.ingomc.nozio.data.repository.DailyActivityRepository
 import de.ingomc.nozio.data.repository.DiaryRepository
 import de.ingomc.nozio.data.repository.FoodRepository
+import de.ingomc.nozio.data.repository.MealTemplateRepository
 import de.ingomc.nozio.data.repository.SupplementRepository
 import de.ingomc.nozio.data.repository.UserPreferencesRepository
 import de.ingomc.nozio.notifications.MealReminderReceiver
@@ -47,6 +48,9 @@ class NozioApplication : Application() {
     lateinit var supplementRepository: SupplementRepository
         private set
 
+    lateinit var mealTemplateRepository: MealTemplateRepository
+        private set
+
     lateinit var appUpdateRepository: AppUpdateRepository
         private set
 
@@ -75,6 +79,7 @@ class NozioApplication : Application() {
         userPreferencesRepository = UserPreferencesRepository(this)
         dailyActivityRepository = DailyActivityRepository(database.dailyActivityDao())
         supplementRepository = SupplementRepository(database.supplementDao(), database.supplementIntakeDao())
+        mealTemplateRepository = MealTemplateRepository(database.mealTemplateDao(), database.diaryDao(), database.foodDao())
         appUpdateRepository = AppUpdateRepository(GitHubRetrofitInstance.api)
         apkUpdateInstaller = ApkUpdateInstaller(this)
         driveBackupService = LocalFileBackupService(this)
