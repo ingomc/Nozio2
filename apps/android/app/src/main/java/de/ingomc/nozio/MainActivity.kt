@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -76,6 +77,8 @@ import de.ingomc.nozio.data.repository.AppThemeMode
 import de.ingomc.nozio.notifications.MealReminderScheduler
 import de.ingomc.nozio.ui.dashboard.DashboardScreen
 import de.ingomc.nozio.ui.dashboard.DashboardViewModel
+import de.ingomc.nozio.ui.meals.MealsScreen
+import de.ingomc.nozio.ui.meals.MealsViewModel
 import de.ingomc.nozio.ui.profile.LegalInfoScreen
 import de.ingomc.nozio.ui.profile.ProfileEditGoalsScreen
 import de.ingomc.nozio.ui.profile.ProfileScreen
@@ -145,6 +148,7 @@ class MainActivity : ComponentActivity() {
 
 private object AppRoute {
     const val HOME = "home"
+    const val MEALS = "meals"
     const val SEARCH = "search"
     const val PROFILE = "profile"
     const val PROFILE_EDIT = "profile/edit"
@@ -220,6 +224,13 @@ fun NozioApp(
             supplementRepository = app.supplementRepository
         )
     )
+    val mealsViewModel: MealsViewModel = viewModel(
+        factory = MealsViewModel.Factory(
+            appContext = app.applicationContext,
+            mealTemplateRepository = app.mealTemplateRepository,
+            foodRepository = app.foodRepository
+        )
+    )
     val dashboardState by dashboardViewModel.uiState.collectAsState()
     val searchState by searchViewModel.uiState.collectAsState()
     val addConfirmationProgress = remember { Animatable(0f) }
@@ -234,6 +245,7 @@ fun NozioApp(
 
     LaunchedEffect(dashboardState.selectedDate) {
         searchViewModel.setSelectedDate(dashboardState.selectedDate)
+        mealsViewModel.setSelectedDate(dashboardState.selectedDate)
     }
 
     LaunchedEffect(searchState.activeAddConfirmation?.bannerId) {
@@ -382,6 +394,10 @@ fun NozioApp(
                             },
                             onEditSupplements = { navController.navigate(AppRoute.SUPPLEMENTS_EDIT) }
                         )
+                    }
+
+                    composable(AppRoute.MEALS) {
+                        MealsScreen(viewModel = mealsViewModel)
                     }
 
                     composable(AppRoute.SEARCH) {
@@ -540,14 +556,15 @@ private fun routeRank(route: String?): Int {
     return when (route) {
         AppRoute.HOME -> 0
         AppRoute.SUPPLEMENTS_EDIT -> 1
-        AppRoute.SEARCH -> 2
+        AppRoute.MEALS -> 2
+        AppRoute.SEARCH -> 3
         AppRoute.PROFILE,
-        AppRoute.PROFILE_EDIT -> 3
+        AppRoute.PROFILE_EDIT -> 4
 
         AppRoute.SETTINGS_MAIN,
         AppRoute.SETTINGS_REMINDER,
         AppRoute.SETTINGS_BACKUP,
-        AppRoute.SETTINGS_LEGAL -> 4
+        AppRoute.SETTINGS_LEGAL -> 5
 
         else -> 0
     }
@@ -607,6 +624,7 @@ enum class AppDestination(
     val icon: ImageVector,
 ) {
     HOME(AppRoute.HOME, "Home", Icons.Default.Home),
+    MEALS(AppRoute.MEALS, "Meals", Icons.Default.Restaurant),
     SEARCH(AppRoute.SEARCH, "Suche", Icons.Default.Search),
     PROFILE(AppRoute.PROFILE, "Profil", Icons.Default.Person),
     SETTINGS(AppRoute.SETTINGS_MAIN, "Einstellungen", Icons.Default.Settings);
@@ -614,6 +632,7 @@ enum class AppDestination(
     fun matches(currentRoute: String?): Boolean {
         return when (this) {
             HOME -> currentRoute == AppRoute.HOME || currentRoute == AppRoute.SUPPLEMENTS_EDIT
+            MEALS -> currentRoute == AppRoute.MEALS
             SEARCH -> currentRoute == AppRoute.SEARCH
             PROFILE -> currentRoute == AppRoute.PROFILE ||
                 currentRoute == AppRoute.PROFILE_EDIT

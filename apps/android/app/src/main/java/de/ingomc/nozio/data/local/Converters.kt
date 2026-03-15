@@ -33,4 +33,10 @@ class Converters {
 
     @TypeConverter
     fun toSupplementAmountUnit(value: String): SupplementAmountUnit = SupplementAmountUnit.valueOf(value)
+
+    @TypeConverter
+    fun fromRecipeAmountUnit(unit: RecipeAmountUnit): String = unit.name
+
+    @TypeConverter
+    fun toRecipeAmountUnit(value: String): RecipeAmountUnit = RecipeAmountUnit.valueOf(value)
 }

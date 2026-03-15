@@ -24,9 +24,24 @@ data class BackupPayloadV2(
     val supplementIntakes: List<SupplementIntakeBackupDto>
 )
 
+@Serializable
+data class BackupPayloadV3(
+    val schemaVersion: Int = SchemaVersions.V3,
+    val createdAtEpochMs: Long,
+    val appVersionName: String,
+    val foodItems: List<FoodItemBackupDto>,
+    val diaryEntries: List<DiaryEntryBackupDto>,
+    val dailyActivities: List<DailyActivityBackupDto>,
+    val supplementPlanItems: List<SupplementPlanItemBackupDto>,
+    val supplementIntakes: List<SupplementIntakeBackupDto>,
+    val mealTemplates: List<MealTemplateBackupDto>,
+    val mealTemplateIngredients: List<MealTemplateIngredientBackupDto>
+)
+
 object SchemaVersions {
     const val V1 = 1
     const val V2 = 2
+    const val V3 = 3
 }
 
 @Serializable
@@ -79,4 +94,23 @@ data class SupplementIntakeBackupDto(
     val dateIso: String,
     val supplementId: Long,
     val takenAtEpochMs: Long
+)
+
+@Serializable
+data class MealTemplateBackupDto(
+    val id: Long,
+    val name: String,
+    val defaultMealType: String,
+    val createdAtEpochMs: Long,
+    val updatedAtEpochMs: Long
+)
+
+@Serializable
+data class MealTemplateIngredientBackupDto(
+    val id: Long,
+    val templateId: Long,
+    val foodItemId: Long,
+    val position: Int,
+    val defaultAmountValue: Double,
+    val amountUnit: String
 )

@@ -15,9 +15,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DiaryEntry::class,
         DailyActivity::class,
         SupplementPlanItemEntity::class,
-        SupplementIntakeEntity::class
+        SupplementIntakeEntity::class,
+        MealTemplateEntity::class,
+        MealTemplateIngredientEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -27,15 +29,20 @@ abstract class NozioDatabase : RoomDatabase() {
     abstract fun dailyActivityDao(): DailyActivityDao
     abstract fun supplementDao(): SupplementDao
     abstract fun supplementIntakeDao(): SupplementIntakeDao
+    abstract fun mealTemplateDao(): MealTemplateDao
 
     suspend fun replaceTrackingData(
         foodItems: List<FoodItem>,
         diaryEntries: List<DiaryEntry>,
         dailyActivities: List<DailyActivity>,
         supplementPlanItems: List<SupplementPlanItemEntity>,
-        supplementIntakes: List<SupplementIntakeEntity>
+        supplementIntakes: List<SupplementIntakeEntity>,
+        mealTemplates: List<MealTemplateEntity> = emptyList(),
+        mealTemplateIngredients: List<MealTemplateIngredientEntity> = emptyList()
     ) {
         withTransaction {
+            mealTemplateDao().deleteAllIngredients()
+            mealTemplateDao().deleteAllTemplates()
             supplementIntakeDao().deleteAll()
             supplementDao().deleteAll()
             diaryDao().deleteAll()
@@ -43,6 +50,8 @@ abstract class NozioDatabase : RoomDatabase() {
             foodDao().deleteAll()
 
             foodDao().insertAllWithIds(foodItems)
+            mealTemplateDao().insertAllTemplates(mealTemplates)
+            mealTemplateDao().insertAllIngredients(mealTemplateIngredients)
             diaryDao().insertAll(diaryEntries)
             dailyActivityDao().upsertAll(dailyActivities)
             supplementDao().insertAll(supplementPlanItems)
@@ -149,6 +158,48 @@ abstract class NozioDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS meal_templates (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        defaultMealType TEXT NOT NULL,
+                        createdAtEpochMs INTEGER NOT NULL,
+                        updatedAtEpochMs INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS meal_template_ingredients (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        templateId INTEGER NOT NULL,
+                        foodItemId INTEGER NOT NULL,
+                        position INTEGER NOT NULL,
+                        defaultAmountValue REAL NOT NULL,
+                        amountUnit TEXT NOT NULL,
+                        FOREIGN KEY(templateId) REFERENCES meal_templates(id) ON DELETE CASCADE,
+                        FOREIGN KEY(foodItemId) REFERENCES food_items(id) ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_meal_template_ingredients_templateId
+                    ON meal_template_ingredients(templateId)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_meal_template_ingredients_foodItemId
+                    ON meal_template_ingredients(foodItemId)
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: NozioDatabase? = null
 
@@ -165,7 +216,8 @@ abstract class NozioDatabase : RoomDatabase() {
                     MIGRATION_4_5,
                     MIGRATION_5_6,
                     MIGRATION_6_7,
-                    MIGRATION_7_8
+                    MIGRATION_7_8,
+                    MIGRATION_8_9
                 ).build()
                 INSTANCE = instance
                 instance

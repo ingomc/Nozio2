@@ -3,6 +3,8 @@ package de.ingomc.nozio.data.backup
 import de.ingomc.nozio.data.local.DailyActivity
 import de.ingomc.nozio.data.local.DiaryEntry
 import de.ingomc.nozio.data.local.FoodItem
+import de.ingomc.nozio.data.local.MealTemplateEntity
+import de.ingomc.nozio.data.local.MealTemplateIngredientEntity
 import de.ingomc.nozio.data.local.NozioDatabase
 import de.ingomc.nozio.data.local.SupplementIntakeEntity
 import de.ingomc.nozio.data.local.SupplementPlanItemEntity
@@ -13,12 +15,16 @@ interface TrackingDataStore {
     suspend fun getAllDailyActivities(): List<DailyActivity>
     suspend fun getAllSupplementPlanItems(): List<SupplementPlanItemEntity>
     suspend fun getAllSupplementIntakes(): List<SupplementIntakeEntity>
+    suspend fun getAllMealTemplates(): List<MealTemplateEntity>
+    suspend fun getAllMealTemplateIngredients(): List<MealTemplateIngredientEntity>
     suspend fun replaceTrackingData(
         foodItems: List<FoodItem>,
         diaryEntries: List<DiaryEntry>,
         dailyActivities: List<DailyActivity>,
         supplementPlanItems: List<SupplementPlanItemEntity>,
-        supplementIntakes: List<SupplementIntakeEntity>
+        supplementIntakes: List<SupplementIntakeEntity>,
+        mealTemplates: List<MealTemplateEntity> = emptyList(),
+        mealTemplateIngredients: List<MealTemplateIngredientEntity> = emptyList()
     )
 }
 
@@ -37,19 +43,29 @@ class RoomTrackingDataStore(
     override suspend fun getAllSupplementIntakes(): List<SupplementIntakeEntity> =
         database.supplementIntakeDao().getAllRaw()
 
+    override suspend fun getAllMealTemplates(): List<MealTemplateEntity> =
+        database.mealTemplateDao().getAllRaw()
+
+    override suspend fun getAllMealTemplateIngredients(): List<MealTemplateIngredientEntity> =
+        database.mealTemplateDao().getAllIngredientsRaw()
+
     override suspend fun replaceTrackingData(
         foodItems: List<FoodItem>,
         diaryEntries: List<DiaryEntry>,
         dailyActivities: List<DailyActivity>,
         supplementPlanItems: List<SupplementPlanItemEntity>,
-        supplementIntakes: List<SupplementIntakeEntity>
+        supplementIntakes: List<SupplementIntakeEntity>,
+        mealTemplates: List<MealTemplateEntity>,
+        mealTemplateIngredients: List<MealTemplateIngredientEntity>
     ) {
         database.replaceTrackingData(
             foodItems = foodItems,
             diaryEntries = diaryEntries,
             dailyActivities = dailyActivities,
             supplementPlanItems = supplementPlanItems,
-            supplementIntakes = supplementIntakes
+            supplementIntakes = supplementIntakes,
+            mealTemplates = mealTemplates,
+            mealTemplateIngredients = mealTemplateIngredients
         )
     }
 }
