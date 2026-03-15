@@ -19,7 +19,8 @@ data class MealTemplateSummary(
     val name: String,
     val defaultMealType: MealType,
     val ingredientCount: Int,
-    val totalCalories: Double
+    val totalCalories: Double,
+    val ingredientPreview: String?
 )
 
 data class MealTemplateDetail(
@@ -120,7 +121,8 @@ class MealTemplateRepository(
                     name = template.name,
                     defaultMealType = template.defaultMealType,
                     ingredientCount = ingredients.size,
-                    totalCalories = totalCalories
+                    totalCalories = totalCalories,
+                    ingredientPreview = ingredients.toIngredientPreview()
                 )
             }
         }
@@ -249,3 +251,11 @@ private fun MealTemplateIngredientWithFood.toDetail() = MealTemplateIngredientDe
     servingQuantity = servingQuantity,
     packageQuantity = packageQuantity
 )
+
+private fun List<MealTemplateIngredientWithFood>.toIngredientPreview(): String? {
+    if (isEmpty()) return null
+    val visibleNames = take(3).map { it.foodName }
+    val hiddenCount = size - visibleNames.size
+    val base = visibleNames.joinToString(", ")
+    return if (hiddenCount > 0) "$base +$hiddenCount" else base
+}

@@ -8,7 +8,6 @@ import de.ingomc.nozio.data.local.FoodItem
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.local.RecipeAmountUnit
 import de.ingomc.nozio.data.repository.FoodRepository
-import de.ingomc.nozio.data.repository.MealTemplateDetail
 import de.ingomc.nozio.data.repository.MealTemplateIngredientDetail
 import de.ingomc.nozio.data.repository.MealTemplateRepository
 import de.ingomc.nozio.data.repository.MealTemplateSummary
@@ -32,14 +31,15 @@ data class MealsUiState(
     val selectedDate: LocalDate = LocalDate.now(),
     val showEditor: Boolean = false,
     val showTracker: Boolean = false,
-    val showIngredientPicker: Boolean = false,
     val editorState: EditorState = EditorState(),
     val trackerState: TrackerState = TrackerState(),
-    val ingredientSearchQuery: String = "",
-    val ingredientSearchResults: List<FoodItem> = emptyList(),
-    val ingredientSearchLoading: Boolean = false,
     val snackbarMessage: String? = null
 )
+
+enum class MealsIngredientPickerTarget {
+    EDITOR,
+    TRACKER
+}
 
 data class EditorState(
     val templateId: Long = 0,
@@ -221,45 +221,9 @@ class MealsViewModel(
         }
     }
 
-    // ── Ingredient Picker ───────────────────────────────────────────
+    // ── Ingredient Picker Result ────────────────────────────────────
 
-    fun openIngredientPicker() {
-        _uiState.update {
-            it.copy(
-                showIngredientPicker = true,
-                ingredientSearchQuery = "",
-                ingredientSearchResults = emptyList()
-            )
-        }
-    }
-
-    fun closeIngredientPicker() {
-        _uiState.update { it.copy(showIngredientPicker = false) }
-    }
-
-    fun updateIngredientSearchQuery(query: String) {
-        _uiState.update { it.copy(ingredientSearchQuery = query) }
-        if (query.length >= 2) {
-            searchIngredients(query)
-        } else {
-            _uiState.update { it.copy(ingredientSearchResults = emptyList()) }
-        }
-    }
-
-    private fun searchIngredients(query: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(ingredientSearchLoading = true) }
-            runCatching {
-                foodRepository.searchFood(query)
-            }.onSuccess { results ->
-                _uiState.update { it.copy(ingredientSearchResults = results, ingredientSearchLoading = false) }
-            }.onFailure {
-                _uiState.update { it.copy(ingredientSearchLoading = false) }
-            }
-        }
-    }
-
-    fun selectIngredient(food: FoodItem, forTracker: Boolean = false) {
+    fun addPickedIngredient(food: FoodItem, target: MealsIngredientPickerTarget) {
         viewModelScope.launch {
             val storedFood = foodRepository.ensureFoodStored(food)
             val ingredient = EditorIngredient(
@@ -275,23 +239,23 @@ class MealsViewModel(
                 packageQuantity = storedFood.packageQuantity
             )
 
-            if (forTracker) {
-                _uiState.update { state ->
-                    val trackerIngredients = state.trackerState.ingredients.toMutableList()
-                    trackerIngredients.add(ingredient.toTrackerIngredient())
-                    state.copy(
-                        showIngredientPicker = false,
-                        trackerState = state.trackerState.copy(ingredients = trackerIngredients)
-                    )
-                }
-            } else {
-                _uiState.update { state ->
-                    val editorIngredients = state.editorState.ingredients.toMutableList()
-                    editorIngredients.add(ingredient)
-                    state.copy(
-                        showIngredientPicker = false,
-                        editorState = state.editorState.copy(ingredients = editorIngredients)
-                    )
+            _uiState.update { state ->
+                when (target) {
+                    MealsIngredientPickerTarget.TRACKER -> {
+                        val trackerIngredients = state.trackerState.ingredients.toMutableList()
+                        trackerIngredients.add(ingredient.toTrackerIngredient())
+                        state.copy(
+                            trackerState = state.trackerState.copy(ingredients = trackerIngredients)
+                        )
+                    }
+
+                    MealsIngredientPickerTarget.EDITOR -> {
+                        val editorIngredients = state.editorState.ingredients.toMutableList()
+                        editorIngredients.add(ingredient)
+                        state.copy(
+                            editorState = state.editorState.copy(ingredients = editorIngredients)
+                        )
+                    }
                 }
             }
         }

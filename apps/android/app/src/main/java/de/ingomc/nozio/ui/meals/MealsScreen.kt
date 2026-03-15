@@ -21,6 +21,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,14 +37,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.repository.MealTemplateSummary
+import de.ingomc.nozio.ui.theme.expressiveTopAppBarColors
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MealsScreen(viewModel: MealsViewModel) {
+fun MealsScreen(
+    viewModel: MealsViewModel,
+    onOpenIngredientPicker: (MealsIngredientPickerTarget) -> Unit
+) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -56,10 +62,24 @@ fun MealsScreen(viewModel: MealsViewModel) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Meals") })
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Meals",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
+                colors = expressiveTopAppBarColors()
+            )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.openNewEditor() }) {
+            FloatingActionButton(
+                onClick = { viewModel.openNewEditor() },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Rezept anlegen")
             }
         },
@@ -117,7 +137,7 @@ fun MealsScreen(viewModel: MealsViewModel) {
             onIngredientAmountChange = viewModel::updateEditorIngredientAmount,
             onIngredientUnitChange = viewModel::updateEditorIngredientUnit,
             onRemoveIngredient = viewModel::removeEditorIngredient,
-            onAddIngredient = { viewModel.openIngredientPicker() },
+            onAddIngredient = { onOpenIngredientPicker(MealsIngredientPickerTarget.EDITOR) },
             onSave = viewModel::saveTemplate
         )
     }
@@ -131,22 +151,9 @@ fun MealsScreen(viewModel: MealsViewModel) {
             onIngredientUnitChange = viewModel::updateTrackerIngredientUnit,
             onRemoveIngredient = viewModel::removeTrackerIngredient,
             onAddIngredient = {
-                viewModel.openIngredientPicker()
+                onOpenIngredientPicker(MealsIngredientPickerTarget.TRACKER)
             },
             onTrack = viewModel::trackMeal
-        )
-    }
-
-    if (state.showIngredientPicker) {
-        MealTemplateIngredientPickerBottomSheet(
-            query = state.ingredientSearchQuery,
-            results = state.ingredientSearchResults,
-            isLoading = state.ingredientSearchLoading,
-            onQueryChange = viewModel::updateIngredientSearchQuery,
-            onSelect = { food ->
-                viewModel.selectIngredient(food, forTracker = state.showTracker)
-            },
-            onDismiss = viewModel::closeIngredientPicker
         )
     }
 }
@@ -191,19 +198,39 @@ private fun MealTemplateCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = template.ingredientPreview ?: "Keine Zutaten hinterlegt",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Loeschen")
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Loeschen",
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "Bearbeiten")
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Bearbeiten",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 IconButton(onClick = onTrack) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = "Tracken")
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Tracken",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

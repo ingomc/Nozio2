@@ -14,22 +14,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.ingomc.nozio.data.local.MealType
 import de.ingomc.nozio.data.local.RecipeAmountUnit
+import de.ingomc.nozio.ui.theme.nozioColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +51,9 @@ fun MealTemplateEditorBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = MaterialTheme.nozioColors.surface2,
+        shape = MaterialTheme.shapes.extraLarge
     ) {
         LazyColumn(
             modifier = Modifier
@@ -59,7 +64,8 @@ fun MealTemplateEditorBottomSheet(
             item {
                 Text(
                     text = if (state.templateId == 0L) "Neues Rezept" else "Rezept bearbeiten",
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -76,7 +82,11 @@ fun MealTemplateEditorBottomSheet(
             }
 
             item {
-                Text("Default-Mahlzeit", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = "Default-Mahlzeit",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -94,7 +104,11 @@ fun MealTemplateEditorBottomSheet(
             }
 
             item {
-                Text("Zutaten", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = "Zutaten",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
@@ -109,11 +123,16 @@ fun MealTemplateEditorBottomSheet(
             }
 
             item {
-                TextButton(onClick = onAddIngredient) {
+                OutlinedButton(
+                    onClick = onAddIngredient,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Zutat hinzufuegen")
-                }
+                } 
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
